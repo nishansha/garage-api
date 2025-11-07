@@ -47,7 +47,8 @@ public class ErrorCode {
 
     @Getter
     public enum Business implements Errors {
-        USER_NOT_FOUND("BUS_100", "Invalid Credentials");
+        USER_NOT_FOUND("BUS_100", "Invalid Credentials"),
+        PRD_NOT_FOUND("BUS_101", "Product not found");
 
         private final String code;
         private final String message;

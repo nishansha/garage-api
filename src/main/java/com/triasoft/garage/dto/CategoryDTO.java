@@ -6,10 +6,9 @@ import java.io.Serial;
 import java.io.Serializable;
 
 @Data
-public class LookupDTO  implements Serializable {
+public class CategoryDTO implements Serializable {
     @Serial
-    private static final long serialVersionUID = -4008817912066778098L;
-
+    private static final long serialVersionUID = 4726843667963762888L;
     private Long id;
     private String code;
     private String description;

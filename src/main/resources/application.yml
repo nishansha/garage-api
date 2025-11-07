@@ -48,3 +48,6 @@ app:
     allowed-origins: "http:localhost:4000"
   jwt:
     secret: "4WadB8IxnpkmgqLdmWChE4+4b3AUNzXpOHosjGzHCNI="
+    expiration-ms: 36000
+    refresh-token:
+      expiration-ms: 36000
