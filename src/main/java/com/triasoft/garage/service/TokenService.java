@@ -1,5 +1,9 @@
 package com.triasoft.garage.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.triasoft.garage.constants.ErrorCode;
+import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.exception.BusinessException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -9,6 +13,8 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,13 +37,27 @@ public class TokenService {
         this.secretKey = Keys.hmacShaKeyFor(secretString.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(UserDetails userDetails) {
+    public String generateToken(UserDetails userDetails, UserDTO userDTO) {
+        String userJson = "";
+        try {
+            userJson = new ObjectMapper().writeValueAsString(userDTO);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.General.GENERAL_ERROR);
+        }
         return Jwts.builder()
+                .claim("user", userJson)
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME_MS))
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public String generateRefreshToken() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
 
@@ -77,7 +97,6 @@ public class TokenService {
      */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        // Checks if username matches AND token is not expired
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
@@ -89,7 +108,7 @@ public class TokenService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    private Claims extractAllClaims(String token) {
+    public Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()

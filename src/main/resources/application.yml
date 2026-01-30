@@ -45,7 +45,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: "http:localhost:4000"
+    allowed-origins: "http:localhost:8081"
   jwt:
     secret: "4WadB8IxnpkmgqLdmWChE4+4b3AUNzXpOHosjGzHCNI="
     expiration-ms: 36000
