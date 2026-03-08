@@ -25,6 +25,9 @@ public class ProductRs implements Serializable {
     private CategoryDTO category;
     private List<CategoryDTO> categories;
 
+    private SegmentDTO segment;
+    private List<SegmentDTO> segments;
+
     private BrandDTO brand;
     private List<BrandDTO> brands;
 

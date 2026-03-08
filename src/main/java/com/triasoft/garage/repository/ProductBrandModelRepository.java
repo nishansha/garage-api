@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface ProductBrandModelRepository extends JpaRepository<ProductBrandModel,Long> {
     List<ProductBrandModel> findByProductBrandIdAndActiveTrue(Long brandId);
+
+    ProductBrandModel findByProductBrandIdAndCodeIgnoreCase(Long brandId, String code);
+
 }

@@ -2,7 +2,7 @@ package com.triasoft.garage.controller;
 
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
-import com.triasoft.garage.service.AuthService;
+import com.triasoft.garage.service.impl.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

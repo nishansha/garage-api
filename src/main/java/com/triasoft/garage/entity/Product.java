@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.SoftDelete;
 
 import java.io.Serial;
 
@@ -13,6 +14,7 @@ import java.io.Serial;
 @Entity
 @DynamicUpdate
 @Table(name = "app_product")
+@SoftDelete(columnName = "deleted")
 public class Product extends AuditGenericEntity {
 
     @Serial
@@ -21,10 +23,10 @@ public class Product extends AuditGenericEntity {
     @Column(name = "sku", nullable = false)
     private String sku;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name")
     private String name;
 
-    @Column(name = "description", nullable = false)
+    @Column(name = "description")
     private String description;
 
     @ManyToOne
@@ -43,6 +45,9 @@ public class Product extends AuditGenericEntity {
     @JoinColumn(name = "varient_id", nullable = false)
     private ProductModelVarient varient;
 
-    @Column(name = "document_id", nullable = false)
+    @Column(name = "make_year")
+    private String makeYear;
+
+    @Column(name = "document_id")
     private Long documentId;
 }

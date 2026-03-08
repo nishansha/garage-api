@@ -6,7 +6,7 @@ import java.io.Serial;
 import java.io.Serializable;
 
 @Data
-public class PagedRs implements Serializable {
+public class GenericRs implements Serializable {
     @Serial
     private static final long serialVersionUID = 1009241973759630758L;
     private int totalPages;

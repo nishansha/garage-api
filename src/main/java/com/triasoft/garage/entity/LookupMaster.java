@@ -6,6 +6,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.SoftDelete;
 
 import java.io.Serial;
 
@@ -14,6 +15,7 @@ import java.io.Serial;
 @Entity
 @DynamicUpdate
 @Table(name = "fnd_lookup_master")
+@SoftDelete(columnName = "deleted")
 public class LookupMaster extends AuditGenericEntity {
 
     @Serial

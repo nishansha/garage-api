@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface ProductModelVarientRepository extends JpaRepository<ProductModelVarient,Long> {
     List<ProductModelVarient> findByProductBrandModelIdAndActiveTrue(Long modelId);
+
+    ProductModelVarient findByProductBrandModelIdAndCodeIgnoreCase(Long modelId, String code);
 }

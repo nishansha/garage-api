@@ -1,6 +1,6 @@
 package com.triasoft.garage.filter;
 
-import com.triasoft.garage.service.TokenService;
+import com.triasoft.garage.service.impl.TokenService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

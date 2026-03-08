@@ -15,6 +15,6 @@ public class PurchaseSummaryRs implements Serializable {
     private String totalThisMonth;
     private Double monthRate;
 
-    private String totalCount;
+    private Long totalCount;
     private Long todayCount;
 }

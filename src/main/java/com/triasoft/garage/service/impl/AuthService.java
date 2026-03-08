@@ -1,4 +1,4 @@
-package com.triasoft.garage.service;
+package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.model.login.LoginRq;

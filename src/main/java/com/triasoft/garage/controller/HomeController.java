@@ -3,7 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.model.home.ActivityRs;
 import com.triasoft.garage.model.home.ChartRs;
 import com.triasoft.garage.model.home.SummaryRs;
-import com.triasoft.garage.service.HomeService;
+import com.triasoft.garage.service.impl.HomeService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -28,8 +29,8 @@ public class HomeController {
     }
 
     @GetMapping(value = "/charts", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ChartRs> getChartData(HttpServletRequest request) {
-        return ResponseEntity.ok(homeService.getChartData(UserUtil.getUser(request)));
+    ResponseEntity<ChartRs> getChartData(@RequestParam("type") String type, HttpServletRequest request) {
+        return ResponseEntity.ok(homeService.getChartData(type, UserUtil.getUser(request)));
     }
 
     @GetMapping(value = "/activities", produces = MediaType.APPLICATION_JSON_VALUE)

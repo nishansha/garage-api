@@ -21,4 +21,8 @@ public class ProductRq implements Serializable {
     private Long brandId;
     private Long modelId;
     private Long varientId;
+    private String makeYear;
+    private String code;
+    private String description;
+    private String type;
 }

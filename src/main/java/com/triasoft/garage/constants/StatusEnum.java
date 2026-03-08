@@ -1,0 +1,7 @@
+package com.triasoft.garage.constants;
+
+public enum StatusEnum {
+    ACTIVE, INACTIVE, DELETED,
+    AVAILABLE, OUT_OF_STOCK,
+    PENDING, RECIEVED, SOLD, CANCELLED, COMPLETED, PAID, PARTIAL,FINANCE_PENDING,REFUND
+}

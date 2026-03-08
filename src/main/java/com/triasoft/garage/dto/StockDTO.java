@@ -22,5 +22,8 @@ public class StockDTO implements Serializable {
     private BigDecimal totalAmount;
     private BigDecimal purchasedAmount;
     private BigDecimal purchaseExpense;
+    private String status;
+    private String color;
+    private Long odometer;
 
 }

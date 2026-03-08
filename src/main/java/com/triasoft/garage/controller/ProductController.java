@@ -1,8 +1,12 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.model.account.AccountRq;
+import com.triasoft.garage.model.account.AccountRs;
 import com.triasoft.garage.model.product.ProductRq;
 import com.triasoft.garage.model.product.ProductRs;
-import com.triasoft.garage.service.ProductService;
+import com.triasoft.garage.service.impl.ProductService;
+import com.triasoft.garage.util.UserUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -37,6 +41,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getCategories(ProductRq.builder().build()));
     }
 
+    @GetMapping(value = "/categories/{id}/segments", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ProductRs> getSegments() {
+        return ResponseEntity.ok(productService.getSegments(ProductRq.builder().build()));
+    }
+
     @GetMapping(value = "/categories/{id}/brands", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ProductRs> getBrands(@PathVariable("id") Long categoryId) {
         return ResponseEntity.ok(productService.getBrands(ProductRq.builder().categoryId(categoryId).build()));
@@ -50,6 +59,11 @@ public class ProductController {
     @GetMapping(value = "/categories/{categoryId}/brands/{brandId}/models/{id}/varients", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ProductRs> getVarients(@PathVariable("categoryId") Long categoryId, @PathVariable("brandId") Long brandId, @PathVariable("id") Long modelId) {
         return ResponseEntity.ok(productService.getVarients(ProductRq.builder().categoryId(categoryId).brandId(brandId).modelId(modelId).build()));
+    }
+
+    @PostMapping(value="/manage-types", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ProductRs> manage(@RequestBody ProductRq productRq, HttpServletRequest request) {
+        return ResponseEntity.ok(productService.manageProductTypes(productRq, UserUtil.getUser(request)));
     }
 
 }

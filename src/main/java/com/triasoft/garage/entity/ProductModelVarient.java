@@ -1,5 +1,6 @@
 package com.triasoft.garage.entity;
 
+import com.triasoft.garage.constants.VariantTypeEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,4 +32,8 @@ public class ProductModelVarient extends GenericEntity{
 
     @Column(name = "active")
     private boolean active;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type")
+    private VariantTypeEnum type;
 }

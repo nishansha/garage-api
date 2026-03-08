@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface LookupMasterRepository extends JpaRepository<LookupMaster, Long> {
     List<LookupMaster> findByTypeAndEnabledTrue(String type);
+    LookupMaster findByTypeAndCodeAndEnabledTrue(String type,String code);
 }

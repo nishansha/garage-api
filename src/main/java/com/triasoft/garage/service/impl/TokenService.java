@@ -1,4 +1,4 @@
-package com.triasoft.garage.service;
+package com.triasoft.garage.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.triasoft.garage.constants.ErrorCode;
