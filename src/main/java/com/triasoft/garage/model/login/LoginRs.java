@@ -13,4 +13,5 @@ public class LoginRs implements Serializable {
     private String token;
     private String refreshToken;
     private String fullName;
+    private String role;
 }

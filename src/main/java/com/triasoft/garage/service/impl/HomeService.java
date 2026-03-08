@@ -2,11 +2,14 @@ package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.dto.ActivityDTO;
 import com.triasoft.garage.dto.DataInfo;
+import com.triasoft.garage.dto.SummaryInfo;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.model.home.ActivityRs;
 import com.triasoft.garage.model.home.ChartRs;
+import com.triasoft.garage.model.home.OverviewRs;
 import com.triasoft.garage.model.home.SummaryRs;
 import com.triasoft.garage.projection.ActivityProjection;
+import com.triasoft.garage.projection.BalanceMetrics;
 import com.triasoft.garage.projection.ProductMetrics;
 import com.triasoft.garage.projection.SummaryMetrics;
 import com.triasoft.garage.repository.SaleRepository;
@@ -73,5 +76,18 @@ public class HomeService {
                 .toList();
 
         return ActivityRs.builder().activities(dataInfoList).build();
+    }
+
+    public OverviewRs getOverview(Integer monthCount, UserDTO user) {
+        List<BalanceMetrics> results = saleRepository.getMonthlyBalanceSheet(monthCount);
+        List<SummaryInfo> data = results.stream().map(m -> SummaryInfo.builder()
+                .month(m.getMonthName())
+                .totalSales(m.getSales())
+                .totalPurchase(m.getPurchases())
+                .totalExpenses(m.getExpenses())
+                .totalProfit(m.getProfit())
+                .build()
+        ).toList();
+        return OverviewRs.builder().data(data).build();
     }
 }

@@ -21,9 +21,19 @@ public class UserProfile extends GenericEntity {
     @Serial
     private static final long serialVersionUID = -7124710920831301261L;
 
+    @Column(name = "name",nullable = false)
+    private String name;
+
     @Column(name = "username", nullable = false)
     private String username;
 
     @Column(name = "password",nullable = false)
     private String password;
+
+    @Column(name = "role",nullable = false)
+    private String role;
+
+    @Column(name = "designation")
+    private String designation;
+
 }

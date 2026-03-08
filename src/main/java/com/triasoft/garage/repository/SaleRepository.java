@@ -107,4 +107,29 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             """, nativeQuery = true)
     List<ProductMetrics> findTopProfitProducts();
 
+    @Query(value = """
+        WITH RECURSIVE months AS (
+            SELECT DATE_TRUNC('month', CURRENT_DATE) as month_date
+            UNION ALL
+            SELECT DATE_TRUNC('month', month_date - INTERVAL '1 month')
+            FROM months
+            WHERE month_date > DATE_TRUNC('month', CURRENT_DATE - CAST(:monthCount - 1 || ' month' AS INTERVAL))
+        )
+        SELECT 
+            TO_CHAR(m.month_date, 'YYYY-MM') as monthName,
+            COALESCE((SELECT SUM(net_sale_amount) FROM app_sale s 
+                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0) as sales,
+            COALESCE((SELECT SUM(total_amount) FROM app_purchase_order p 
+                      WHERE DATE_TRUNC('month', p.order_date) = m.month_date AND p.deleted = false), 0) as purchases,
+            COALESCE((SELECT SUM(amount) FROM app_expense e 
+                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as expenses,
+            COALESCE((SELECT SUM(profit_amount) FROM app_sale s 
+                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0) - 
+            COALESCE((SELECT SUM(amount) FROM app_expense e 
+                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as profit
+        FROM months m
+        ORDER BY m.month_date DESC
+        """, nativeQuery = true)
+    List<BalanceMetrics> getMonthlyBalanceSheet(@Param("monthCount") int monthCount);
+
 }

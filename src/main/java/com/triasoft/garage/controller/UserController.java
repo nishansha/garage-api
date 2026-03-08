@@ -18,11 +18,17 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/user")
 public class UserController {
+
     private final UserService userService;
 
     @GetMapping(value = "/staff", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<UserRs> getStaffs(HttpServletRequest request) {
         return ResponseEntity.ok(userService.getStaffs(UserUtil.getUser(request)));
+    }
+
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<UserRs> getAll(HttpServletRequest request) {
+        return ResponseEntity.ok(userService.getAll(UserUtil.getUser(request)));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

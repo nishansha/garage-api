@@ -28,7 +28,8 @@ public class AuthService {
         UserDTO user = userService.loadUser(userPrincipal.getUsername());
         rs.setToken(tokenService.generateToken(userPrincipal,user));
         rs.setRefreshToken(tokenService.generateRefreshToken());
-        rs.setFullName(userPrincipal.getUsername());
+        rs.setFullName(user.getName());
+        rs.setRole(user.getRole());
         return rs;
     }
 }

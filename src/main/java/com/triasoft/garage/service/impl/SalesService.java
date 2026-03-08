@@ -136,6 +136,7 @@ public class SalesService {
     private void handleExchangeVehicle(SalesRq saleRq, Sale sale, UserDTO user) {
         PurchaseDTO details = saleRq.getExchangeVehicleDetails();
         PurchaseRq exchangePurchaseRq = new PurchaseRq();
+        exchangePurchaseRq.setCode(details.getCode());
         exchangePurchaseRq.setOwnerName(saleRq.getCustomerName());
         exchangePurchaseRq.setOwnerMobileNo(saleRq.getCustomerMobileNo());
         exchangePurchaseRq.setOwnerShipSerialNo(details.getOwnerShipSerialNo());

@@ -2,6 +2,7 @@ package com.triasoft.garage.controller;
 
 import com.triasoft.garage.model.home.ActivityRs;
 import com.triasoft.garage.model.home.ChartRs;
+import com.triasoft.garage.model.home.OverviewRs;
 import com.triasoft.garage.model.home.SummaryRs;
 import com.triasoft.garage.service.impl.HomeService;
 import com.triasoft.garage.util.UserUtil;
@@ -38,5 +39,9 @@ public class HomeController {
         return ResponseEntity.ok(homeService.getActivities(UserUtil.getUser(request)));
     }
 
+    @GetMapping(value = "/overview", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<OverviewRs> getOverview(@RequestParam("months") Integer months, HttpServletRequest request) {
+        return ResponseEntity.ok(homeService.getOverview(months, UserUtil.getUser(request)));
+    }
 
 }
