@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.triasoft.garage.constants.ProductTypeEnum;
+
 import java.io.Serial;
 import java.io.Serializable;
 
@@ -24,5 +26,5 @@ public class ProductRq implements Serializable {
     private String makeYear;
     private String code;
     private String description;
-    private String type;
+    private ProductTypeEnum type;
 }

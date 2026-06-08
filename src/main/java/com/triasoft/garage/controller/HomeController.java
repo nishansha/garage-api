@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.home.ActivityRs;
 import com.triasoft.garage.model.home.ChartRs;
 import com.triasoft.garage.model.home.OverviewRs;
@@ -25,23 +26,22 @@ public class HomeController {
     private final HomeService homeService;
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SummaryRs> summaryData(HttpServletRequest request) {
-        return ResponseEntity.ok(homeService.summaryData(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SummaryRs>> summaryData(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(homeService.summaryData(UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/charts", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ChartRs> getChartData(@RequestParam("type") String type, HttpServletRequest request) {
-        return ResponseEntity.ok(homeService.getChartData(type, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<ChartRs>> getChartData(@RequestParam("type") String type, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(homeService.getChartData(type, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/activities", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ActivityRs> getActivities(HttpServletRequest request) {
-        return ResponseEntity.ok(homeService.getActivities(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<ActivityRs>> getActivities(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(homeService.getActivities(UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/overview", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<OverviewRs> getOverview(@RequestParam("months") Integer months, HttpServletRequest request) {
-        return ResponseEntity.ok(homeService.getOverview(months, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<OverviewRs>> getOverview(@RequestParam("months") Integer months, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(homeService.getOverview(months, UserUtil.getUser(request))));
     }
-
 }

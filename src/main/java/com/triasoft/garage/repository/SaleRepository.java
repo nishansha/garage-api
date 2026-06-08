@@ -12,6 +12,8 @@ import java.util.List;
 
 public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificationExecutor<Sale> {
 
+    Sale findByInventoryId(Long id);
+
     @Query(value = "SELECT nextval('so_ref_no_seq')", nativeQuery = true)
     Long getNextReferenceNumber();
 

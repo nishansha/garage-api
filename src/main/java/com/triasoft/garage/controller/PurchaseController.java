@@ -1,6 +1,7 @@
 package com.triasoft.garage.controller;
 
 import com.triasoft.garage.dto.PurchaseDTO;
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
@@ -26,40 +27,39 @@ public class PurchaseController {
     private final PurchaseService purchaseService;
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseSummaryRs> summary(HttpServletRequest request) {
-        return ResponseEntity.ok(purchaseService.summary(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<PurchaseSummaryRs>> summary(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.summary(UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseRs> search(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PurchaseRs>> search(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(purchaseService.search(filterRq, pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.search(filterRq, pageable, UserUtil.getUser(request))));
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseRs> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PurchaseRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(purchaseService.getAll(pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.getAll(pageable, UserUtil.getUser(request))));
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseRs> create(@RequestBody PurchaseRq purchaseRq, HttpServletRequest request) {
-        return ResponseEntity.ok(purchaseService.create(purchaseRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<PurchaseRs>> create(@RequestBody PurchaseRq purchaseRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.create(purchaseRq, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseDTO> get(@PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(purchaseService.get(id, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<PurchaseDTO>> get(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.get(id, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseRs> update(@RequestBody PurchaseRq purchaseRq, @PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(purchaseService.update(id, purchaseRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<PurchaseRs>> update(@RequestBody PurchaseRq purchaseRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.update(id, purchaseRq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<PurchaseRs> delete(@PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(purchaseService.delete(id, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<PurchaseRs>> delete(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.delete(id, UserUtil.getUser(request))));
     }
-
 }

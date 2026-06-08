@@ -1,16 +1,22 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.StatusEnum;
+import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.LookupDTO;
 import com.triasoft.garage.dto.StockDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.entity.Expense;
 import com.triasoft.garage.entity.Inventory;
+import com.triasoft.garage.entity.Sale;
+import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.common.LookupRs;
 import com.triasoft.garage.model.stock.StockRs;
 import com.triasoft.garage.model.stock.StockSummaryRs;
 import com.triasoft.garage.projection.StockMetrics;
 import com.triasoft.garage.repository.InventoryRepository;
+import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.specifiction.StockSpecification;
 import com.triasoft.garage.util.CommonUtil;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +36,7 @@ import java.util.Objects;
 public class StockService {
 
     private final InventoryRepository inventoryRepository;
+    private final SaleRepository saleRepository;
 
     public StockRs getAll(Pageable pageable, UserDTO user) {
         Page<Inventory> page = inventoryRepository.findAll(pageable);
@@ -91,5 +98,27 @@ public class StockService {
                 .description(p.getProductNo())
                 .build()).toList();
         return LookupRs.builder().values(products).build();
+    }
+
+    public StockDTO get(Long id, UserDTO user) {
+        Inventory inventory = inventoryRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.PRD_NOT_FOUND));
+        StockDTO stockDTO = convertToDTO(inventory);
+        if (Objects.nonNull(inventory.getPurchaseOrderDetail().getPurchase().getPurchaseExpenses())) {
+            List<ExpenseDTO> expenses = inventory.getPurchaseOrderDetail().getPurchase().getPurchaseExpenses().stream()
+                    .map(this::convertToExpenseDTO).toList();
+            stockDTO.setExpenses(expenses);
+        }
+        if (StatusEnum.SOLD.equals(inventory.getStatus())) {
+            Sale sale = saleRepository.findByInventoryId(id);
+            if(Objects.nonNull(sale)){
+                stockDTO.setSoldDate(sale.getSaleDate());
+                stockDTO.setSoldAmount(sale.getNetSaleAmount());
+            }
+        }
+        return stockDTO;
+    }
+
+    private ExpenseDTO convertToExpenseDTO(Expense expense) {
+        return ExpenseDTO.builder().id(expense.getId()).date(expense.getCreatedAt().toLocalDate()).typeId(expense.getExpenseAccount().getId()).description(expense.getDescription()).amount(expense.getAmount()).build();
     }
 }

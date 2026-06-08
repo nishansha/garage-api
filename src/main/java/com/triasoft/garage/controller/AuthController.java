@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
 import com.triasoft.garage.service.impl.AuthService;
@@ -19,7 +20,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<LoginRs> authenticateUser(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(authService.login(request));
+    ResponseEntity<ApiResponse<LoginRs>> authenticateUser(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
     }
 }

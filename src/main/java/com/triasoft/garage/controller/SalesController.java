@@ -1,6 +1,7 @@
 package com.triasoft.garage.controller;
 
 import com.triasoft.garage.dto.SaleDTO;
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
@@ -26,39 +27,39 @@ public class SalesController {
     private final SalesService salesService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SalesRs> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(salesService.getAll(pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(salesService.getAll(pageable, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SaleSummaryRs> summary(HttpServletRequest request) {
-        return ResponseEntity.ok(salesService.summary(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SaleSummaryRs>> summary(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.summary(UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SalesRs> search(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> search(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(salesService.search(filterRq, pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(salesService.search(filterRq, pageable, UserUtil.getUser(request))));
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SalesRs> create(@RequestBody SalesRq salesRq, HttpServletRequest request) {
-        return ResponseEntity.ok(salesService.create(salesRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SalesRs>> create(@RequestBody SalesRq salesRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.create(salesRq, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SaleDTO> get(@PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(salesService.get(id, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SaleDTO>> get(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.get(id, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SalesRs> update(@RequestBody SalesRq salesRq, @PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(salesService.update(id, salesRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SalesRs>> update(@RequestBody SalesRq salesRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.update(id, salesRq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<SalesRs> delete(@PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(salesService.delete(id, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<SalesRs>> delete(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.delete(id, UserUtil.getUser(request))));
     }
 }

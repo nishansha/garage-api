@@ -1,7 +1,7 @@
 package com.triasoft.garage.controller;
 
-import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.user.UserRq;
 import com.triasoft.garage.model.user.UserRs;
 import com.triasoft.garage.service.impl.UserService;
@@ -22,28 +22,27 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping(value = "/staff", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<UserRs> getStaffs(HttpServletRequest request) {
-        return ResponseEntity.ok(userService.getStaffs(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<UserRs>> getStaffs(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getStaffs(UserUtil.getUser(request))));
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<UserRs> getAll(HttpServletRequest request) {
-        return ResponseEntity.ok(userService.getAll(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<UserRs>> getAll(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getAll(UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<UserDTO> get(@PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(userService.get(id, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<UserDTO>> get(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.get(id, UserUtil.getUser(request))));
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<UserRs> create(@RequestBody UserRq userRq, HttpServletRequest request) {
-        return ResponseEntity.ok(userService.create(userRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<UserRs>> create(@RequestBody UserRq userRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.create(userRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<UserRs> update(@RequestBody UserRq userRq, @PathVariable("id") Long id, HttpServletRequest request) {
-        return ResponseEntity.ok(userService.update(id, userRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<UserRs>> update(@RequestBody UserRq userRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.update(id, userRq, UserUtil.getUser(request))));
     }
-
 }

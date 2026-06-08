@@ -1,6 +1,7 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.ErrorCode;
+import com.triasoft.garage.constants.ProductTypeEnum;
 import com.triasoft.garage.dto.*;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
@@ -157,19 +158,19 @@ public class ProductService {
     @Transactional
     public ProductRs manageProductTypes(ProductRq productRq, UserDTO user) {
         switch (productRq.getType()) {
-            case "CATEGORY":
+            case CATEGORY:
                 createOrUpdateCategory(productRq, user);
                 break;
-            case "SEGMENT":
+            case SEGMENT:
                 createOrUpdateSegment(productRq, user);
                 break;
-            case "BRAND":
+            case BRAND:
                 createOrUpdateBrand(productRq, user);
                 break;
-            case "MODEL":
+            case MODEL:
                 createOrUpdateModel(productRq, user);
                 break;
-            case "VARIANT":
+            case VARIANT:
                 createOrUpdateVariant(productRq, user);
                 break;
         }

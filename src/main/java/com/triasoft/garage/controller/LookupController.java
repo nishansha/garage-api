@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.LookupRq;
 import com.triasoft.garage.model.common.LookupRs;
 import com.triasoft.garage.service.impl.LookupService;
@@ -20,12 +21,12 @@ public class LookupController {
     private final LookupService lookupService;
 
     @GetMapping
-    ResponseEntity<LookupRs> getLookupValues(@RequestParam(name = "type", required = false) String type) {
-        return ResponseEntity.ok(lookupService.getLookupValues(LookupRq.builder().type(type).build()));
+    ResponseEntity<ApiResponse<LookupRs>> getLookupValues(@RequestParam(name = "type", required = false) String type) {
+        return ResponseEntity.ok(ApiResponse.success(lookupService.getLookupValues(LookupRq.builder().type(type).build())));
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<LookupRs> create(@RequestBody LookupRq lookupRq, HttpServletRequest request) {
-        return ResponseEntity.ok(lookupService.create(lookupRq, UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<LookupRs>> create(@RequestBody LookupRq lookupRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(lookupService.create(lookupRq, UserUtil.getUser(request))));
     }
 }

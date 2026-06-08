@@ -1,5 +1,7 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.dto.StockDTO;
+import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.common.LookupRs;
 import com.triasoft.garage.model.stock.StockRs;
@@ -25,24 +27,29 @@ public class StockController {
     private final StockService stockService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<StockRs> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<StockRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(stockService.getAll(pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(stockService.getAll(pageable, UserUtil.getUser(request))));
+    }
+
+    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<StockDTO>> get(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(stockService.get(id, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/products", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<LookupRs> products(HttpServletRequest request) {
-        return ResponseEntity.ok(stockService.stockProducts( UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<LookupRs>> products(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(stockService.stockProducts(UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<StockSummaryRs> summary(HttpServletRequest request) {
-        return ResponseEntity.ok(stockService.summary(UserUtil.getUser(request)));
+    ResponseEntity<ApiResponse<StockSummaryRs>> summary(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(stockService.summary(UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<StockRs> findSales(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<StockRs>> findSales(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(stockService.findProducts(filterRq, pageable, UserUtil.getUser(request)));
+        return ResponseEntity.ok(ApiResponse.success(stockService.findProducts(filterRq, pageable, UserUtil.getUser(request))));
     }
 }

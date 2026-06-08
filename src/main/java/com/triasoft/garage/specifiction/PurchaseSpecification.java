@@ -3,6 +3,7 @@ package com.triasoft.garage.specifiction;
 import com.triasoft.garage.entity.Product;
 import com.triasoft.garage.entity.Purchase;
 import com.triasoft.garage.entity.PurchaseDetail;
+import com.triasoft.garage.entity.Vendor;
 import com.triasoft.garage.model.common.FilterRq;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -25,6 +26,7 @@ public class PurchaseSpecification {
             }
             Join<Purchase, PurchaseDetail> details = root.join("purchaseDetails", JoinType.INNER);
             Join<PurchaseDetail, Product> product = details.join("product", JoinType.INNER);
+            Join<Purchase, Vendor> vendor = root.join("vendor", JoinType.INNER);
 
             if (filter.getBrandId() != null) {
                 predicates.add(cb.equal(product.get("brand").get("id"), filter.getBrandId()));
@@ -42,7 +44,10 @@ public class PurchaseSpecification {
                 String pattern = "%" + filter.getSearchText().toLowerCase() + "%";
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("referenceNo")), pattern),
-                        cb.like(cb.lower(root.get("notes")), pattern)
+                        cb.like(cb.lower(root.get("notes")), pattern),
+                        cb.like(cb.lower(details.get("productNo")), pattern),
+                        cb.like(cb.lower(vendor.get("name")), pattern)
+
                 ));
             }
 

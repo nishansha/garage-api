@@ -28,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -149,7 +150,7 @@ public class PurchaseService {
         inventory.setProduct(product);
         inventory.setProductNo(purchaseRq.getVehicleNo());
         inventory.setOdometer(Long.parseLong(purchaseRq.getOdometer()));
-        inventory.setUin(purchaseRq.getOwnerShipSerialNo());
+        inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ?  purchaseRq.getCode() :purchaseRq.getVehicleNo());
         inventory.setLandedCost(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
         inventoryRepository.save(inventory);
         return new PurchaseRs();
@@ -168,7 +169,7 @@ public class PurchaseService {
 
     private PurchaseDetail getPurchaseDetail(PurchaseRq purchaseRq, Product product, Purchase purchase) {
         PurchaseDetail detail = new PurchaseDetail();
-        detail.setUuid(purchaseRq.getCode());
+        detail.setUuid(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
         detail.setProduct(product);
         detail.setPurchase(purchase);
         detail.setQuantity(1.0);
@@ -256,7 +257,7 @@ public class PurchaseService {
         Inventory inventory = new Inventory();
         inventory.setProduct(prod);
         inventory.setPurchaseOrderDetail(d);
-        inventory.setUin(purchaseRq.getCode()); // this should be the chassis number
+        inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
         inventory.setProductNo(purchaseRq.getVehicleNo());
         inventory.setOdometer(Long.parseLong(purchaseRq.getOdometer()));
         inventory.setColor(purchaseRq.getColor());
