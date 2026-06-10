@@ -41,8 +41,8 @@ public class ProductController {
     }
 
     @GetMapping(value = "/categories/{id}/segments", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ProductRs>> getSegments() {
-        return ResponseEntity.ok(ApiResponse.success(productService.getSegments(ProductRq.builder().build())));
+    ResponseEntity<ApiResponse<ProductRs>> getSegments(@PathVariable("id") Long categoryId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getSegments(ProductRq.builder().categoryId(categoryId).build())));
     }
 
     @GetMapping(value = "/categories/{id}/brands", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -38,7 +38,7 @@ public class PurchaseSpecification {
                 predicates.add(cb.equal(product.get("varient").get("id"), filter.getVariantId()));
             }
             if (filter.getVehicleNo() != null && !filter.getVehicleNo().isBlank()) {
-                predicates.add(cb.like(cb.lower(details.get("vehicleNo")), "%" + filter.getVehicleNo().toLowerCase() + "%"));
+                predicates.add(cb.like(cb.lower(details.get("productNo")), "%" + filter.getVehicleNo().toLowerCase() + "%"));
             }
             if (filter.getSearchText() != null && !filter.getSearchText().isBlank()) {
                 String pattern = "%" + filter.getSearchText().toLowerCase() + "%";

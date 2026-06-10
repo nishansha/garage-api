@@ -140,18 +140,16 @@ public class ProductService {
             skuBuilder.append("-").append(productModelVarient.getCode());
             productName.append(" / ").append(productModelVarient.getDescription());
         }
-        if (StringUtils.hasLength(productRq.getMakeYear())) {
-            skuBuilder.append("-").append(productRq.getMakeYear());
-            productName.append(" / ").append(productRq.getMakeYear());
-        }
         Product newProduct = new Product();
         newProduct.setSku(skuBuilder.toString());
         newProduct.setName(StringUtils.hasLength(productRq.getName()) ? productRq.getName() : productName.toString());
         newProduct.setBrand(productBrand);
         newProduct.setModel(productBrandModel);
         newProduct.setVarient(productModelVarient);
-        newProduct.setMakeYear(productRq.getMakeYear());
         newProduct.setCategory(productBrand.getProductCategory());
+        if (Objects.nonNull(productRq.getSegmentId())) {
+            newProduct.setSegment(productSegmentRepository.findById(productRq.getSegmentId()).orElse(null));
+        }
         return productRepository.save(newProduct);
     }
 

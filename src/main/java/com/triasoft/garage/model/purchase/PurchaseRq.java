@@ -24,6 +24,7 @@ public class PurchaseRq extends GenericRq {
 
     private Long id;
     private LocalDate date;
+    private LocalDate deliveredDate;
     private String vehicleNo;
     private String code;
     private Long warehouseId; //new

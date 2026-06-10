@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+
+
 @Repository
 public interface InventoryRepository extends JpaRepository<Inventory, Long>, JpaSpecificationExecutor<Inventory> {
 
@@ -26,6 +28,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
     StockMetrics getStockSummaryMetrics(@Param("startOfMonth") LocalDateTime startOfMonth);
 
     Optional<Inventory> findByPurchaseOrderDetailPurchaseId(Long purchaseId);
+
+    List<Inventory> findByPurchaseOrderDetailPurchaseIdIn(List<Long> purchaseIds);
 
     Optional<Inventory> findBySourceSaleId(Long id);
 

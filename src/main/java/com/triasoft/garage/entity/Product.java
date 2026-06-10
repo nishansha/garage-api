@@ -45,8 +45,9 @@ public class Product extends AuditGenericEntity {
     @JoinColumn(name = "varient_id", nullable = false)
     private ProductModelVarient varient;
 
-    @Column(name = "make_year")
-    private String makeYear;
+    @ManyToOne
+    @JoinColumn(name = "segment_id")
+    private ProductSegment segment;
 
     @Column(name = "document_id")
     private Long documentId;

@@ -43,7 +43,7 @@ public class Inventory extends AuditGenericEntity {
     @Column(name = "status", nullable = false)
     private StatusEnum status;
 
-    @Column(name = "received_date", nullable = false)
+    @Column(name = "received_date")
     private LocalDateTime receivedDate;
 
     @Column(name = "product_no", nullable = false)
@@ -54,6 +54,9 @@ public class Inventory extends AuditGenericEntity {
 
     @Column(name = "color")
     private String color;
+
+    @Column(name = "make_year")
+    private String makeYear;
 
     @Column(name = "source_sale_id")
     private Long sourceSaleId;

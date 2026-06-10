@@ -12,5 +12,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Product findBySku(String sku);
     List<Product> findByCategoryIdAndBrandIdAndModelIdAndVarientId(Long categoryId, Long brandId, Long modelId, Long varientId);
 
-    Optional<Product> findByBrandIdAndModelIdAndVarientIdAndMakeYear(Long brandId, Long modelId, Long variantId, String makeYear);
+    Optional<Product> findByBrandIdAndModelIdAndVarientId(Long brandId, Long modelId, Long variantId);
 }

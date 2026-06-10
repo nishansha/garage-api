@@ -58,4 +58,7 @@ public class Purchase extends AuditGenericEntity {
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Expense> purchaseExpenses = new ArrayList<>();
 
+    @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PurchasePayment> payments = new ArrayList<>();
+
 }

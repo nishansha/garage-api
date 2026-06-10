@@ -77,7 +77,7 @@ public class StockService {
     private StockDTO convertToDTO(Inventory inventory) {
         return StockDTO.builder()
                 .productId(inventory.getId())
-                .purchaseDate(inventory.getReceivedDate().toLocalDate())
+                .purchaseDate(Objects.nonNull(inventory.getReceivedDate()) ? inventory.getReceivedDate().toLocalDate() : null)
                 .productCode(inventory.getProductNo())
                 .brandName(inventory.getProduct().getBrand().getDescription())
                 .modelName(inventory.getProduct().getModel().getDescription())
