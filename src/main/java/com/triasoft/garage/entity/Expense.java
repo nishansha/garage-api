@@ -41,4 +41,8 @@ public class Expense extends AuditGenericEntity {
     @Column(name = "description")
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_account_id")
+    private PaymentAccount paymentAccount;
+
 }

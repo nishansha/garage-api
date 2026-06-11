@@ -20,6 +20,8 @@ public class PurchasePaymentDTO implements Serializable {
     private BigDecimal amount;
     private LocalDate paymentDate;
     private PaymentMethodEnum paymentMethod;
+    private Long paymentAccountId;
+    private String paymentAccountName;
     private String referenceNo;
     private String notes;
 

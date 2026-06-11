@@ -65,7 +65,14 @@ public class ErrorCode {
         PRD_MODEL_EXITS("BUS_114", "Model Already Exists"),
         PRD_VARIENT_EXITS("BUS_115", "Variant Already Exists"),
         USER_EXISTS("BUS_116", "User Already Exists"),
-        LOOKUP_EXISTS("BUS_117","Value already exists" );
+        LOOKUP_EXISTS("BUS_117", "Value already exists"),
+        PAYMENT_ACCOUNT_NOT_FOUND("BUS_118", "Payment account not found"),
+        PAYMENT_ACCOUNT_REQUIRED("BUS_119", "Payment account is required for bank/cheque payments"),
+        PAYMENT_ACCOUNT_NAME_EXISTS("BUS_120", "Payment account with this name already exists"),
+        TRANSACTION_NOT_FOUND("BUS_121", "Transaction not found"),
+        TRANSACTION_ALREADY_REVERSED("BUS_122", "Transaction has already been reversed"),
+        OPENING_BALANCE_LOCKED("BUS_123", "Opening balance cannot be changed after transactions have been recorded. Use an adjustment transaction instead."),
+        INSUFFICIENT_BALANCE("BUS_124", "Insufficient balance in the selected payment account");
 
         private final String code;
         private final String message;

@@ -1,8 +1,6 @@
 package com.triasoft.garage.service.impl;
 
-import com.triasoft.garage.constants.ErrorCode;
-import com.triasoft.garage.constants.LookupTypeEnum;
-import com.triasoft.garage.constants.StatusEnum;
+import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
@@ -16,17 +14,23 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
+import com.triasoft.garage.entity.PaymentAccount;
+import com.triasoft.garage.entity.Transaction;
 import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
 import com.triasoft.garage.projection.PurchaseListProjection;
 import com.triasoft.garage.projection.PurchasePaidProjection;
 import com.triasoft.garage.projection.PurchaseMetrics;
 import com.triasoft.garage.repository.InventoryRepository;
+import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.ProductRepository;
 import com.triasoft.garage.repository.PurchasePaymentRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
+import com.triasoft.garage.repository.TransactionRepository;
 import com.triasoft.garage.repository.VendorRepository;
 import com.triasoft.garage.util.CommonUtil;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,11 +53,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PurchaseService {
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private final ProductService productService;
     private final AccountService accountService;
     private final ProductRepository productRepository;
     private final PurchaseRepository purchaseRepository;
     private final PurchasePaymentRepository purchasePaymentRepository;
+    private final PaymentAccountRepository paymentAccountRepository;
+    private final TransactionRepository transactionRepository;
     private final VendorRepository vendorRepository;
     private final InventoryRepository inventoryRepository;
     private final LookupHelper lookupHelper;
@@ -215,6 +224,23 @@ public class PurchaseService {
         purchase.setPickupStaffId(purchaseRq.getPickupStaffId());
         Purchase savedPurchase = purchaseRepository.save(purchase);
         rs.setId(savedPurchase.getId());
+        savedPurchase.getPurchaseExpenses().forEach(e -> createExpenseTransaction(e, savedPurchase.getReferenceNo()));
+
+        // TODO [JOURNAL ENTRY] - Purchase Created
+        // Trigger  : after every new purchase is saved.
+        // Entry 1 – Vehicle acquired into inventory:
+        //   Dr  Vehicle Inventory        (Asset   – Current Assets)  purchaseRate + totalExpenseAmt (landed cost)
+        //   Cr  Accounts Payable–Vendor  (Liability)                 purchaseRate + totalExpenseAmt
+        // Entry 2 – Per purchase expense (if any expenses exist):
+        //   Dr  <ExpenseAccount.name>    (Expense)                   expenseAmount  (per expense line)
+        //   Cr  Accounts Payable–Vendor  (Liability)                 expenseAmount
+        // Note: Entries should be posted only once the purchase is RECEIVED (deliveredDate set).
+        //       If status is PENDING_DELIVERY, consider posting a "Goods in Transit" entry instead,
+        //       then reversing it and posting the inventory entry when delivered.
+        // Future call: JournalEntryService.postPurchase(savedPurchase, totalExpenseAmt)
+        // CoA required: "Vehicle Inventory" (Asset), "Accounts Payable" (Liability),
+        //               per-expense CoA accounts (already on ChartOfAccount entity).
+
         StatusEnum inventoryStatus = purchaseRq.getDeliveredDate() != null ? StatusEnum.AVAILABLE : StatusEnum.PENDING_DELIVERY;
         createInventoryRecord(savedPurchase, detail, product, purchaseRq, totalExpenseAmt, inventoryStatus);
         return rs;
@@ -227,6 +253,10 @@ public class PurchaseService {
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             throw new IllegalStateException("Cannot update a purchase for a vehicle already sold.");
         }
+        Set<Long> existingExpenseIds = purchase.getPurchaseExpenses().stream()
+                .map(Expense::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         updateVendor(purchase, purchaseRq, user);
         Product product = findOrCreateProduct(purchaseRq);
         purchase.setOrderDate(purchaseRq.getDate());
@@ -246,10 +276,17 @@ public class PurchaseService {
                     .filter(e -> e.getId() != null)
                     .map(ExpenseDTO::getId)
                     .collect(Collectors.toSet());
+            purchase.getPurchaseExpenses().stream()
+                    .filter(e -> !incomingIds.contains(e.getId()))
+                    .forEach(this::reverseExpenseTransaction);
             purchase.getPurchaseExpenses().removeIf(e -> !incomingIds.contains(e.getId()));
         } else {
+            purchase.getPurchaseExpenses().forEach(this::reverseExpenseTransaction);
             purchase.getPurchaseExpenses().clear();
         }
+        // Flush orphan deletions before adding new expenses — Hibernate processes INSERTs before DELETEs
+        // during a single flush, which would violate the (purchase_order_id, expense_account_id) unique constraint.
+        entityManager.flush();
 
         BigDecimal totalExpenseAmt = createAndGetExpense(purchaseRq, purchase, user);
         purchase.setTotalAmount(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
@@ -260,7 +297,21 @@ public class PurchaseService {
         detail.setProduct(product);
         detail.setUnitCost(purchaseRq.getPurchaseRate());
         detail.setOwnershipSerialNo(purchaseRq.getOwnerShipSerialNo());
-        purchaseRepository.save(purchase);
+        Purchase savedPurchase = purchaseRepository.save(purchase);
+        savedPurchase.getPurchaseExpenses().stream()
+                .filter(e -> !existingExpenseIds.contains(e.getId()))
+                .forEach(e -> createExpenseTransaction(e, savedPurchase.getReferenceNo()));
+
+        // TODO [JOURNAL ENTRY] - Purchase Updated
+        // Trigger  : after a purchase amount or expense is changed.
+        // Strategy : reverse the original journal entry, then post a fresh one with updated amounts.
+        //   Reversal:  Dr Accounts Payable–Vendor  (Liability)   originalTotalAmount
+        //              Cr Vehicle Inventory         (Asset)       originalTotalAmount
+        //   New entry: Dr Vehicle Inventory         (Asset)       newTotalAmount
+        //              Cr Accounts Payable–Vendor   (Liability)   newTotalAmount
+        // Alternative: post a single net-difference adjustment entry if amounts differ by a small delta.
+        // Future call: JournalEntryService.reverseByReference("PURCHASE", purchaseId);
+        //              JournalEntryService.postPurchase(updatedPurchase, totalExpenseAmt)
 
         if (inventoryOpt.isPresent()) {
             Inventory inventory = inventoryOpt.get();
@@ -283,13 +334,14 @@ public class PurchaseService {
         return new PurchaseRs();
     }
 
-    private Expense getPurchaseExpense(ExpenseDTO exDto, Purchase purchase, UserDTO user) {
+    private Expense getPurchaseExpense(ExpenseDTO exDto, Purchase purchase, PaymentAccount paymentAccount, UserDTO user) {
         Expense expense = new Expense();
         expense.setDate(purchase.getOrderDate());
         expense.setAmount(exDto.getAmount());
         expense.setDescription(exDto.getDescription());
         expense.setPurchase(purchase);
         expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
+        expense.setPaymentAccount(paymentAccount);
         return expense;
     }
 
@@ -338,12 +390,31 @@ public class PurchaseService {
                         .filter(e -> e.getId().equals(exDto.getId()))
                         .findFirst()
                         .orElseThrow(() -> new BusinessException(ErrorCode.Business.EXP_NOT_FOUNT));
+                boolean amountChanged = expense.getAmount().compareTo(exDto.getAmount()) != 0;
+                Long currentAccountId = expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null;
+                boolean accountChanged = exDto.getPaymentAccountId() != null && !exDto.getPaymentAccountId().equals(currentAccountId);
+                if ((amountChanged || accountChanged) && expense.getPaymentAccount() != null) {
+                    reverseExpenseTransaction(expense);
+                }
                 expense.setDate(exDto.getDate());
                 expense.setAmount(exDto.getAmount());
                 expense.setDescription(exDto.getDescription());
                 expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
+                if (accountChanged) {
+                    PaymentAccount newAccount = resolveAndValidateAccount(exDto.getPaymentAccountId(), exDto.getAmount());
+                    expense.setPaymentAccount(newAccount);
+                } else if (amountChanged && expense.getPaymentAccount() != null) {
+                    resolveAndValidateAccount(expense.getPaymentAccount().getId(), exDto.getAmount());
+                }
+                if ((amountChanged || accountChanged) && expense.getPaymentAccount() != null) {
+                    createExpenseTransaction(expense, purchase.getReferenceNo());
+                }
             } else {
-                purchase.getPurchaseExpenses().add(getPurchaseExpense(exDto, purchase, user));
+                if (exDto.getPaymentAccountId() == null) {
+                    throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_REQUIRED);
+                }
+                PaymentAccount paymentAccount = resolveAndValidateAccount(exDto.getPaymentAccountId(), exDto.getAmount());
+                purchase.getPurchaseExpenses().add(getPurchaseExpense(exDto, purchase, paymentAccount, user));
             }
             totalExpenseAmt = totalExpenseAmt.add(exDto.getAmount());
         }
@@ -356,6 +427,14 @@ public class PurchaseService {
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             throw new IllegalStateException("Vehicle already sold.");
         }
+        // TODO [JOURNAL ENTRY] - Purchase Deleted
+        // Trigger  : before the purchase record is hard-deleted.
+        // Entry    : full reversal of the original purchase journal entry.
+        //   Dr  Accounts Payable–Vendor  (Liability)   purchase.getTotalAmount()
+        //   Cr  Vehicle Inventory        (Asset)        purchase.getTotalAmount()
+        // Future call: JournalEntryService.reverseByReference("PURCHASE", id)
+        // Note: Ensure reversal is posted BEFORE the delete so the reference ID still resolves.
+
         purchaseRepository.delete(purchase);
         inventoryOpt.ifPresent(inventoryRepository::delete);
         return PurchaseRs.builder().build();
@@ -381,6 +460,7 @@ public class PurchaseService {
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(new ErrorCode.CustomError("PAY_400", "Purchase is already fully paid"));
         }
+        PaymentAccount paymentAccount = resolvePaymentAccount(rq);
         PurchasePayment payment = new PurchasePayment();
         payment.setPurchase(purchase);
         payment.setAmount(rq.getAmount());
@@ -388,8 +468,97 @@ public class PurchaseService {
         payment.setPaymentMethod(rq.getPaymentMethod());
         payment.setReferenceNo(rq.getReferenceNo());
         payment.setNotes(rq.getNotes());
-        purchasePaymentRepository.save(payment);
+        payment.setPaymentAccount(paymentAccount);
+        PurchasePayment saved = purchasePaymentRepository.save(payment);
+        createTransaction(saved, purchase.getReferenceNo(), paymentAccount);
         return new PurchaseRs();
+    }
+
+    private PaymentAccount resolvePaymentAccount(PurchasePaymentRq rq) {
+        if (rq.getPaymentAccountId() == null) {
+            if (PaymentMethodEnum.BANK.equals(rq.getPaymentMethod()) || PaymentMethodEnum.CHEQUE.equals(rq.getPaymentMethod()) || PaymentMethodEnum.CASH.equals(rq.getPaymentMethod())) {
+                throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_REQUIRED);
+            }
+            return null;
+        }
+        return resolveAndValidateAccount(rq.getPaymentAccountId(), rq.getAmount());
+    }
+
+    private PaymentAccount resolveAndValidateAccount(Long accountId, BigDecimal amount) {
+        PaymentAccount account = paymentAccountRepository.findById(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
+        BigDecimal totalIn  = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.IN);
+        BigDecimal totalOut = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.OUT);
+        BigDecimal balance  = account.getOpeningBalance().add(totalIn).subtract(totalOut);
+        if (balance.compareTo(amount) < 0) {
+            throw new BusinessException(ErrorCode.Business.INSUFFICIENT_BALANCE);
+        }
+        return account;
+    }
+
+    private void createTransaction(PurchasePayment payment, String purchaseRefNo, PaymentAccount paymentAccount) {
+        Transaction transaction = new Transaction();
+        transaction.setTransactionDate(payment.getPaymentDate());
+        transaction.setType(TransactionTypeEnum.PURCHASE_PAYMENT);
+        transaction.setReferenceType("PURCHASE_PAYMENT");
+        transaction.setReferenceId(payment.getId());
+        transaction.setPaymentAccount(paymentAccount);
+        transaction.setAmount(payment.getAmount());
+        transaction.setDirection(TransactionDirectionEnum.OUT);
+        transaction.setDescription("Purchase payment – " + purchaseRefNo);
+        transaction.setNotes(payment.getNotes());
+        transactionRepository.save(transaction);
+
+        // TODO [JOURNAL ENTRY] - Purchase Payment Made
+        // Trigger  : every time a vendor payment is recorded (this method is the single entry point).
+        // Entry    : settles the outstanding Accounts Payable against the cash/bank account.
+        //   Dr  Accounts Payable–Vendor  (Liability)            payment.getAmount()  (reduces what we owe)
+        //   Cr  <paymentAccount.name>    (Asset – Bank/Cash)    payment.getAmount()  (money leaves account)
+        // Note: paymentAccount may be null for CASH payments where no account was selected;
+        //       in that case Cr goes to a generic "Cash in Hand" CoA account.
+        //       This entry is the counterpart to the Cr Accounts Payable from the purchase creation entry.
+        // Future call: JournalEntryService.postPurchasePayment(transaction.getId())
+        // CoA required: "Accounts Payable" (Liability), PaymentAccount's CoA entry (Asset).
+    }
+
+    private void createExpenseTransaction(Expense expense, String purchaseRefNo) {
+        Transaction transaction = new Transaction();
+        transaction.setTransactionDate(expense.getDate());
+        transaction.setType(TransactionTypeEnum.PURCHASE_EXPENSE_PAYMENT);
+        transaction.setReferenceType("PURCHASE_EXPENSE");
+        transaction.setReferenceId(expense.getId());
+        transaction.setPaymentAccount(expense.getPaymentAccount());
+        transaction.setAmount(expense.getAmount());
+        transaction.setDirection(TransactionDirectionEnum.OUT);
+        transaction.setDescription("Purchase expense – " + purchaseRefNo);
+        transactionRepository.save(transaction);
+
+        // TODO [JOURNAL ENTRY] - Purchase Expense Paid
+        // Trigger  : when a purchase-linked expense is created with a paymentAccountId.
+        // Entry    : records outflow for the expense from the selected payment account.
+        //   Dr  <expense.expenseAccount.name>   (Expense)            expense.getAmount()
+        //   Cr  <expense.paymentAccount.name>   (Asset – Bank/Cash)  expense.getAmount()
+        // Note: Each expense line may debit a different payment account (per-expense paymentAccountId).
+        // Future call: JournalEntryService.postPurchaseExpense(expense.getId())
+        // CoA required: Expense ChartOfAccount (Expense.expenseAccount), PaymentAccount's CoA (Asset).
+    }
+
+    private void reverseExpenseTransaction(Expense expense) {
+        transactionRepository.findByReferenceTypeAndReferenceId("PURCHASE_EXPENSE", expense.getId())
+                .ifPresent(original -> {
+                    if (transactionRepository.existsByReversalOfId(original.getId())) return;
+                    Transaction reversal = new Transaction();
+                    reversal.setTransactionDate(LocalDate.now());
+                    reversal.setType(TransactionTypeEnum.PURCHASE_EXPENSE_PAYMENT);
+                    reversal.setReferenceType("PURCHASE_EXPENSE");
+                    reversal.setReferenceId(expense.getId());
+                    reversal.setPaymentAccount(original.getPaymentAccount());
+                    reversal.setAmount(original.getAmount());
+                    reversal.setDirection(TransactionDirectionEnum.IN);
+                    reversal.setDescription("Reversal – " + original.getDescription());
+                    reversal.setReversalOf(original);
+                    transactionRepository.save(reversal);
+                });
     }
 
     private PurchasePaymentDTO toPaymentDTO(PurchasePayment p) {
@@ -398,13 +567,22 @@ public class PurchaseService {
                 .amount(p.getAmount())
                 .paymentDate(p.getPaymentDate())
                 .paymentMethod(p.getPaymentMethod())
+                .paymentAccountId(p.getPaymentAccount() != null ? p.getPaymentAccount().getId() : null)
+                .paymentAccountName(p.getPaymentAccount() != null ? p.getPaymentAccount().getName() : null)
                 .referenceNo(p.getReferenceNo())
                 .notes(p.getNotes())
                 .build();
     }
 
     private ExpenseDTO convertToExpenseDTO(Expense expense) {
-        return ExpenseDTO.builder().id(expense.getId()).date(expense.getCreatedAt().toLocalDate()).typeId(expense.getExpenseAccount().getId()).description(expense.getDescription()).amount(expense.getAmount()).build();
+        return ExpenseDTO.builder()
+                .id(expense.getId())
+                .date(expense.getCreatedAt().toLocalDate())
+                .typeId(expense.getExpenseAccount().getId())
+                .description(expense.getDescription())
+                .amount(expense.getAmount())
+                .paymentAccountId(expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null)
+                .build();
     }
 
     private Product findOrCreateProduct(PurchaseRq purchaseRq) {

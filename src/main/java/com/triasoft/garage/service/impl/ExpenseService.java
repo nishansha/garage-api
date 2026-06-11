@@ -77,6 +77,20 @@ public class ExpenseService {
         BeanUtils.copyProperties(expenseRq, exDto);
         expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
         expenseRepository.save(expense);
+
+        // TODO [JOURNAL ENTRY] - General Expense Created
+        // Trigger  : when a standalone company expense is created (purchase-linked expenses are
+        //            handled inside PurchaseService.create() as part of the purchase journal entry).
+        // Entry:
+        //   Dr  <expenseAccount.name>   (Expense)                   expenseRq.getAmount()
+        //   Cr  Accounts Payable        (Liability)  OR             expenseRq.getAmount()
+        //       Cash / Bank Account     (Asset – if paid directly)
+        // Note: ExpenseRq currently has no paymentAccountId field. When implementing journals,
+        //       add paymentAccountId to ExpenseRq so the Cr side can be properly resolved.
+        //       Until then, default Cr to "Accounts Payable" and settle it when the cheque/cash is paid.
+        // Future call: JournalEntryService.postExpense(expense.getId(), paymentAccountId)
+        // CoA required: Expense account (already on ChartOfAccount entity), "Accounts Payable" (Liability).
+
         return ExpenseRs.builder().build();
     }
 
@@ -97,11 +111,28 @@ public class ExpenseService {
             expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
         }
         expenseRepository.save(expense);
+
+        // TODO [JOURNAL ENTRY] - General Expense Updated
+        // Trigger  : after an expense amount or account type is changed.
+        // Strategy : reverse the original journal entry, then post a new one.
+        //   Reversal:  Dr Accounts Payable (Liability)   / Cr <oldExpenseAccount> (Expense)
+        //   New entry: Dr <newExpenseAccount> (Expense)  / Cr Accounts Payable (Liability)
+        // Future call: JournalEntryService.reverseByReference("EXPENSE", id);
+        //              JournalEntryService.postExpense(expense.getId(), paymentAccountId)
+
         return ExpenseRs.builder().build();
     }
 
     public ExpenseRs delete(Long id, UserDTO user) {
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.EXP_NOT_FOUNT));
+        // TODO [JOURNAL ENTRY] - General Expense Deleted
+        // Trigger  : before the expense record is deleted.
+        // Entry    : full reversal of the original expense journal entry.
+        //   Dr  Accounts Payable        (Liability)   expense.getAmount()
+        //   Cr  <expenseAccount.name>   (Expense)     expense.getAmount()
+        // Future call: JournalEntryService.reverseByReference("EXPENSE", id)
+        // Note: Reversal must be posted BEFORE deletion so the reference ID still resolves.
+
         expenseRepository.delete(expense);
         return ExpenseRs.builder().build();
     }

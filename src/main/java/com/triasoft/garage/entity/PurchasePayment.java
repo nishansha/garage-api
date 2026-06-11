@@ -42,4 +42,8 @@ public class PurchasePayment extends AuditGenericEntity {
     @Column(name = "notes")
     private String notes;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_account_id")
+    private PaymentAccount paymentAccount;
+
 }

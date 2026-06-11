@@ -21,6 +21,7 @@ public class PurchasePaymentRq implements Serializable {
     private BigDecimal amount;
     private LocalDate paymentDate;
     private PaymentMethodEnum paymentMethod;
+    private Long paymentAccountId;
     private String referenceNo;
     private String notes;
 

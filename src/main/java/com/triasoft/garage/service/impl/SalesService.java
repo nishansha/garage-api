@@ -125,6 +125,33 @@ public class SalesService {
             sale.setPaymentStatus(StatusEnum.PENDING);
         }
         sale = saleRepository.save(sale);
+
+        // TODO [JOURNAL ENTRY] - Sale Created  (two separate journal entries required)
+        //
+        // Entry 1 – Revenue recognition:
+        //   Dr  Accounts Receivable   (Asset – Current Assets)    sale.getSaleRate()
+        //   Cr  Sales Revenue         (Income)                    sale.getSaleRate()
+        //   Note: If customer pays immediately (paymentStatus == PAID), debit Bank/Cash instead of AR.
+        //
+        // Entry 2 – Cost of Goods Sold (COGS) — removes vehicle from inventory at landed cost:
+        //   Dr  Cost of Goods Sold    (Expense)                   sale.getLandedCostAtSale()
+        //   Cr  Vehicle Inventory     (Asset – Current Assets)    sale.getLandedCostAtSale()
+        //
+        // If financed (sale.isFinanced() == true):
+        //   Dr  Finance Receivable    (Asset)                     sale.getFinanceAmount()
+        //   Cr  Accounts Receivable   (Asset)                     sale.getFinanceAmount()
+        //   (Reduces AR by the portion the finance company will settle directly.)
+        //
+        // If exchanged (sale.isExchanged() == true):
+        //   The exchange vehicle purchase is handled inside handleExchangeVehicle() → PurchaseService.create(),
+        //   which will post its own journal entry (Dr Vehicle Inventory / Cr Accounts Payable).
+        //   Net sale amount (saleRate – exchangeAmount) is already set on the Sale entity.
+        //
+        // Future call: JournalEntryService.postSale(sale.getId())
+        // CoA required: "Accounts Receivable" (Asset), "Sales Revenue" (Income),
+        //               "Cost of Goods Sold" (Expense), "Vehicle Inventory" (Asset),
+        //               "Finance Receivable" (Asset, only if financing is used).
+
         if (saleRq.isExchanged()) {
             handleExchangeVehicle(saleRq, sale, user);
         }
@@ -228,6 +255,19 @@ public class SalesService {
             existingSale.setPaymentStatus(StatusEnum.PENDING);
         }
         saleRepository.save(existingSale);
+
+        // TODO [JOURNAL ENTRY] - Sale Updated
+        // Trigger  : after any sale field that affects amounts or vehicle changes.
+        // Strategy : reverse the original sale journal entries, then post fresh ones.
+        //   Reversal of Entry 1:  Dr Sales Revenue (Income)     / Cr Accounts Receivable (Asset)
+        //   Reversal of Entry 2:  Dr Vehicle Inventory (Asset)  / Cr Cost of Goods Sold (Expense)
+        //   New Entry 1:          Dr Accounts Receivable        / Cr Sales Revenue         (new saleRate)
+        //   New Entry 2:          Dr Cost of Goods Sold         / Cr Vehicle Inventory     (new landedCostAtSale)
+        // If vehicle changed: the COGS reversal must use the OLD vehicle's landedCostAtSale and the
+        //   new entry must use the NEW vehicle's landedCostAtSale (already updated on existingSale above).
+        // Future call: JournalEntryService.reverseByReference("SALE", id);
+        //              JournalEntryService.postSale(id)
+
         return SalesRs.builder().build();
     }
 
@@ -274,6 +314,17 @@ public class SalesService {
                 purchaseService.delete(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), user);
             });
         }
+        // TODO [JOURNAL ENTRY] - Sale Deleted
+        // Trigger  : before the sale record is deleted.
+        // Entry    : full reversal of both sale journal entries.
+        //   Reversal of Revenue:  Dr Sales Revenue      (Income)   sale.getSaleRate()
+        //                         Cr Accounts Receivable (Asset)    sale.getSaleRate()
+        //   Reversal of COGS:     Dr Vehicle Inventory  (Asset)    sale.getLandedCostAtSale()
+        //                         Cr Cost of Goods Sold (Expense)  sale.getLandedCostAtSale()
+        // Future call: JournalEntryService.reverseByReference("SALE", id)
+        // Note: Reversal must be posted BEFORE deletion so the reference ID still resolves.
+        //       If the sale had a finance entry, that must also be reversed here.
+
         saleRepository.delete(sale);
         return SalesRs.builder().build();
     }
