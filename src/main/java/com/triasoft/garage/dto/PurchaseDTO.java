@@ -30,7 +30,9 @@ public class PurchaseDTO implements Serializable {
     private String variantName;
     private String makeYear;
     private String odometer;
-    private String color; ;
+    private Long colorId;
+    private String colorName;
+    private String segmentName;
     private BigDecimal purchaseRate;
     private BigDecimal totalCost;
     private BigDecimal paidAmount;

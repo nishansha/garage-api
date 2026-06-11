@@ -34,7 +34,7 @@ public class PurchaseRq extends GenericRq {
     private Long variantId;
     private String makeYear;
     private String odometer;
-    private String color; //new
+    private Long colorId; //new
     private BigDecimal purchaseRate;
     private Long pickupStaffId;
     private String pickupLocation;

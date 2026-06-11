@@ -52,8 +52,9 @@ public class Inventory extends AuditGenericEntity {
     @Column(name = "odometer")
     private Long odometer;
 
-    @Column(name = "color")
-    private String color;
+    @ManyToOne
+    @JoinColumn(name = "color_id", nullable = false)
+    private LookupMaster color;
 
     @Column(name = "make_year")
     private String makeYear;

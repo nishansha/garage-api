@@ -85,7 +85,7 @@ public class StockService {
                 .purchasedAmount(inventory.getPurchaseOrderDetail().getUnitCost())
                 .purchaseExpense(inventory.getLandedCost().subtract(inventory.getPurchaseOrderDetail().getUnitCost()))
                 .status(inventory.getStatus().name())
-                .color(inventory.getColor())
+                .color(Objects.nonNull(inventory.getColor()) ? inventory.getColor().getDescription():null)
                 .odometer(inventory.getOdometer())
                 .build();
     }

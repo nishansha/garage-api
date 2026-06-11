@@ -16,6 +16,8 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
+import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
+import com.triasoft.garage.projection.PurchaseListProjection;
 import com.triasoft.garage.projection.PurchasePaidProjection;
 import com.triasoft.garage.projection.PurchaseMetrics;
 import com.triasoft.garage.repository.InventoryRepository;
@@ -23,13 +25,11 @@ import com.triasoft.garage.repository.ProductRepository;
 import com.triasoft.garage.repository.PurchasePaymentRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
 import com.triasoft.garage.repository.VendorRepository;
-import com.triasoft.garage.specifiction.PurchaseSpecification;
 import com.triasoft.garage.util.CommonUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -60,13 +60,13 @@ public class PurchaseService {
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
-        Page<Purchase> purchasePage = purchaseRepository.findAll(pageable);
-        List<Purchase> content = purchasePage.getContent();
-        List<Long> ids = content.stream().map(Purchase::getId).toList();
-        Map<Long, Inventory> inventoryMap = fetchInventoryMap(ids);
+        Page<PurchaseListProjection> purchasePage = purchaseRepository.findAllForList(pageable);
+        List<PurchaseListProjection> content = purchasePage.getContent();
+        List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
+        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         List<PurchaseDTO> purchases = content.stream()
-                .map(p -> convertToDTO(p, inventoryMap.get(p.getId()), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -82,6 +82,7 @@ public class PurchaseService {
         Product product = purchaseDetail.getProduct();
         BigDecimal unitCost = purchaseDetail.getUnitCost();
         BigDecimal pending = unitCost.subtract(paidAmount);
+        LookupMaster color = inventory != null ? inventory.getColor() : null;
         return PurchaseDTO.builder()
                 .id(purchase.getId())
                 .date(purchase.getOrderDate())
@@ -95,13 +96,15 @@ public class PurchaseService {
                 .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
                 .variantId(product.getVarient() != null ? product.getVarient().getId() : null)
                 .segmentId(product.getSegment() != null ? product.getSegment().getId() : null)
+                .segmentName(product.getSegment() != null ? product.getSegment().getDescription() : null)
                 .purchaseRate(purchaseDetail.getUnitCost())
                 .totalCost(purchase.getTotalAmount())
                 .paidAmount(paidAmount)
                 .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
                 .paymentStatus(derivePaymentStatus(paidAmount, unitCost))
                 .makeYear(inventory != null ? inventory.getMakeYear() : null)
-                .color(inventory != null ? inventory.getColor() : null)
+                .colorName(color != null ? color.getDescription() : null)
+                .colorId(color != null ? color.getId() : null)
                 .warehouseId(inventory != null ? inventory.getWarehouseId() : null)
                 .odometer(purchaseDetail.getOdometer())
                 .pickupLocation(purchase.getPickupLocation())
@@ -126,14 +129,32 @@ public class PurchaseService {
                 .collect(Collectors.toMap(PurchasePaidProjection::getPurchaseId, PurchasePaidProjection::getTotalPaid));
     }
 
-    private Map<Long, Inventory> fetchInventoryMap(List<Long> purchaseIds) {
+    private Map<Long, Boolean> fetchSoldMap(List<Long> purchaseIds) {
         if (CollectionUtils.isEmpty(purchaseIds)) return Map.of();
-        return inventoryRepository.findByPurchaseOrderDetailPurchaseIdIn(purchaseIds).stream()
+        return inventoryRepository.findStatusByPurchaseIdIn(purchaseIds).stream()
                 .collect(Collectors.toMap(
-                        i -> i.getPurchaseOrderDetail().getPurchase().getId(),
-                        i -> i,
+                        PurchaseInventoryStatusProjection::getPurchaseId,
+                        p -> StatusEnum.SOLD.equals(p.getStatus()),
                         (a, b) -> a
                 ));
+    }
+
+    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount) {
+        BigDecimal pending = p.getPurchaseRate().subtract(paidAmount);
+        return PurchaseDTO.builder()
+                .id(p.getId())
+                .date(p.getDate())
+                .code(p.getCode())
+                .vehicleNo(p.getVehicleNo())
+                .brandName(p.getBrandName())
+                .modelName(p.getModelName())
+                .variantName(p.getVariantName())
+                .purchaseRate(p.getPurchaseRate())
+                .paidAmount(paidAmount)
+                .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
+                .paymentStatus(derivePaymentStatus(paidAmount, p.getPurchaseRate()))
+                .isSold(isSold)
+                .build();
     }
 
     public PurchaseSummaryRs summary(UserDTO user) {
@@ -149,14 +170,20 @@ public class PurchaseService {
     }
 
     public PurchaseRs search(FilterRq filterRq, Pageable pageable, UserDTO user) {
-        Specification<Purchase> spec = PurchaseSpecification.buildSearchQuery(filterRq);
-        Page<Purchase> purchasePage = purchaseRepository.findAll(spec, pageable);
-        List<Purchase> content = purchasePage.getContent();
-        List<Long> ids = content.stream().map(Purchase::getId).toList();
-        Map<Long, Inventory> inventoryMap = fetchInventoryMap(ids);
+        Long brandId = filterRq.getBrandId() != null ? Long.parseLong(filterRq.getBrandId()) : null;
+        Long modelId = filterRq.getModelId() != null ? Long.parseLong(filterRq.getModelId()) : null;
+        Long variantId = filterRq.getVariantId() != null ? Long.parseLong(filterRq.getVariantId()) : null;
+        Page<PurchaseListProjection> purchasePage = purchaseRepository.searchForList(
+                filterRq.getFromDate(), filterRq.getToDate(),
+                brandId, modelId, variantId,
+                filterRq.getVehicleNo(), filterRq.getSearchText(),
+                pageable);
+        List<PurchaseListProjection> content = purchasePage.getContent();
+        List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
+        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         List<PurchaseDTO> purchases = content.stream()
-                .map(p -> convertToDTO(p, inventoryMap.get(p.getId()), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -242,7 +269,7 @@ public class PurchaseService {
             inventory.setOdometer(parseOdometer(purchaseRq.getOdometer()));
             inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
             inventory.setMakeYear(purchaseRq.getMakeYear());
-            inventory.setColor(purchaseRq.getColor());
+            inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
             inventory.setWarehouseId(purchaseRq.getWarehouseId());
             inventory.setLandedCost(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
             // PENDING_DELIVERY → AVAILABLE: vehicle has now been received
@@ -405,7 +432,7 @@ public class PurchaseService {
         inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
         inventory.setProductNo(purchaseRq.getVehicleNo());
         inventory.setOdometer(parseOdometer(purchaseRq.getOdometer()));
-        inventory.setColor(purchaseRq.getColor());
+        inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
         inventory.setMakeYear(purchaseRq.getMakeYear());
         inventory.setWarehouseId(purchaseRq.getWarehouseId());
         inventory.setStatus(status);

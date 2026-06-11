@@ -2,6 +2,7 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.constants.StatusEnum;
 import com.triasoft.garage.entity.Inventory;
+import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
 import com.triasoft.garage.projection.StockMetrics;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -34,4 +35,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
     Optional<Inventory> findBySourceSaleId(Long id);
 
     List<Inventory> findAllByStatus(StatusEnum status);
+
+    @Query("SELECT i.purchaseOrderDetail.purchase.id as purchaseId, i.status as status FROM Inventory i WHERE i.purchaseOrderDetail.purchase.id IN :ids")
+    List<PurchaseInventoryStatusProjection> findStatusByPurchaseIdIn(@Param("ids") List<Long> ids);
 }
