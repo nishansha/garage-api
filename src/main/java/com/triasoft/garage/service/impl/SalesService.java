@@ -223,7 +223,22 @@ public class SalesService {
 
     public SaleDTO get(Long id, UserDTO user) {
         Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
-        return convertToDTO(existingSale);
+        SaleDTO dto = convertToDTO(existingSale);
+        dto.setInvoiceNo(existingSale.getInvoiceNo());
+        dto.setStockId(existingSale.getInventory().getId());
+        dto.setNetSaleAmount(existingSale.getNetSaleAmount());
+        dto.setPaymentStatus(existingSale.getPaymentStatus());
+        dto.setExchangeAmount(existingSale.getExchangeAmount());
+        dto.setFinanceCompany(existingSale.getFinanceCompany());
+        dto.setFinanceAmount(existingSale.getFinanceAmount());
+        dto.setEmiAmount(existingSale.getEmiAmount());
+        if (existingSale.isExchanged()) {
+            inventoryRepository.findBySourceSaleId(id).ifPresent(exchangeInv -> {
+                Long purchaseId = exchangeInv.getPurchaseOrderDetail().getPurchase().getId();
+                dto.setExchangeVehicleDetails(purchaseService.get(purchaseId, user));
+            });
+        }
+        return dto;
     }
 
     @Transactional
