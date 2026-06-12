@@ -25,7 +25,7 @@ public class SaleDTO implements Serializable {
     private BigDecimal profit;
     private boolean isExchange;
     private boolean isFinanced;
-
-
+    private Long statusId;
+    private String statusName;
 
 }

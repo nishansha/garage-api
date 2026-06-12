@@ -85,12 +85,18 @@ public class SalesService {
 
     private SaleDTO convertToDTO(Sale sale) {
         return SaleDTO.builder().id(sale.getId()).date(sale.getSaleDate())
+                .customerName(sale.getCustomer().getName())
+                .customerMobileNo(sale.getCustomer().getMobile())
                 .vehicleNo(sale.getInventory().getProductNo())
                 .brandName(sale.getInventory().getProduct().getBrand().getDescription())
                 .modelName(sale.getInventory().getProduct().getModel().getDescription())
                 .variantName(sale.getInventory().getProduct().getVarient().getDescription())
                 .saleRate(sale.getSaleRate())
                 .profit(sale.getProfitAmount())
+                .isExchange(sale.isExchanged())
+                .isFinanced(sale.isFinanced())
+                .statusId(sale.getStatus() != null ? sale.getStatus().getId() : null)
+                .statusName(sale.getStatus() != null ? sale.getStatus().getDescription() : null)
                 .build();
     }
 
@@ -111,16 +117,21 @@ public class SalesService {
         sale.setFinanced(saleRq.isFinanced());
         sale.setFinanceAmount(saleRq.getFinanceAmount());
         sale.setFinanceCompany(saleRq.getFinanceCompany());
-        BigDecimal exchangeAmt = Objects.nonNull(saleRq.getExchangeAmount()) ? saleRq.getExchangeAmount() : BigDecimal.ZERO;
+        sale.setEmiAmount(saleRq.getEmiAmount());
+        BigDecimal exchangeAmt = saleRq.isExchanged() && Objects.nonNull(saleRq.getExchangeAmount()) ? saleRq.getExchangeAmount() : BigDecimal.ZERO;
         sale.setExchangeAmount(exchangeAmt);
         sale.setNetSaleAmount(saleRq.getSaleRate().subtract(exchangeAmt));
         sale.setLandedCostAtSale(stock.getLandedCost());
         sale.setProfitAmount(saleRq.getSaleRate().subtract(stock.getLandedCost()));
-        sale.setStatus(lookupHelper.getStatus(LookupTypeEnum.SALES_STAUS, StatusEnum.COMPLETED));
+        sale.setStatus(saleRq.getStatusId() != null
+                ? lookupHelper.get(saleRq.getStatusId())
+                : lookupHelper.getStatus(LookupTypeEnum.SALES_STAUS, StatusEnum.COMPLETED));
         if (sale.getNetSaleAmount().compareTo(BigDecimal.ZERO) < 0) {
             sale.setPaymentStatus(StatusEnum.REFUND);
         } else if (sale.getNetSaleAmount().compareTo(BigDecimal.ZERO) == 0) {
             sale.setPaymentStatus(StatusEnum.PAID);
+        } else if (saleRq.isFinanced()) {
+            sale.setPaymentStatus(StatusEnum.FINANCE_PENDING);
         } else {
             sale.setPaymentStatus(StatusEnum.PENDING);
         }
@@ -236,7 +247,7 @@ public class SalesService {
             existingSale.setCustomer(newCustomer);
         }
         syncExchangeVehicle(existingSale, salesRq, user);
-        BigDecimal exchangeAmt = salesRq.isExchanged() ? salesRq.getExchangeAmount() : BigDecimal.ZERO;
+        BigDecimal exchangeAmt = salesRq.isExchanged() && Objects.nonNull(salesRq.getExchangeAmount()) ? salesRq.getExchangeAmount() : BigDecimal.ZERO;
         existingSale.setSaleRate(salesRq.getSaleRate());
         existingSale.setExchangeAmount(exchangeAmt);
         existingSale.setFinanced(salesRq.isFinanced());
@@ -247,10 +258,15 @@ public class SalesService {
         existingSale.setModifiedAt(LocalDateTime.now());
         existingSale.setNetSaleAmount(salesRq.getSaleRate().subtract(exchangeAmt));
         existingSale.setProfitAmount(salesRq.getSaleRate().subtract(existingSale.getLandedCostAtSale()));
+        if (salesRq.getStatusId() != null) {
+            existingSale.setStatus(lookupHelper.get(salesRq.getStatusId()));
+        }
         if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) < 0) {
             existingSale.setPaymentStatus(StatusEnum.REFUND);
         } else if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) == 0) {
             existingSale.setPaymentStatus(StatusEnum.PAID);
+        } else if (salesRq.isFinanced()) {
+            existingSale.setPaymentStatus(StatusEnum.FINANCE_PENDING);
         } else {
             existingSale.setPaymentStatus(StatusEnum.PENDING);
         }

@@ -32,4 +32,6 @@ public class SalesRq implements Serializable {
     private BigDecimal financeAmount;
     private BigDecimal emiAmount;
 
+    private Long statusId;
+
 }
