@@ -4,6 +4,8 @@ import com.triasoft.garage.constants.StatusEnum;
 import com.triasoft.garage.entity.Inventory;
 import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
 import com.triasoft.garage.projection.StockMetrics;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -35,6 +37,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
     Optional<Inventory> findBySourceSaleId(Long id);
 
     List<Inventory> findAllByStatus(StatusEnum status);
+
+    Page<Inventory> findByStatusIn(List<StatusEnum> statuses, Pageable pageable);
 
     @Query("SELECT i.purchaseOrderDetail.purchase.id as purchaseId, i.status as status FROM Inventory i WHERE i.purchaseOrderDetail.purchase.id IN :ids")
     List<PurchaseInventoryStatusProjection> findStatusByPurchaseIdIn(@Param("ids") List<Long> ids);

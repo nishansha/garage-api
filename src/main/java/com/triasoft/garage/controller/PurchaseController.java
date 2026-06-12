@@ -68,4 +68,14 @@ public class PurchaseController {
     ResponseEntity<ApiResponse<PurchaseRs>> recordPayment(@PathVariable("id") Long id, @RequestBody PurchasePaymentRq paymentRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseService.recordPayment(id, paymentRq, UserUtil.getUser(request))));
     }
+
+    @PutMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<PurchaseRs>> updatePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, @RequestBody PurchasePaymentRq paymentRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.updatePayment(id, paymentId, paymentRq, UserUtil.getUser(request))));
+    }
+
+    @DeleteMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<PurchaseRs>> deletePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.deletePayment(id, paymentId, UserUtil.getUser(request))));
+    }
 }

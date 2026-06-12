@@ -34,6 +34,7 @@ public class PurchaseDTO implements Serializable {
     private String colorName;
     private String segmentName;
     private BigDecimal purchaseRate;
+    private BigDecimal totalExpenses;
     private BigDecimal totalCost;
     private BigDecimal paidAmount;
     private BigDecimal pendingAmount;
@@ -42,6 +43,7 @@ public class PurchaseDTO implements Serializable {
     private String pickupLocation;
     private String notes;
     private boolean isSold;
+    private boolean isEditable;
     private Long sourceSaleId;
 
     private String ownerName;

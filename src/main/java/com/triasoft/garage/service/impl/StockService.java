@@ -39,7 +39,8 @@ public class StockService {
     private final SaleRepository saleRepository;
 
     public StockRs getAll(Pageable pageable, UserDTO user) {
-        Page<Inventory> page = inventoryRepository.findAll(pageable);
+        Page<Inventory> page = inventoryRepository.findByStatusIn(
+                List.of(StatusEnum.AVAILABLE, StatusEnum.PENDING_DELIVERY), pageable);
         List<StockDTO> products = page.getContent().stream().map(this::convertToDTO).toList();
         StockRs stockRs = StockRs.builder().products(products).build();
         stockRs.setTotalPages(page.getTotalPages());
@@ -75,6 +76,8 @@ public class StockService {
     }
 
     private StockDTO convertToDTO(Inventory inventory) {
+        var purchase = inventory.getPurchaseOrderDetail().getPurchase();
+        var vendor = purchase.getVendor();
         return StockDTO.builder()
                 .productId(inventory.getId())
                 .purchaseDate(Objects.nonNull(inventory.getReceivedDate()) ? inventory.getReceivedDate().toLocalDate() : null)
@@ -84,8 +87,12 @@ public class StockService {
                 .variantName(inventory.getProduct().getVarient().getDescription())
                 .purchasedAmount(inventory.getPurchaseOrderDetail().getUnitCost())
                 .purchaseExpense(inventory.getLandedCost().subtract(inventory.getPurchaseOrderDetail().getUnitCost()))
+                .landedCost(inventory.getLandedCost())
+                .totalAmount(purchase.getTotalAmount())
+                .vendorName(vendor.getName())
+                .vendorMobileNo(vendor.getMobile())
                 .status(inventory.getStatus().name())
-                .color(Objects.nonNull(inventory.getColor()) ? inventory.getColor().getDescription():null)
+                .color(Objects.nonNull(inventory.getColor()) ? inventory.getColor().getDescription() : null)
                 .odometer(inventory.getOdometer())
                 .build();
     }
@@ -119,6 +126,14 @@ public class StockService {
     }
 
     private ExpenseDTO convertToExpenseDTO(Expense expense) {
-        return ExpenseDTO.builder().id(expense.getId()).date(expense.getCreatedAt().toLocalDate()).typeId(expense.getExpenseAccount().getId()).description(expense.getDescription()).amount(expense.getAmount()).build();
+        return ExpenseDTO.builder()
+                .id(expense.getId())
+                .date(expense.getDate())
+                .typeId(expense.getExpenseAccount().getId())
+                .title(expense.getExpenseAccount().getName())
+                .description(expense.getDescription())
+                .amount(expense.getAmount())
+                .paymentAccountId(expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null)
+                .build();
     }
 }

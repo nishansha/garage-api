@@ -1,5 +1,6 @@
 package com.triasoft.garage.entity;
 
+import com.triasoft.garage.constants.ExpenseLockWindow;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -29,6 +30,13 @@ public class ProductCategory extends GenericEntity {
 
     @Column(name = "active")
     private boolean active;
+
+    @Column(name = "expense_lock_enabled", nullable = false)
+    private boolean expenseLockEnabled = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "expense_lock_window")
+    private ExpenseLockWindow expenseLockWindow;
 
     @OneToMany(mappedBy = "productCategory", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProductBrand> productBrands;

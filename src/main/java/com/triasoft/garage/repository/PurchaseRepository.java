@@ -91,6 +91,26 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             @Param("searchText") String searchText,
             Pageable pageable);
 
+    @Query(value = """
+            SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
+                   brand.description as brandName, model.description as modelName, variant.description as variantName,
+                   pd.unitCost as purchaseRate
+            FROM Purchase p
+            JOIN p.purchaseDetails pd
+            JOIN pd.product prod
+            LEFT JOIN prod.brand brand
+            LEFT JOIN prod.model model
+            LEFT JOIN prod.varient variant
+            WHERE EXISTS (SELECT 1 FROM Expense e WHERE e.purchase = p)
+            """,
+            countQuery = """
+            SELECT COUNT(p) FROM Purchase p
+            JOIN p.purchaseDetails pd
+            JOIN pd.product prod
+            WHERE EXISTS (SELECT 1 FROM Expense e WHERE e.purchase = p)
+            """)
+    Page<PurchaseListProjection> findAllWithExpenses(Pageable pageable);
+
     @Query(value = "SELECT " +
             "COALESCE(SUM(CASE WHEN p.order_date >= :startOfMonth THEN p.total_amount ELSE 0 END), 0) as totalThisMonth, " +
             "COALESCE(SUM(CASE WHEN p.order_date >= :startOfLastMonth AND p.order_date <= :endOfLastMonth THEN p.total_amount ELSE 0 END), 0) as totalLastMonth, " +

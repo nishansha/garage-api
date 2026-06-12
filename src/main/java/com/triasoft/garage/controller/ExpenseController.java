@@ -8,6 +8,8 @@ import com.triasoft.garage.model.expense.ExpenseRs;
 import com.triasoft.garage.model.expense.ExpenseSummaryRs;
 import com.triasoft.garage.service.impl.ExpenseService;
 import com.triasoft.garage.util.UserUtil;
+
+import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +29,17 @@ public class ExpenseController {
     private final ExpenseService expenseService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ExpenseRs>> expenses(@RequestParam("page") int page, @RequestParam("size") int size, @RequestParam("type") String type, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<?>> expenses(@RequestParam("page") int page, @RequestParam("size") int size, @RequestParam("type") String type, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(ApiResponse.success(expenseService.getAll(pageable, type, UserUtil.getUser(request))));
+        if ("P".equalsIgnoreCase(type)) {
+            return ResponseEntity.ok(ApiResponse.success(expenseService.getPurchasesWithExpenses(pageable, UserUtil.getUser(request))));
+        }
+        return ResponseEntity.ok(ApiResponse.success(expenseService.getAll(pageable, UserUtil.getUser(request))));
+    }
+
+    @GetMapping(value = "/purchase/{purchaseId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<List<ExpenseDTO>>> getByPurchase(@PathVariable("purchaseId") Long purchaseId, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(expenseService.getExpensesByPurchase(purchaseId, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)

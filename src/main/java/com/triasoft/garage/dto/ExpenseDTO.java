@@ -24,4 +24,5 @@ public class ExpenseDTO implements Serializable {
     private String description;
     private BigDecimal amount;
     private Long paymentAccountId;
+    private Long purchaseId;
 }

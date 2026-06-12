@@ -72,7 +72,10 @@ public class ErrorCode {
         TRANSACTION_NOT_FOUND("BUS_121", "Transaction not found"),
         TRANSACTION_ALREADY_REVERSED("BUS_122", "Transaction has already been reversed"),
         OPENING_BALANCE_LOCKED("BUS_123", "Opening balance cannot be changed after transactions have been recorded. Use an adjustment transaction instead."),
-        INSUFFICIENT_BALANCE("BUS_124", "Insufficient balance in the selected payment account");
+        INSUFFICIENT_BALANCE("BUS_124", "Insufficient balance in the selected payment account"),
+        PAYMENT_NOT_FOUND("BUS_125", "Payment record not found"),
+        OVERPAYMENT("BUS_126", "Payment amount exceeds the remaining balance for this purchase"),
+        PURCHASE_EXPENSE_LOCKED("BUS_127", "Expenses for this purchase are locked. The vehicle was sold and the sale month has ended.");
 
         private final String code;
         private final String message;

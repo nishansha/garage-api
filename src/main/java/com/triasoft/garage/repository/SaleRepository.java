@@ -134,4 +134,18 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
         """, nativeQuery = true)
     List<BalanceMetrics> getMonthlyBalanceSheet(@Param("monthCount") int monthCount);
 
+    @Query("""
+            SELECT pd.purchase.id as purchaseId,
+                   s.saleDate as saleDate,
+                   pc.expenseLockEnabled as expenseLockEnabled,
+                   pc.expenseLockWindow as expenseLockWindow
+            FROM Sale s
+            JOIN s.inventory i
+            JOIN i.purchaseOrderDetail pd
+            JOIN pd.product p
+            JOIN p.category pc
+            WHERE pd.purchase.id IN :purchaseIds
+            """)
+    List<PurchaseEditabilityProjection> findEditabilityInfoByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);
+
 }

@@ -2,8 +2,11 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.Expense;
 import com.triasoft.garage.projection.ExpenseMetrics;
+import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +29,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     Page<Expense> findByPurchaseIsNull(Pageable pageable);
 
     Page<Expense> findByPurchaseIsNotNull(Pageable pageable);
+
+    List<Expense> findByPurchaseId(Long purchaseId);
+
+    @Query("SELECT e.purchase.id as purchaseId, SUM(e.amount) as totalExpenses FROM Expense e WHERE e.purchase.id IN :purchaseIds GROUP BY e.purchase.id")
+    List<PurchaseExpenseSumProjection> getTotalExpensesByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);
 }

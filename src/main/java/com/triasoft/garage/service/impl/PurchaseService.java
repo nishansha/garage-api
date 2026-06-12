@@ -1,11 +1,13 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.*;
+import com.triasoft.garage.projection.PurchaseEditabilityProjection;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.*;
+import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.common.FilterRq;
@@ -16,11 +18,14 @@ import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
+import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
 import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
 import com.triasoft.garage.projection.PurchaseListProjection;
 import com.triasoft.garage.projection.PurchasePaidProjection;
 import com.triasoft.garage.projection.PurchaseMetrics;
+import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.InventoryRepository;
+import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.ProductRepository;
 import com.triasoft.garage.repository.PurchasePaymentRepository;
@@ -42,6 +47,8 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,6 +73,8 @@ public class PurchaseService {
     private final VendorRepository vendorRepository;
     private final InventoryRepository inventoryRepository;
     private final LookupHelper lookupHelper;
+    private final ExpenseRepository expenseRepository;
+    private final SaleRepository saleRepository;
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
@@ -74,8 +83,11 @@ public class PurchaseService {
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
         Map<Long, Boolean> soldMap = fetchSoldMap(ids);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
+        Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
-                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
+                        paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                        editabilityMap.getOrDefault(p.getId(), true)))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -148,7 +160,7 @@ public class PurchaseService {
                 ));
     }
 
-    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount) {
+    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, boolean isEditable) {
         BigDecimal pending = p.getPurchaseRate().subtract(paidAmount);
         return PurchaseDTO.builder()
                 .id(p.getId())
@@ -163,7 +175,95 @@ public class PurchaseService {
                 .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
                 .paymentStatus(derivePaymentStatus(paidAmount, p.getPurchaseRate()))
                 .isSold(isSold)
+                .isEditable(isEditable)
                 .build();
+    }
+
+    private PurchaseDTO convertListProjectionToDTOWithExpenses(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, BigDecimal totalExpenses, boolean isEditable) {
+        BigDecimal pending = p.getPurchaseRate().subtract(paidAmount);
+        return PurchaseDTO.builder()
+                .id(p.getId())
+                .date(p.getDate())
+                .code(p.getCode())
+                .vehicleNo(p.getVehicleNo())
+                .brandName(p.getBrandName())
+                .modelName(p.getModelName())
+                .variantName(p.getVariantName())
+                .purchaseRate(p.getPurchaseRate())
+                .totalExpenses(totalExpenses)
+                .paidAmount(paidAmount)
+                .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
+                .paymentStatus(derivePaymentStatus(paidAmount, p.getPurchaseRate()))
+                .isSold(isSold)
+                .isEditable(isEditable)
+                .build();
+    }
+
+    public PurchaseRs getPurchasesWithExpenses(Pageable pageable, UserDTO user) {
+        Page<PurchaseListProjection> purchasePage = purchaseRepository.findAllWithExpenses(pageable);
+        List<PurchaseListProjection> content = purchasePage.getContent();
+        List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
+        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
+        Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
+        Map<Long, BigDecimal> expenseSumMap = getExpenseSumMap(ids);
+        Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
+        List<PurchaseDTO> purchases = content.stream()
+                .map(p -> convertListProjectionToDTOWithExpenses(
+                        p,
+                        soldMap.getOrDefault(p.getId(), false),
+                        paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                        expenseSumMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                        editabilityMap.getOrDefault(p.getId(), true)))
+                .toList();
+        PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
+        purchaseRs.setTotalPages(purchasePage.getTotalPages());
+        purchaseRs.setTotalElements(purchasePage.getTotalElements());
+        return purchaseRs;
+    }
+
+    private Map<Long, BigDecimal> getExpenseSumMap(List<Long> purchaseIds) {
+        if (CollectionUtils.isEmpty(purchaseIds)) return Map.of();
+        return expenseRepository.getTotalExpensesByPurchaseIds(purchaseIds).stream()
+                .collect(Collectors.toMap(PurchaseExpenseSumProjection::getPurchaseId, PurchaseExpenseSumProjection::getTotalExpenses));
+    }
+
+    private Map<Long, Boolean> buildEditabilityMap(List<Long> allIds, Map<Long, Boolean> soldMap) {
+        Map<Long, Boolean> result = new HashMap<>();
+        allIds.forEach(id -> result.put(id, true));
+        List<Long> soldIds = allIds.stream().filter(id -> soldMap.getOrDefault(id, false)).toList();
+        if (CollectionUtils.isEmpty(soldIds)) return result;
+        saleRepository.findEditabilityInfoByPurchaseIds(soldIds).forEach(info -> {
+            boolean editable = true;
+            if (Boolean.TRUE.equals(info.getExpenseLockEnabled()) && info.getExpenseLockWindow() != null) {
+                LocalDate deadline = computeExpenseDeadline(info.getSaleDate(), info.getExpenseLockWindow());
+                editable = !LocalDate.now().isAfter(deadline);
+            }
+            result.put(info.getPurchaseId(), editable);
+        });
+        return result;
+    }
+
+    private boolean computeIsEditableForDetail(Purchase purchase, Inventory inventory) {
+        if (inventory == null || !StatusEnum.SOLD.equals(inventory.getStatus())) return true;
+        if (CollectionUtils.isEmpty(purchase.getPurchaseDetails())) return true;
+        var category = purchase.getPurchaseDetails().get(0).getProduct().getCategory();
+        if (category == null || !category.isExpenseLockEnabled() || category.getExpenseLockWindow() == null) return true;
+        Sale sale = saleRepository.findByInventoryId(inventory.getId());
+        if (sale == null) return true;
+        return !LocalDate.now().isAfter(computeExpenseDeadline(sale.getSaleDate(), category.getExpenseLockWindow()));
+    }
+
+    private LocalDate computeExpenseDeadline(LocalDate saleDate, ExpenseLockWindow window) {
+        return switch (window) {
+            case IMMEDIATE -> saleDate.minusDays(1);
+            case EOD -> saleDate;
+            case EOM -> saleDate.withDayOfMonth(saleDate.lengthOfMonth());
+            case EOQ -> {
+                int quarterEndMonth = ((saleDate.getMonthValue() - 1) / 3 + 1) * 3;
+                yield YearMonth.of(saleDate.getYear(), quarterEndMonth).atEndOfMonth();
+            }
+            case EOY -> LocalDate.of(saleDate.getYear(), 12, 31);
+        };
     }
 
     public PurchaseSummaryRs summary(UserDTO user) {
@@ -191,8 +291,11 @@ public class PurchaseService {
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
         Map<Long, Boolean> soldMap = fetchSoldMap(ids);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
+        Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
-                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false), paidMap.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
+                        paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                        editabilityMap.getOrDefault(p.getId(), true)))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -336,7 +439,7 @@ public class PurchaseService {
 
     private Expense getPurchaseExpense(ExpenseDTO exDto, Purchase purchase, PaymentAccount paymentAccount, UserDTO user) {
         Expense expense = new Expense();
-        expense.setDate(purchase.getOrderDate());
+        expense.setDate(exDto.getDate() != null ? exDto.getDate() : purchase.getOrderDate());
         expense.setAmount(exDto.getAmount());
         expense.setDescription(exDto.getDescription());
         expense.setPurchase(purchase);
@@ -383,6 +486,19 @@ public class PurchaseService {
 
     private BigDecimal createAndGetExpense(PurchaseRq purchaseRq, Purchase purchase, UserDTO user) {
         if (CollectionUtils.isEmpty(purchaseRq.getExpenses())) return BigDecimal.ZERO;
+
+        // Aggregate new expenses (no id) per payment account and validate total upfront
+        Map<Long, BigDecimal> newExpenseTotalsByAccount = new HashMap<>();
+        for (ExpenseDTO exDto : purchaseRq.getExpenses()) {
+            if (exDto.getId() == null && exDto.getPaymentAccountId() != null) {
+                newExpenseTotalsByAccount.merge(exDto.getPaymentAccountId(), exDto.getAmount(), BigDecimal::add);
+            }
+        }
+        Map<Long, PaymentAccount> validatedAccounts = new HashMap<>();
+        for (Map.Entry<Long, BigDecimal> entry : newExpenseTotalsByAccount.entrySet()) {
+            validatedAccounts.put(entry.getKey(), resolveAndValidateAccount(entry.getKey(), entry.getValue()));
+        }
+
         BigDecimal totalExpenseAmt = BigDecimal.ZERO;
         for (ExpenseDTO exDto : purchaseRq.getExpenses()) {
             if (Objects.nonNull(exDto.getId())) {
@@ -413,7 +529,7 @@ public class PurchaseService {
                 if (exDto.getPaymentAccountId() == null) {
                     throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_REQUIRED);
                 }
-                PaymentAccount paymentAccount = resolveAndValidateAccount(exDto.getPaymentAccountId(), exDto.getAmount());
+                PaymentAccount paymentAccount = validatedAccounts.get(exDto.getPaymentAccountId());
                 purchase.getPurchaseExpenses().add(getPurchaseExpense(exDto, purchase, paymentAccount, user));
             }
             totalExpenseAmt = totalExpenseAmt.add(exDto.getAmount());
@@ -421,20 +537,15 @@ public class PurchaseService {
         return totalExpenseAmt;
     }
 
+    @Transactional
     public PurchaseRs delete(Long id, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(id);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             throw new IllegalStateException("Vehicle already sold.");
         }
-        // TODO [JOURNAL ENTRY] - Purchase Deleted
-        // Trigger  : before the purchase record is hard-deleted.
-        // Entry    : full reversal of the original purchase journal entry.
-        //   Dr  Accounts Payable–Vendor  (Liability)   purchase.getTotalAmount()
-        //   Cr  Vehicle Inventory        (Asset)        purchase.getTotalAmount()
-        // Future call: JournalEntryService.reverseByReference("PURCHASE", id)
-        // Note: Ensure reversal is posted BEFORE the delete so the reference ID still resolves.
-
+        purchase.getPurchaseExpenses().forEach(this::reverseExpenseTransaction);
+        purchase.getPayments().forEach(this::reversePaymentTransaction);
         purchaseRepository.delete(purchase);
         inventoryOpt.ifPresent(inventoryRepository::delete);
         return PurchaseRs.builder().build();
@@ -445,9 +556,12 @@ public class PurchaseService {
         Inventory inventory = inventoryRepository.findByPurchaseOrderDetailPurchaseId(id).orElse(null);
         BigDecimal paidAmount = purchasePaymentRepository.sumAmountByPurchaseId(id);
         PurchaseDTO purchaseDTO = convertToDTO(purchase, inventory, paidAmount);
-        purchaseDTO.setExpenses(purchase.getPurchaseExpenses().stream().map(this::convertToExpenseDTO).toList());
+        List<ExpenseDTO> expenseDTOs = purchase.getPurchaseExpenses().stream().map(this::convertToExpenseDTO).toList();
+        purchaseDTO.setExpenses(expenseDTOs);
+        purchaseDTO.setTotalExpenses(expenseDTOs.stream().map(ExpenseDTO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
         purchaseDTO.setPayments(purchasePaymentRepository.findByPurchaseIdOrderByPaymentDateDesc(id)
                 .stream().map(this::toPaymentDTO).toList());
+        purchaseDTO.setEditable(computeIsEditableForDetail(purchase, inventory));
         return purchaseDTO;
     }
 
@@ -460,6 +574,9 @@ public class PurchaseService {
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(new ErrorCode.CustomError("PAY_400", "Purchase is already fully paid"));
         }
+        if (rq.getAmount().compareTo(remaining) > 0) {
+            throw new BusinessException(ErrorCode.Business.OVERPAYMENT);
+        }
         PaymentAccount paymentAccount = resolvePaymentAccount(rq);
         PurchasePayment payment = new PurchasePayment();
         payment.setPurchase(purchase);
@@ -471,6 +588,58 @@ public class PurchaseService {
         payment.setPaymentAccount(paymentAccount);
         PurchasePayment saved = purchasePaymentRepository.save(payment);
         createTransaction(saved, purchase.getReferenceNo(), paymentAccount);
+        return new PurchaseRs();
+    }
+
+    @Transactional
+    public PurchaseRs updatePayment(Long purchaseId, Long paymentId, PurchasePaymentRq rq, UserDTO user) {
+        Purchase purchase = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
+        PurchasePayment payment = purchasePaymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND));
+        if (!payment.getPurchase().getId().equals(purchaseId)) {
+            throw new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND);
+        }
+
+        boolean amountChanged = payment.getAmount().compareTo(rq.getAmount()) != 0;
+        Long oldAccountId = payment.getPaymentAccount() != null ? payment.getPaymentAccount().getId() : null;
+        boolean accountChanged = !Objects.equals(oldAccountId, rq.getPaymentAccountId());
+
+        if (amountChanged || accountChanged) {
+            BigDecimal alreadyPaid = purchasePaymentRepository.sumAmountByPurchaseId(purchaseId);
+            BigDecimal paidExcludingThis = alreadyPaid.subtract(payment.getAmount());
+            BigDecimal remaining = purchase.getTotalAmount().subtract(paidExcludingThis);
+            if (rq.getAmount().compareTo(remaining) > 0) {
+                throw new BusinessException(ErrorCode.Business.OVERPAYMENT);
+            }
+            reversePaymentTransaction(payment);
+        }
+
+        payment.setAmount(rq.getAmount());
+        payment.setPaymentDate(rq.getPaymentDate() != null ? rq.getPaymentDate() : payment.getPaymentDate());
+        payment.setPaymentMethod(rq.getPaymentMethod());
+        payment.setReferenceNo(rq.getReferenceNo());
+        payment.setNotes(rq.getNotes());
+
+        PaymentAccount newAccount = resolvePaymentAccount(rq);
+        payment.setPaymentAccount(newAccount);
+        PurchasePayment saved = purchasePaymentRepository.save(payment);
+
+        if (amountChanged || accountChanged) {
+            createTransaction(saved, purchase.getReferenceNo(), newAccount);
+        }
+        return new PurchaseRs();
+    }
+
+    @Transactional
+    public PurchaseRs deletePayment(Long purchaseId, Long paymentId, UserDTO user) {
+        PurchasePayment payment = purchasePaymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND));
+        if (!payment.getPurchase().getId().equals(purchaseId)) {
+            throw new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND);
+        }
+        reversePaymentTransaction(payment);
+        purchasePaymentRepository.delete(payment);
         return new PurchaseRs();
     }
 
@@ -561,6 +730,24 @@ public class PurchaseService {
                 });
     }
 
+    private void reversePaymentTransaction(PurchasePayment payment) {
+        transactionRepository.findByReferenceTypeAndReferenceId("PURCHASE_PAYMENT", payment.getId())
+                .ifPresent(original -> {
+                    if (transactionRepository.existsByReversalOfId(original.getId())) return;
+                    Transaction reversal = new Transaction();
+                    reversal.setTransactionDate(LocalDate.now());
+                    reversal.setType(TransactionTypeEnum.PURCHASE_PAYMENT);
+                    reversal.setReferenceType("PURCHASE_PAYMENT");
+                    reversal.setReferenceId(payment.getId());
+                    reversal.setPaymentAccount(original.getPaymentAccount());
+                    reversal.setAmount(original.getAmount());
+                    reversal.setDirection(TransactionDirectionEnum.IN);
+                    reversal.setDescription("Reversal – " + original.getDescription());
+                    reversal.setReversalOf(original);
+                    transactionRepository.save(reversal);
+                });
+    }
+
     private PurchasePaymentDTO toPaymentDTO(PurchasePayment p) {
         return PurchasePaymentDTO.builder()
                 .id(p.getId())
@@ -577,8 +764,9 @@ public class PurchaseService {
     private ExpenseDTO convertToExpenseDTO(Expense expense) {
         return ExpenseDTO.builder()
                 .id(expense.getId())
-                .date(expense.getCreatedAt().toLocalDate())
+                .date(expense.getDate())
                 .typeId(expense.getExpenseAccount().getId())
+                .title(expense.getExpenseAccount().getName())
                 .description(expense.getDescription())
                 .amount(expense.getAmount())
                 .paymentAccountId(expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null)

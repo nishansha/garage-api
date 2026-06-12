@@ -26,4 +26,6 @@ public class ExpenseRq extends GenericRq {
     private LocalDate date;
     private BigDecimal amount;
     private String description;
+    private Long purchaseId;
+    private Long paymentAccountId;
 }
