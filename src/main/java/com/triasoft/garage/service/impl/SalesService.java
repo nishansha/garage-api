@@ -172,6 +172,9 @@ public class SalesService {
     }
 
     private void handleExchangeVehicle(SalesRq saleRq, Sale sale, UserDTO user) {
+        if (saleRq.getExchangeVehicleDetails() == null) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_400", "Exchange vehicle details are required when isExchanged is true"));
+        }
         PurchaseDTO details = saleRq.getExchangeVehicleDetails();
         PurchaseRq exchangePurchaseRq = new PurchaseRq();
         exchangePurchaseRq.setCode(details.getCode());
@@ -193,11 +196,15 @@ public class SalesService {
     }
 
     private void handleUpdateExchangeVehicle(SalesRq saleRq, Sale sale, UserDTO user) {
+        if (saleRq.getExchangeVehicleDetails() == null) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_400", "Exchange vehicle details are required when isExchanged is true"));
+        }
         Inventory exchangeInv = inventoryRepository.findBySourceSaleId(sale.getId())
                 .orElseThrow(() -> new EntityNotFoundException("Exchange inventory record not found for this sale"));
 
         PurchaseDTO details = saleRq.getExchangeVehicleDetails();
         PurchaseRq exchangePurchaseRq = new PurchaseRq();
+        exchangePurchaseRq.setCode(details.getCode());
         exchangePurchaseRq.setOwnerName(saleRq.getCustomerName());
         exchangePurchaseRq.setOwnerMobileNo(saleRq.getCustomerMobileNo());
         exchangePurchaseRq.setOwnerShipSerialNo(details.getOwnerShipSerialNo());
@@ -263,6 +270,8 @@ public class SalesService {
         }
         syncExchangeVehicle(existingSale, salesRq, user);
         BigDecimal exchangeAmt = salesRq.isExchanged() && Objects.nonNull(salesRq.getExchangeAmount()) ? salesRq.getExchangeAmount() : BigDecimal.ZERO;
+        existingSale.setSaleDate(salesRq.getDate());
+        existingSale.setExchanged(salesRq.isExchanged());
         existingSale.setSaleRate(salesRq.getSaleRate());
         existingSale.setExchangeAmount(exchangeAmt);
         existingSale.setFinanced(salesRq.isFinanced());
