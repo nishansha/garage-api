@@ -16,5 +16,6 @@ import java.util.List;
 public class SalesRs extends GenericRs {
     @Serial
     private static final long serialVersionUID = -8728351026302264141L;
+    private Long id;
     private List<SaleDTO> sales;
 }

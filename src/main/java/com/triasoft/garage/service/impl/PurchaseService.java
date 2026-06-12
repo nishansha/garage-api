@@ -354,7 +354,9 @@ public class PurchaseService {
         Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
-            throw new IllegalStateException("Cannot update a purchase for a vehicle already sold.");
+            if (!computeIsEditableForDetail(purchase, inventoryOpt.get())) {
+                throw new BusinessException(ErrorCode.Business.PURCHASE_EXPENSE_LOCKED);
+            }
         }
         Set<Long> existingExpenseIds = purchase.getPurchaseExpenses().stream()
                 .map(Expense::getId)
@@ -425,13 +427,22 @@ public class PurchaseService {
             inventory.setMakeYear(purchaseRq.getMakeYear());
             inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
             inventory.setWarehouseId(purchaseRq.getWarehouseId());
-            inventory.setLandedCost(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
+            BigDecimal newLandedCost = purchaseRq.getPurchaseRate().add(totalExpenseAmt);
+            inventory.setLandedCost(newLandedCost);
             // PENDING_DELIVERY → AVAILABLE: vehicle has now been received
             if (StatusEnum.PENDING_DELIVERY.equals(inventory.getStatus()) && purchaseRq.getDeliveredDate() != null) {
                 inventory.setStatus(StatusEnum.AVAILABLE);
                 inventory.setReceivedDate(purchaseRq.getDeliveredDate().atStartOfDay());
             }
             inventoryRepository.save(inventory);
+            if (StatusEnum.SOLD.equals(inventory.getStatus())) {
+                Sale sale = saleRepository.findByInventoryId(inventory.getId());
+                if (sale != null) {
+                    sale.setLandedCostAtSale(newLandedCost);
+                    sale.setProfitAmount(sale.getSaleRate().subtract(newLandedCost));
+                    saleRepository.save(sale);
+                }
+            }
         }
 
         return new PurchaseRs();

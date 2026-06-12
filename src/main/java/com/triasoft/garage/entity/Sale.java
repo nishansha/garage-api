@@ -9,6 +9,8 @@ import org.hibernate.annotations.SoftDelete;
 import java.io.Serial;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -28,7 +30,7 @@ public class Sale extends AuditGenericEntity {
     private Customer customer;
 
     @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "inventory_id", nullable = false)
+    @JoinColumn(name = "inventory_id", nullable = false, unique = false)
     private Inventory inventory;
 
     @Column(name = "sale_date", nullable = false)
@@ -71,4 +73,7 @@ public class Sale extends AuditGenericEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
     private StatusEnum paymentStatus;
+
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SalePayment> payments = new ArrayList<>();
 }

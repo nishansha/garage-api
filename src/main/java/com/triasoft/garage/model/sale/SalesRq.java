@@ -19,7 +19,6 @@ public class SalesRq implements Serializable {
     private Long stockId;
     private BigDecimal saleRate;
 
-    private String paymentStatus;
     private String customerName;
     private String customerMobileNo;
     private String customerAddress;

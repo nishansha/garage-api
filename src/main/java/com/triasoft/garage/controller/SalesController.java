@@ -3,6 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
+import com.triasoft.garage.model.sale.SalePaymentRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
 import com.triasoft.garage.model.sale.SalesRs;
@@ -61,5 +62,20 @@ public class SalesController {
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> delete(@PathVariable("id") Long id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.delete(id, UserUtil.getUser(request))));
+    }
+
+    @PostMapping(value = "/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<SalesRs>> recordPayment(@PathVariable("id") Long id, @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.recordPayment(id, paymentRq, UserUtil.getUser(request))));
+    }
+
+    @PutMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<SalesRs>> updatePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.updatePayment(id, paymentId, paymentRq, UserUtil.getUser(request))));
+    }
+
+    @DeleteMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<SalesRs>> deletePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.deletePayment(id, paymentId, UserUtil.getUser(request))));
     }
 }

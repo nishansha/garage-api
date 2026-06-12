@@ -8,6 +8,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -37,5 +38,8 @@ public class SaleDTO implements Serializable {
     private BigDecimal emiAmount;
     private Long statusId;
     private String statusName;
+    private BigDecimal paidAmount;
+    private BigDecimal pendingAmount;
+    private List<SalePaymentDTO> payments;
 
 }
