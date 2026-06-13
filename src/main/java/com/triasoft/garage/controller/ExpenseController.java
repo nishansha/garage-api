@@ -10,6 +10,7 @@ import com.triasoft.garage.service.impl.ExpenseService;
 import com.triasoft.garage.util.UserUtil;
 
 import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class ExpenseController {
     }
 
     @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ExpenseRs>> findExpenses(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, @RequestParam("type") String type, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<ExpenseRs>> findExpenses(@RequestBody FilterRq filterRq, @RequestParam("page") int page, @RequestParam("size") int size, @RequestParam(name = "type", required = false) String type, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(ApiResponse.success(expenseService.search(filterRq, type, pageable, UserUtil.getUser(request))));
     }

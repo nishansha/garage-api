@@ -30,9 +30,12 @@ public class HomeService {
 
     public SummaryRs summaryData(UserDTO user) {
         LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
-        SummaryMetrics metrics = saleRepository.getFinancialSummary(startOfMonth);
-        BigDecimal currentNetProfit = metrics.getTotalGrossProfit().subtract(metrics.getTotalExpenses());
-        BigDecimal previousNetProfit = metrics.getGrossProfitBeforeMonth().subtract(metrics.getExpensesBeforeMonth());
+        LocalDate startOfLastMonth = startOfMonth.minusMonths(1);
+        SummaryMetrics metrics = saleRepository.getFinancialSummary(startOfMonth, startOfLastMonth);
+
+        // grossProfit already has purchase expenses absorbed via landed_cost — only subtract general expenses
+        BigDecimal thisMonthProfit = metrics.getTotalGrossProfit().subtract(metrics.getTotalExpenses());
+        BigDecimal lastMonthProfit = metrics.getGrossProfitBeforeMonth().subtract(metrics.getExpensesBeforeMonth());
 
         return SummaryRs.builder()
                 .totalSales(String.valueOf(metrics.getTotalSales()))
@@ -44,8 +47,8 @@ public class HomeService {
                 .totalExpenses(String.valueOf(metrics.getTotalExpenses()))
                 .expensesDelta(CommonUtil.calculateDelta(metrics.getTotalExpenses(), metrics.getExpensesBeforeMonth()))
 
-                .totalProfit(String.valueOf(currentNetProfit))
-                .profitDelta(CommonUtil.calculateDelta(currentNetProfit, previousNetProfit))
+                .totalProfit(String.valueOf(thisMonthProfit))
+                .profitDelta(CommonUtil.calculateDelta(thisMonthProfit, lastMonthProfit))
                 .build();
     }
 

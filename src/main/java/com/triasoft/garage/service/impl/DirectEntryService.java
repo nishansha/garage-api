@@ -8,16 +8,19 @@ import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
+import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.model.entry.DirectEntryRs;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.LookupMasterRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
+import com.triasoft.garage.specifiction.DirectEntrySpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +39,17 @@ public class DirectEntryService {
 
     public DirectEntryRs getAll(Pageable pageable) {
         Page<DirectEntry> page = directEntryRepository.findAllByOrderByEntryDateDescCreatedAtDesc(pageable);
+        DirectEntryRs rs = DirectEntryRs.builder()
+                .entries(page.getContent().stream().map(this::toDTO).toList())
+                .build();
+        rs.setTotalPages(page.getTotalPages());
+        rs.setTotalElements(page.getTotalElements());
+        return rs;
+    }
+
+    public DirectEntryRs search(FilterRq filter, Pageable pageable) {
+        Page<DirectEntry> page = directEntryRepository.findAll(
+                DirectEntrySpecification.buildSearchQuery(filter), pageable);
         DirectEntryRs rs = DirectEntryRs.builder()
                 .entries(page.getContent().stream().map(this::toDTO).toList())
                 .build();

@@ -2,6 +2,8 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.projection.*;
+import com.triasoft.garage.projection.MonthlyTrendMetrics;
+import com.triasoft.garage.projection.PLPendingMetrics;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -37,20 +39,45 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             "AND s.deleted = false", nativeQuery = true)
     SaleMetrics getSalesSummaryMetrics(@Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth, @Param("startOfMonth") LocalDate startOfMonth, @Param("today") LocalDate today);
 
-    @Query(value = "SELECT " +
-            "  (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale WHERE deleted = false) as totalSales, " +
-            "  (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale WHERE deleted = false AND sale_date < :startOfMonth) as salesBeforeMonth, " +
-            "  " +
-            "  (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order WHERE deleted = false) as totalPurchases, " +
-            "  (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order WHERE deleted = false AND order_date < :startOfMonth) as purchasesBeforeMonth, " +
-            "  " +
-            "  (SELECT COALESCE(SUM(amount), 0) FROM app_expense WHERE deleted = false AND purchase_order_id IS NULL) as totalExpenses, " +
-            "  (SELECT COALESCE(SUM(amount), 0) FROM app_expense WHERE deleted = false AND purchase_order_id IS NULL AND date < :startOfMonth) as expensesBeforeMonth, " +
-            "  " +
-            "  (SELECT COALESCE(SUM(profit_amount), 0) FROM app_sale WHERE deleted = false) as totalGrossProfit, " +
-            "  (SELECT COALESCE(SUM(profit_amount), 0) FROM app_sale WHERE deleted = false AND sale_date < :startOfMonth) as grossProfitBeforeMonth " +
-            "FROM (SELECT 1) data", nativeQuery = true)
-    SummaryMetrics getFinancialSummary(@Param("startOfMonth") LocalDate startOfMonth);
+    @Query(value = """
+            SELECT
+              (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale
+               WHERE deleted = false AND sale_date >= :startOfMonth) as totalSales,
+              (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale
+               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as salesBeforeMonth,
+
+              (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order
+               WHERE deleted = false AND order_date >= :startOfMonth) as totalPurchases,
+              (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order
+               WHERE deleted = false AND order_date >= :startOfLastMonth AND order_date < :startOfMonth) as purchasesBeforeMonth,
+
+              (SELECT COALESCE(SUM(amount), 0) FROM app_expense
+               WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
+               JOIN fnd_lookup_master l ON l.id = d.type_id
+               WHERE d.deleted = false AND d.direction = 'OUT'
+                 AND l.code NOT IN ('DRAWING', 'PARTNER_DRAWING')
+                 AND d.entry_date >= :startOfMonth) as totalExpenses,
+
+              (SELECT COALESCE(SUM(amount), 0) FROM app_expense
+               WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfLastMonth AND date < :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
+               JOIN fnd_lookup_master l ON l.id = d.type_id
+               WHERE d.deleted = false AND d.direction = 'OUT'
+                 AND l.code NOT IN ('DRAWING', 'PARTNER_DRAWING')
+                 AND d.entry_date >= :startOfLastMonth AND d.entry_date < :startOfMonth) as expensesBeforeMonth,
+
+              (SELECT COALESCE(SUM(net_sale_amount - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
+               WHERE deleted = false AND sale_date >= :startOfMonth) as totalGrossProfit,
+              (SELECT COALESCE(SUM(net_sale_amount - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
+               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as grossProfitBeforeMonth
+
+            FROM (SELECT 1) data
+            """, nativeQuery = true)
+    SummaryMetrics getFinancialSummary(@Param("startOfMonth") LocalDate startOfMonth,
+                                       @Param("startOfLastMonth") LocalDate startOfLastMonth);
 
     @Query(value = """
             (SELECT 'SALE' as activityType, 
@@ -125,14 +152,92 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                       WHERE DATE_TRUNC('month', p.order_date) = m.month_date AND p.deleted = false), 0) as purchases,
             COALESCE((SELECT SUM(amount) FROM app_expense e 
                       WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as expenses,
-            COALESCE((SELECT SUM(profit_amount) FROM app_sale s 
-                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0) - 
-            COALESCE((SELECT SUM(amount) FROM app_expense e 
-                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as profit
+            COALESCE((SELECT SUM(s.net_sale_amount - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
+                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0)
+            -
+            COALESCE((SELECT SUM(e.amount) FROM app_expense e
+                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0)
+            -
+            COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
+                      JOIN fnd_lookup_master l ON l.id = d.type_id
+                      WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
+                      AND d.deleted = false AND d.direction = 'OUT'
+                      AND l.code NOT IN ('DRAWING','PARTNER_DRAWING')), 0) as profit
         FROM months m
         ORDER BY m.month_date DESC
         """, nativeQuery = true)
     List<BalanceMetrics> getMonthlyBalanceSheet(@Param("monthCount") int monthCount);
+
+    @Query(value = """
+            WITH RECURSIVE months AS (
+                SELECT DATE_TRUNC('month', CURRENT_DATE) as month_date
+                UNION ALL
+                SELECT DATE_TRUNC('month', month_date - INTERVAL '1 month')
+                FROM months
+                WHERE month_date > DATE_TRUNC('month',
+                      CURRENT_DATE - CAST((:monthCount - 1) || ' month' AS INTERVAL))
+            )
+            SELECT
+                TO_CHAR(m.month_date, 'YYYY-MM')  as month,
+                TO_CHAR(m.month_date, 'Mon YYYY') as monthLabel,
+
+                COALESCE((SELECT COUNT(*) FROM app_sale s
+                          WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
+                          AND s.deleted = false), 0) as salesCount,
+
+                COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
+                          WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
+                          AND s.deleted = false), 0) as totalRevenue,
+
+                COALESCE((SELECT SUM(s.net_sale_amount - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
+                          WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
+                          AND s.deleted = false), 0) as grossProfit,
+
+                COALESCE((SELECT SUM(s.net_sale_amount) FROM app_sale s
+                          WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
+                          AND s.deleted = false
+                          AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')), 0) as totalReceivables,
+
+                COALESCE((
+                    SELECT SUM(po.total_amount) - COALESCE(SUM(pp_sum.paid), 0)
+                    FROM app_purchase_order po
+                    LEFT JOIN (
+                        SELECT purchase_order_id, SUM(amount) as paid
+                        FROM app_purchase_payment
+                        WHERE deleted = false
+                        GROUP BY purchase_order_id
+                    ) pp_sum ON pp_sum.purchase_order_id = po.id
+                    WHERE DATE_TRUNC('month', po.order_date) = m.month_date
+                    AND po.deleted = false
+                ), 0) as totalPayables,
+
+                COALESCE((SELECT SUM(e.amount) FROM app_expense e
+                          WHERE DATE_TRUNC('month', e.date) = m.month_date
+                          AND e.deleted = false
+                          AND e.purchase_order_id IS NULL), 0)
+                +
+                COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
+                          JOIN fnd_lookup_master l ON l.id = d.type_id
+                          WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
+                          AND d.deleted = false AND d.direction = 'OUT'
+                          AND l.code NOT IN ('DRAWING','PARTNER_DRAWING')), 0) as totalExpenses
+
+            FROM months m
+            ORDER BY m.month_date ASC
+            """, nativeQuery = true)
+    List<MonthlyTrendMetrics> getMonthlyTrend(@Param("monthCount") int monthCount);
+
+    @Query(value = """
+            SELECT
+              COUNT(*) as pendingCount,
+              COALESCE(SUM(s.net_sale_amount), 0) as pendingAmount,
+              COALESCE(SUM(CASE WHEN s.payment_status = 'FINANCE_PENDING' THEN s.finance_amount ELSE 0 END), 0) as financePendingAmount
+            FROM app_sale s
+            WHERE s.deleted = false
+              AND s.sale_date BETWEEN :startDate AND :endDate
+              AND s.payment_status IN ('PENDING', 'PARTIAL', 'FINANCE_PENDING')
+            """, nativeQuery = true)
+    PLPendingMetrics getPendingByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query("""
             SELECT pd.purchase.id as purchaseId,

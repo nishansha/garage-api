@@ -2,6 +2,7 @@ package com.triasoft.garage.controller;
 
 import com.triasoft.garage.dto.DirectEntryDTO;
 import com.triasoft.garage.model.common.ApiResponse;
+import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.model.entry.DirectEntryRs;
 import com.triasoft.garage.service.impl.DirectEntryService;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 @Slf4j
 @RestController
@@ -50,6 +52,15 @@ public class DirectEntryController {
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<DirectEntryRs>> delete(@PathVariable("id") Long id) {
         return ResponseEntity.ok(ApiResponse.success(directEntryService.delete(id)));
+    }
+
+    @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<DirectEntryRs>> find(
+            @RequestBody FilterRq filter,
+            @RequestParam("page") int page,
+            @RequestParam("size") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("entryDate").descending());
+        return ResponseEntity.ok(ApiResponse.success(directEntryService.search(filter, pageable)));
     }
 
 }

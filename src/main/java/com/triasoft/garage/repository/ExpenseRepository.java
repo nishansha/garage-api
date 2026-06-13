@@ -2,6 +2,7 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.Expense;
 import com.triasoft.garage.projection.ExpenseMetrics;
+import com.triasoft.garage.projection.PLExpenseMetrics;
 import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,4 +35,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     @Query("SELECT e.purchase.id as purchaseId, SUM(e.amount) as totalExpenses FROM Expense e WHERE e.purchase.id IN :purchaseIds GROUP BY e.purchase.id")
     List<PurchaseExpenseSumProjection> getTotalExpensesByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);
+
+    @Query(value = """
+            SELECT
+              COALESCE(SUM(CASE WHEN e.purchase_order_id IS NULL THEN e.amount ELSE 0 END), 0) as generalExpenses,
+              COALESCE(SUM(CASE WHEN e.purchase_order_id IS NOT NULL THEN e.amount ELSE 0 END), 0) as purchaseExpenses
+            FROM app_expense e
+            WHERE e.deleted = false
+              AND e.date BETWEEN :startDate AND :endDate
+            """, nativeQuery = true)
+    PLExpenseMetrics getExpensesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }
