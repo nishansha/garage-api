@@ -292,7 +292,7 @@ public class ExpenseService {
     }
 
     private void reverseTransaction(Expense expense) {
-        Optional<Transaction> original = transactionRepository.findByReferenceTypeAndReferenceId(
+        Optional<Transaction> original = transactionRepository.findActiveByReferenceTypeAndReferenceId(
                 expense.getPurchase() != null ? "PURCHASE_EXPENSE" : "EXPENSE", expense.getId());
         original.ifPresent(orig -> {
             if (transactionRepository.existsByReversalOfId(orig.getId())) return;

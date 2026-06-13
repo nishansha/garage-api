@@ -22,6 +22,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Optional<Transaction> findByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 
+    @Query("""
+            SELECT t FROM Transaction t
+            WHERE t.referenceType = :referenceType
+              AND t.referenceId   = :referenceId
+              AND t.reversalOf IS NULL
+              AND NOT EXISTS (
+                  SELECT r FROM Transaction r WHERE r.reversalOf = t
+              )
+            """)
+    Optional<Transaction> findActiveByReferenceTypeAndReferenceId(
+            @Param("referenceType") String referenceType,
+            @Param("referenceId") Long referenceId);
+
     boolean existsByReversalOfId(Long transactionId);
 
     boolean existsByPaymentAccountId(Long accountId);

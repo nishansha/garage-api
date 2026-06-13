@@ -724,7 +724,7 @@ public class PurchaseService {
     }
 
     private void reverseExpenseTransaction(Expense expense) {
-        transactionRepository.findByReferenceTypeAndReferenceId("PURCHASE_EXPENSE", expense.getId())
+        transactionRepository.findActiveByReferenceTypeAndReferenceId("PURCHASE_EXPENSE", expense.getId())
                 .ifPresent(original -> {
                     if (transactionRepository.existsByReversalOfId(original.getId())) return;
                     Transaction reversal = new Transaction();
@@ -742,7 +742,7 @@ public class PurchaseService {
     }
 
     private void reversePaymentTransaction(PurchasePayment payment) {
-        transactionRepository.findByReferenceTypeAndReferenceId("PURCHASE_PAYMENT", payment.getId())
+        transactionRepository.findActiveByReferenceTypeAndReferenceId("PURCHASE_PAYMENT", payment.getId())
                 .ifPresent(original -> {
                     if (transactionRepository.existsByReversalOfId(original.getId())) return;
                     Transaction reversal = new Transaction();

@@ -502,7 +502,7 @@ public class SalesService {
     }
 
     private void reverseSalePaymentTransaction(SalePayment payment) {
-        transactionRepository.findByReferenceTypeAndReferenceId("SALE_PAYMENT", payment.getId())
+        transactionRepository.findActiveByReferenceTypeAndReferenceId("SALE_PAYMENT", payment.getId())
                 .ifPresent(original -> {
                     if (transactionRepository.existsByReversalOfId(original.getId())) return;
                     Transaction reversal = new Transaction();

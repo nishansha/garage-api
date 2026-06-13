@@ -75,7 +75,9 @@ public class ErrorCode {
         INSUFFICIENT_BALANCE("BUS_124", "Insufficient balance in the selected payment account"),
         PAYMENT_NOT_FOUND("BUS_125", "Payment record not found"),
         OVERPAYMENT("BUS_126", "Payment amount exceeds the remaining balance for this purchase"),
-        PURCHASE_EXPENSE_LOCKED("BUS_127", "Expenses for this purchase are locked. The vehicle was sold and the sale month has ended.");
+        PURCHASE_EXPENSE_LOCKED("BUS_127", "Expenses for this purchase are locked. The vehicle was sold and the sale month has ended."),
+        DIRECT_ENTRY_NOT_FOUND("BUS_128", "Direct entry not found"),
+        DIRECT_ENTRY_ALREADY_REVERSED("BUS_129", "Direct entry has already been reversed");
 
         private final String code;
         private final String message;

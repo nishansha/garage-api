@@ -6,5 +6,6 @@ public enum TransactionTypeEnum {
     SALE_RECEIPT,
     EXPENSE,
     REFUND,
-    TRANSFER
+    TRANSFER,
+    DIRECT_ENTRY
 }
