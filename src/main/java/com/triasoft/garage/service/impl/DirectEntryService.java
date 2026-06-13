@@ -2,17 +2,16 @@ package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.DirectEntryDTO;
+import com.triasoft.garage.entity.ChartOfAccount;
 import com.triasoft.garage.entity.DirectEntry;
-import com.triasoft.garage.entity.LookupMaster;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
 import com.triasoft.garage.exception.BusinessException;
-import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.model.entry.DirectEntryRs;
+import com.triasoft.garage.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.DirectEntryRepository;
-import com.triasoft.garage.repository.LookupMasterRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
 import com.triasoft.garage.specifiction.DirectEntrySpecification;
@@ -20,7 +19,6 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +33,8 @@ public class DirectEntryService {
     private final DirectEntryRepository directEntryRepository;
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
-    private final LookupMasterRepository lookupMasterRepository;
+    private final ChartOfAccountRepository chartOfAccountRepository;
+    private final JournalService journalService;
 
     public DirectEntryRs getAll(Pageable pageable) {
         Page<DirectEntry> page = directEntryRepository.findAllByOrderByEntryDateDescCreatedAtDesc(pageable);
@@ -69,11 +68,7 @@ public class DirectEntryService {
         mapFields(entry, rq);
         entry = directEntryRepository.save(entry);
         postTransaction(entry);
-        // TODO [JOURNAL ENTRY] - Direct Entry
-        // direction=IN:  Dr <paymentAccount> (Asset) / Cr account per type (Equity/Income/Liability)
-        // direction=OUT: Dr account per type (Equity/Expense) / Cr <paymentAccount> (Asset)
-        // The CoA counterpart account will be configurable per DirectEntryType in the lookup.
-        // Future call: JournalEntryService.postDirectEntry(entry.getId())
+        journalService.post(JournalService.REF_DIRECT_ENTRY, entry.getId());
         return DirectEntryRs.builder().id(entry.getId()).build();
     }
 
@@ -82,9 +77,11 @@ public class DirectEntryService {
         validate(rq);
         DirectEntry entry = find(id);
         reverseTransaction(entry);
+        journalService.reverse(JournalService.REF_DIRECT_ENTRY, id);
         mapFields(entry, rq);
         entry = directEntryRepository.save(entry);
         postTransaction(entry);
+        journalService.post(JournalService.REF_DIRECT_ENTRY, entry.getId());
         return DirectEntryRs.builder().id(entry.getId()).build();
     }
 
@@ -92,13 +89,14 @@ public class DirectEntryService {
     public DirectEntryRs delete(Long id) {
         DirectEntry entry = find(id);
         reverseTransaction(entry);
+        journalService.reverse(JournalService.REF_DIRECT_ENTRY, id);
         directEntryRepository.delete(entry);
         return DirectEntryRs.builder().build();
     }
 
     private void validate(DirectEntryRq rq) {
-        if (rq.getTypeId() == null) {
-            throw new BusinessException("DE_400", "Entry type is required");
+        if (rq.getCoaId() == null) {
+            throw new BusinessException("DE_400", "Account is required");
         }
         if (rq.getDirection() == null) {
             throw new BusinessException("DE_401", "Direction (IN/OUT) is required");
@@ -112,12 +110,12 @@ public class DirectEntryService {
     }
 
     private void mapFields(DirectEntry entry, DirectEntryRq rq) {
-        LookupMaster type = lookupMasterRepository.findById(rq.getTypeId())
-                .orElseThrow(() -> new BusinessException("DE_404", "Entry type not found"));
+        ChartOfAccount coa = chartOfAccountRepository.findById(rq.getCoaId())
+                .orElseThrow(() -> new BusinessException("DE_404", "Account not found"));
         PaymentAccount account = paymentAccountRepository.findById(rq.getPaymentAccountId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
         entry.setEntryDate(rq.getEntryDate() != null ? rq.getEntryDate() : LocalDate.now());
-        entry.setType(type);
+        entry.setChartOfAccount(coa);
         entry.setDirection(rq.getDirection());
         entry.setAmount(rq.getAmount());
         entry.setPaymentAccount(account);
@@ -163,10 +161,10 @@ public class DirectEntryService {
     }
 
     private String buildDescription(DirectEntry entry) {
-        String typeName = entry.getType().getDescription();
+        String label = entry.getChartOfAccount().getLabel();
         return entry.getPartyName() != null
-                ? typeName + " – " + entry.getPartyName()
-                : typeName;
+                ? label + " – " + entry.getPartyName()
+                : label;
     }
 
     private DirectEntry find(Long id) {
@@ -179,9 +177,8 @@ public class DirectEntryService {
         return DirectEntryDTO.builder()
                 .id(e.getId())
                 .entryDate(e.getEntryDate())
-                .typeId(e.getType().getId())
-                .typeCode(e.getType().getCode())
-                .typeName(e.getType().getDescription())
+                .coaId(e.getChartOfAccount() != null ? e.getChartOfAccount().getId() : null)
+                .coaLabel(e.getChartOfAccount() != null ? e.getChartOfAccount().getLabel() : null)
                 .direction(e.getDirection())
                 .amount(e.getAmount())
                 .paymentAccountId(e.getPaymentAccount() != null ? e.getPaymentAccount().getId() : null)

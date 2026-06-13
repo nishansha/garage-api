@@ -53,6 +53,7 @@ public class ExpenseService {
     private final PurchaseRepository purchaseRepository;
     private final InventoryRepository inventoryRepository;
     private final SaleRepository saleRepository;
+    private final JournalService journalService;
 
     public ExpenseRs getAll(Pageable pageable, UserDTO user) {
         Page<Expense> expensePage = expenseRepository.findByPurchaseIsNull(pageable);
@@ -131,12 +132,14 @@ public class ExpenseService {
             if (paymentAccount != null) {
                 createTransaction(saved, TransactionTypeEnum.PURCHASE_EXPENSE_PAYMENT, "PURCHASE_EXPENSE",
                         purchase.getReferenceNo(), paymentAccount, TransactionDirectionEnum.OUT);
+                journalService.post(JournalService.REF_EXPENSE, saved.getId());
             }
         } else {
             Expense saved = expenseRepository.save(expense);
             if (paymentAccount != null) {
                 createTransaction(saved, TransactionTypeEnum.EXPENSE, "EXPENSE",
                         null, paymentAccount, TransactionDirectionEnum.OUT);
+                journalService.post(JournalService.REF_EXPENSE, saved.getId());
             }
         }
 
@@ -175,6 +178,7 @@ public class ExpenseService {
 
         if (amountChanged || accountChanged) {
             reverseTransaction(expense);
+            journalService.reverse(JournalService.REF_EXPENSE, id);
         }
 
         PaymentAccount newPaymentAccount = null;
@@ -194,6 +198,7 @@ public class ExpenseService {
                     isPurchaseLinked ? "PURCHASE_EXPENSE" : "EXPENSE",
                     isPurchaseLinked ? expense.getPurchase().getReferenceNo() : null,
                     newPaymentAccount, TransactionDirectionEnum.OUT);
+            journalService.post(JournalService.REF_EXPENSE, expense.getId());
         }
 
         if (amountChanged && expense.getPurchase() != null) {
@@ -219,6 +224,7 @@ public class ExpenseService {
         }
 
         reverseTransaction(expense);
+        journalService.reverse(JournalService.REF_EXPENSE, id);
 
         if (expense.getPurchase() != null) {
             Purchase purchase = expense.getPurchase();

@@ -24,5 +24,7 @@ public class PaymentAccountDTO implements Serializable {
     private BigDecimal openingBalance;
     private BigDecimal currentBalance;
     private boolean isActive;
+    private Long coaId;
+    private String coaLabel;
 
 }

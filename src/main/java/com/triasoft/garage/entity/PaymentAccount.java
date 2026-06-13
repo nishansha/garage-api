@@ -41,4 +41,8 @@ public class PaymentAccount extends AuditGenericEntity {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coa_id")
+    private ChartOfAccount chartOfAccount;
+
 }

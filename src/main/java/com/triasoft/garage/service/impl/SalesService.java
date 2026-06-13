@@ -44,6 +44,7 @@ public class SalesService {
     private final TransactionRepository transactionRepository;
     private final LookupHelper lookupHelper;
     private final PurchaseService purchaseService;
+    private final JournalService journalService;
 
     public SalesRs getAll(Pageable pageable, UserDTO user) {
         Page<Sale> salePage = saleRepository.findAll(pageable);
@@ -167,6 +168,7 @@ public class SalesService {
         }
         stock.setStatus(StatusEnum.SOLD);
         inventoryRepository.save(stock);
+        journalService.post(JournalService.REF_SALE, sale.getId());
         return SalesRs.builder().id(sale.getId()).build();
     }
 
@@ -256,6 +258,7 @@ public class SalesService {
     @Transactional
     public SalesRs update(Long id, SalesRq salesRq, UserDTO user) {
         Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+        journalService.reverse(JournalService.REF_SALE, id);
         if (!existingSale.getInventory().getId().equals(salesRq.getStockId())) {
             Inventory newStock = inventoryRepository.findById(salesRq.getStockId()).orElseThrow(() -> new EntityNotFoundException("New stock item not found"));
             if (StatusEnum.SOLD.equals(newStock.getStatus())) {
@@ -313,6 +316,7 @@ public class SalesService {
         // Future call: JournalEntryService.reverseByReference("SALE", id);
         //              JournalEntryService.postSale(id)
 
+        journalService.post(JournalService.REF_SALE, id);
         return SalesRs.builder().build();
     }
 
@@ -362,6 +366,7 @@ public class SalesService {
         }
         salePaymentRepository.findBySaleIdOrderByPaymentDateDesc(id)
                 .forEach(this::reverseSalePaymentTransaction);
+        journalService.reverse(JournalService.REF_SALE, id);
         // TODO [JOURNAL ENTRY] - Sale Deleted
         // Trigger  : before the sale record is deleted.
         // Entry    : full reversal of both sale journal entries.
@@ -484,6 +489,7 @@ public class SalesService {
         transaction.setDescription("Sale receipt – " + invoiceNo + " [" + payment.getPayerType().name() + "]");
         transaction.setNotes(payment.getNotes());
         transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_SALE_PAYMENT, payment.getId());
 
         // TODO [JOURNAL ENTRY] - Sale Payment Received
         // Trigger  : every time a payment is recorded against a sale (this is the single entry point).
@@ -516,6 +522,7 @@ public class SalesService {
                     reversal.setDescription("Reversal – " + original.getDescription());
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
+                    journalService.reverse(JournalService.REF_SALE_PAYMENT, payment.getId());
 
                     // TODO [JOURNAL ENTRY] - Sale Payment Reversal
                     // Trigger  : called on payment update (amount/account changed) or payment delete.

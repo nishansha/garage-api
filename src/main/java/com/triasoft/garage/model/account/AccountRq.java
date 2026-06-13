@@ -21,5 +21,6 @@ public class AccountRq implements Serializable {
     private String name;
     private String label;
     private String description;
+    private Boolean directPostable;
 
 }

@@ -19,14 +19,12 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
 
     @Query(value = """
             SELECT
-              COALESCE(SUM(CASE WHEN d.direction = 'IN'
-                               AND l.code NOT IN ('CONTRIBUTION','PARTNER_INVESTMENT')
+              COALESCE(SUM(CASE WHEN d.direction = 'IN' AND coa.type <> 'EQUITY'
                                THEN d.amount ELSE 0 END), 0) as totalIn,
-              COALESCE(SUM(CASE WHEN d.direction = 'OUT'
-                               AND l.code NOT IN ('DRAWING','PARTNER_DRAWING')
+              COALESCE(SUM(CASE WHEN d.direction = 'OUT' AND coa.type <> 'EQUITY'
                                THEN d.amount ELSE 0 END), 0) as totalOut
             FROM app_direct_entry d
-            JOIN fnd_lookup_master l ON l.id = d.type_id
+            JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
             WHERE d.deleted = false
               AND d.entry_date BETWEEN :startDate AND :endDate
             """, nativeQuery = true)

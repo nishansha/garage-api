@@ -55,18 +55,18 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfMonth)
               +
               (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
-               JOIN fnd_lookup_master l ON l.id = d.type_id
+               JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
-                 AND l.code NOT IN ('DRAWING', 'PARTNER_DRAWING')
+                 AND coa.type <> 'EQUITY'
                  AND d.entry_date >= :startOfMonth) as totalExpenses,
 
               (SELECT COALESCE(SUM(amount), 0) FROM app_expense
                WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfLastMonth AND date < :startOfMonth)
               +
               (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
-               JOIN fnd_lookup_master l ON l.id = d.type_id
+               JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
-                 AND l.code NOT IN ('DRAWING', 'PARTNER_DRAWING')
+                 AND coa.type <> 'EQUITY'
                  AND d.entry_date >= :startOfLastMonth AND d.entry_date < :startOfMonth) as expensesBeforeMonth,
 
               (SELECT COALESCE(SUM(net_sale_amount - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
@@ -159,10 +159,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                       WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0)
             -
             COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
-                      JOIN fnd_lookup_master l ON l.id = d.type_id
+                      JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                       WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                       AND d.deleted = false AND d.direction = 'OUT'
-                      AND l.code NOT IN ('DRAWING','PARTNER_DRAWING')), 0) as profit
+                      AND coa.type <> 'EQUITY'), 0) as profit
         FROM months m
         ORDER BY m.month_date DESC
         """, nativeQuery = true)
@@ -217,10 +217,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           AND e.purchase_order_id IS NULL), 0)
                 +
                 COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
-                          JOIN fnd_lookup_master l ON l.id = d.type_id
+                          JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                           AND d.deleted = false AND d.direction = 'OUT'
-                          AND l.code NOT IN ('DRAWING','PARTNER_DRAWING')), 0) as totalExpenses
+                          AND coa.type <> 'EQUITY'), 0) as totalExpenses
 
             FROM months m
             ORDER BY m.month_date ASC

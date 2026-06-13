@@ -26,8 +26,8 @@ public class DirectEntry extends AuditGenericEntity {
     private LocalDate entryDate;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "type_id", nullable = false)
-    private LookupMaster type;
+    @JoinColumn(name = "coa_id", nullable = false)
+    private ChartOfAccount chartOfAccount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "direction", nullable = false)

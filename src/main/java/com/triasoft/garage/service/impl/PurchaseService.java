@@ -75,6 +75,7 @@ public class PurchaseService {
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
+    private final JournalService journalService;
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
@@ -346,12 +347,19 @@ public class PurchaseService {
 
         StatusEnum inventoryStatus = purchaseRq.getDeliveredDate() != null ? StatusEnum.AVAILABLE : StatusEnum.PENDING_DELIVERY;
         createInventoryRecord(savedPurchase, detail, product, purchaseRq, totalExpenseAmt, inventoryStatus);
+        if (purchaseRq.getSourceSaleId() == null) {
+            journalService.post(JournalService.REF_PURCHASE, savedPurchase.getId());
+        }
         return rs;
     }
 
     @Transactional
     public PurchaseRs update(Long purchaseId, PurchaseRq purchaseRq, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
+        boolean isExchange = isExchangePurchase(purchaseId);
+        if (!isExchange) {
+            journalService.reverse(JournalService.REF_PURCHASE, purchaseId);
+        }
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             if (!computeIsEditableForDetail(purchase, inventoryOpt.get())) {
@@ -445,6 +453,9 @@ public class PurchaseService {
             }
         }
 
+        if (!isExchange) {
+            journalService.post(JournalService.REF_PURCHASE, purchaseId);
+        }
         return new PurchaseRs();
     }
 
@@ -557,6 +568,9 @@ public class PurchaseService {
         }
         purchase.getPurchaseExpenses().forEach(this::reverseExpenseTransaction);
         purchase.getPayments().forEach(this::reversePaymentTransaction);
+        if (!isExchangePurchase(id)) {
+            journalService.reverse(JournalService.REF_PURCHASE, id);
+        }
         purchaseRepository.delete(purchase);
         inventoryOpt.ifPresent(inventoryRepository::delete);
         return PurchaseRs.builder().build();
@@ -688,6 +702,7 @@ public class PurchaseService {
         transaction.setDescription("Purchase payment – " + purchaseRefNo);
         transaction.setNotes(payment.getNotes());
         transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
 
         // TODO [JOURNAL ENTRY] - Purchase Payment Made
         // Trigger  : every time a vendor payment is recorded (this method is the single entry point).
@@ -712,6 +727,7 @@ public class PurchaseService {
         transaction.setDirection(TransactionDirectionEnum.OUT);
         transaction.setDescription("Purchase expense – " + purchaseRefNo);
         transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_EXPENSE, expense.getId());
 
         // TODO [JOURNAL ENTRY] - Purchase Expense Paid
         // Trigger  : when a purchase-linked expense is created with a paymentAccountId.
@@ -739,6 +755,7 @@ public class PurchaseService {
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
                 });
+        journalService.reverse(JournalService.REF_EXPENSE, expense.getId());
     }
 
     private void reversePaymentTransaction(PurchasePayment payment) {
@@ -757,6 +774,13 @@ public class PurchaseService {
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
                 });
+        journalService.reverse(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
+    }
+
+    private boolean isExchangePurchase(Long purchaseId) {
+        return inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId)
+                .map(inv -> inv.getSourceSaleId() != null)
+                .orElse(false);
     }
 
     private PurchasePaymentDTO toPaymentDTO(PurchasePayment p) {

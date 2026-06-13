@@ -24,11 +24,18 @@ public class AccountService {
     private final ChartOfAccountRepository chatOfAccountRepository;
 
     public AccountRs getAccounts(AccountRq accountRq) {
-        if (StringUtils.hasLength(accountRq.getType())) {
-            List<ChartOfAccount> accounts = chatOfAccountRepository.findByType(accountRq.getType());
-            return AccountRs.builder().accounts(accounts.stream().map(this::toAccountDTO).toList()).build();
+        boolean filterByDirectPostable = Boolean.TRUE.equals(accountRq.getDirectPostable());
+        boolean filterByType = StringUtils.hasLength(accountRq.getType());
+        List<ChartOfAccount> accounts;
+        if (filterByType && filterByDirectPostable) {
+            accounts = chatOfAccountRepository.findByTypeAndIsDirectPostableTrue(accountRq.getType());
+        } else if (filterByDirectPostable) {
+            accounts = chatOfAccountRepository.findByIsDirectPostableTrue();
+        } else if (filterByType) {
+            accounts = chatOfAccountRepository.findByType(accountRq.getType());
+        } else {
+            accounts = chatOfAccountRepository.findAll();
         }
-        List<ChartOfAccount> accounts = chatOfAccountRepository.findAll();
         return AccountRs.builder().accounts(accounts.stream().map(this::toAccountDTO).toList()).build();
     }
 
@@ -62,7 +69,8 @@ public class AccountService {
         chartOfAccount.setLabel(accountDTO.getLabel().trim());
         chartOfAccount.setCode(nextCode.toString());
         chartOfAccount.setDescription(accountDTO.getDescription().trim());
-        chartOfAccount.setControlEnabled(true);
+        chartOfAccount.setControlEnabled(false);
+        chartOfAccount.setDirectPostable(accountDTO.isDirectPostable());
         return chatOfAccountRepository.save(chartOfAccount);
     }
 

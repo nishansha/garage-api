@@ -1,5 +1,6 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.AccountTypeEnum;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
 import com.triasoft.garage.dto.PaymentAccountDTO;
@@ -13,6 +14,8 @@ import com.triasoft.garage.model.payment.PaymentAccountRs;
 import com.triasoft.garage.model.payment.ReconcileRq;
 import com.triasoft.garage.model.payment.ReconcileRs;
 import com.triasoft.garage.model.payment.TransactionRs;
+import com.triasoft.garage.entity.ChartOfAccount;
+import com.triasoft.garage.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,6 +34,8 @@ public class PaymentAccountService {
 
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
+    private final ChartOfAccountRepository chartOfAccountRepository;
+    private final JournalService journalService;
 
     public PaymentAccountRs getAll() {
         List<PaymentAccountDTO> accounts = paymentAccountRepository.findAllByIsActiveTrue()
@@ -69,6 +72,11 @@ public class PaymentAccountService {
         account.setOpeningBalance(rq.getOpeningBalance() != null ? rq.getOpeningBalance() : BigDecimal.ZERO);
         account.setActive(rq.getIsActive() != null ? rq.getIsActive() : true);
         PaymentAccount saved = paymentAccountRepository.save(account);
+        saved.setChartOfAccount(autoCreateCoA(saved));
+        saved = paymentAccountRepository.save(saved);
+        if (saved.getOpeningBalance() != null && saved.getOpeningBalance().signum() > 0) {
+            journalService.post(JournalService.REF_OPENING_BALANCE, saved.getId());
+        }
 
         // TODO [JOURNAL ENTRY] - Payment Account Opening Balance
         // Trigger  : when openingBalance > 0 at account creation time.
@@ -94,6 +102,10 @@ public class PaymentAccountService {
                 throw new BusinessException(ErrorCode.Business.OPENING_BALANCE_LOCKED);
             }
             account.setOpeningBalance(rq.getOpeningBalance());
+        }
+        if (!account.getName().equalsIgnoreCase(rq.getName()) && account.getChartOfAccount() != null) {
+            account.getChartOfAccount().setLabel(rq.getName());
+            chartOfAccountRepository.save(account.getChartOfAccount());
         }
         account.setName(rq.getName());
         account.setBankName(rq.getBankName());
@@ -197,6 +209,20 @@ public class PaymentAccountService {
         return rs;
     }
 
+    private ChartOfAccount autoCreateCoA(PaymentAccount account) {
+        boolean isBank = AccountTypeEnum.BANK.equals(account.getAccountType());
+        long nextCode = chartOfAccountRepository.findMaxNumericCodeByType("ASSET") + 1;
+        ChartOfAccount coa = new ChartOfAccount();
+        coa.setType("ASSET");
+        coa.setName(isBank ? "A-BNK-" + account.getId() : "A-CSH-" + account.getId());
+        coa.setCode(String.valueOf(nextCode));
+        coa.setLabel(account.getName());
+        coa.setDescription((isBank ? "Bank" : "Cash") + " account — " + account.getName());
+        coa.setControlEnabled(false);
+        coa.setDirectPostable(false);
+        return chartOfAccountRepository.save(coa);
+    }
+
     public PaymentAccount findById(Long id) {
         return paymentAccountRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
@@ -219,6 +245,8 @@ public class PaymentAccountService {
                 .openingBalance(account.getOpeningBalance())
                 .currentBalance(balance)
                 .isActive(account.isActive())
+                .coaId(account.getChartOfAccount() != null ? account.getChartOfAccount().getId() : null)
+                .coaLabel(account.getChartOfAccount() != null ? account.getChartOfAccount().getLabel() : null)
                 .build();
     }
 
