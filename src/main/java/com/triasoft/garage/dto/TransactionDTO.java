@@ -31,6 +31,8 @@ public class TransactionDTO implements Serializable {
     private String notes;
     private Long reversalOfId;
     private boolean isReversed;
+    private boolean reconciled;
+    private LocalDate reconciledAt;
     private LocalDateTime createdAt;
 
 }

@@ -53,4 +53,10 @@ public class Transaction extends AuditGenericEntity {
     @JoinColumn(name = "reversal_of_id")
     private Transaction reversalOf;
 
+    @Column(name = "reconciled", nullable = false)
+    private boolean reconciled = false;
+
+    @Column(name = "reconciled_at")
+    private LocalDate reconciledAt;
+
 }

@@ -10,6 +10,8 @@ import com.triasoft.garage.entity.Transaction;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.payment.PaymentAccountRq;
 import com.triasoft.garage.model.payment.PaymentAccountRs;
+import com.triasoft.garage.model.payment.ReconcileRq;
+import com.triasoft.garage.model.payment.ReconcileRs;
 import com.triasoft.garage.model.payment.TransactionRs;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
@@ -19,7 +21,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -146,6 +151,52 @@ public class PaymentAccountService {
         return TransactionRs.builder().build();
     }
 
+    @Transactional
+    public ReconcileRs reconcile(Long accountId, ReconcileRq rq) {
+        findById(accountId);
+        if (rq.getTransactionIds() == null || rq.getTransactionIds().isEmpty()) {
+            throw new BusinessException("REC_400", "At least one transaction ID is required");
+        }
+        LocalDate today = LocalDate.now();
+        int reconciled = 0;
+        int alreadyReconciled = 0;
+        int skipped = 0;
+        for (Long txnId : rq.getTransactionIds()) {
+            Transaction txn = transactionRepository.findById(txnId).orElse(null);
+            if (txn == null || !accountId.equals(txn.getPaymentAccount() != null ? txn.getPaymentAccount().getId() : null)) {
+                skipped++;
+                continue;
+            }
+            if (txn.isReconciled()) {
+                alreadyReconciled++;
+                continue;
+            }
+            txn.setReconciled(true);
+            txn.setReconciledAt(today);
+            transactionRepository.save(txn);
+            reconciled++;
+        }
+        return ReconcileRs.builder()
+                .totalRequested(rq.getTransactionIds().size())
+                .reconciled(reconciled)
+                .alreadyReconciled(alreadyReconciled)
+                .skipped(skipped)
+                .build();
+    }
+
+    public TransactionRs getUnreconciledTransactions(Long accountId, Pageable pageable) {
+        findById(accountId);
+        Page<Transaction> page = transactionRepository
+                .findByPaymentAccountIdAndReconciledFalseOrderByTransactionDateDescCreatedAtDesc(accountId, pageable);
+        List<TransactionDTO> transactions = page.getContent().stream()
+                .map(t -> toTransactionDTO(t, transactionRepository.existsByReversalOfId(t.getId())))
+                .toList();
+        TransactionRs rs = TransactionRs.builder().transactions(transactions).build();
+        rs.setTotalPages(page.getTotalPages());
+        rs.setTotalElements(page.getTotalElements());
+        return rs;
+    }
+
     public PaymentAccount findById(Long id) {
         return paymentAccountRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
@@ -186,6 +237,8 @@ public class PaymentAccountService {
                 .notes(t.getNotes())
                 .reversalOfId(t.getReversalOf() != null ? t.getReversalOf().getId() : null)
                 .isReversed(isReversed)
+                .reconciled(t.isReconciled())
+                .reconciledAt(t.getReconciledAt())
                 .createdAt(t.getCreatedAt())
                 .build();
     }

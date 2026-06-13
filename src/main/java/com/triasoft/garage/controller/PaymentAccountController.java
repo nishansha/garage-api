@@ -4,6 +4,8 @@ import com.triasoft.garage.dto.PaymentAccountDTO;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.payment.PaymentAccountRq;
 import com.triasoft.garage.model.payment.PaymentAccountRs;
+import com.triasoft.garage.model.payment.ReconcileRq;
+import com.triasoft.garage.model.payment.ReconcileRs;
 import com.triasoft.garage.model.payment.TransactionRs;
 import com.triasoft.garage.service.impl.PaymentAccountService;
 import com.triasoft.garage.util.UserUtil;
@@ -63,6 +65,20 @@ public class PaymentAccountController {
                                                        @PathVariable("transactionId") Long transactionId,
                                                        HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(paymentAccountService.reverse(transactionId, UserUtil.getUser(request))));
+    }
+
+    @PostMapping(value = "/{id}/reconcile", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<ReconcileRs>> reconcile(@PathVariable("id") Long id,
+                                                       @RequestBody ReconcileRq rq) {
+        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.reconcile(id, rq)));
+    }
+
+    @GetMapping(value = "/{id}/unreconciled", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<TransactionRs>> getUnreconciled(@PathVariable("id") Long id,
+                                                               @RequestParam("page") int page,
+                                                               @RequestParam("size") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("transactionDate").descending());
+        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.getUnreconciledTransactions(id, pageable)));
     }
 
 }

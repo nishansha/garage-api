@@ -39,4 +39,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     boolean existsByPaymentAccountId(Long accountId);
 
+    Page<Transaction> findByPaymentAccountIdAndReconciledFalseOrderByTransactionDateDescCreatedAtDesc(Long accountId, Pageable pageable);
+
 }
