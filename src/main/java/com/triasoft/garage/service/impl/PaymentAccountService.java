@@ -71,6 +71,7 @@ public class PaymentAccountService {
         account.setAccountType(rq.getAccountType());
         account.setOpeningBalance(rq.getOpeningBalance() != null ? rq.getOpeningBalance() : BigDecimal.ZERO);
         account.setActive(rq.getIsActive() != null ? rq.getIsActive() : true);
+        account.setOpeningDate(rq.getOpeningDate());
         PaymentAccount saved = paymentAccountRepository.save(account);
         saved.setChartOfAccount(autoCreateCoA(saved));
         saved = paymentAccountRepository.save(saved);

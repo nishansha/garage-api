@@ -1,7 +1,9 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.*;
-import com.triasoft.garage.projection.PurchaseEditabilityProjection;
+import com.triasoft.garage.model.report.PayableInfo;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.projection.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
@@ -18,11 +20,6 @@ import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
-import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
-import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
-import com.triasoft.garage.projection.PurchaseListProjection;
-import com.triasoft.garage.projection.PurchasePaidProjection;
-import com.triasoft.garage.projection.PurchaseMetrics;
 import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.InventoryRepository;
 import com.triasoft.garage.repository.SaleRepository;
@@ -775,6 +772,33 @@ public class PurchaseService {
                     transactionRepository.save(reversal);
                 });
         journalService.reverse(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
+    }
+
+    public PayablesSummaryRs getPayablesSummary() {
+        List<PayableRow> rows = purchaseRepository.findPayables();
+        List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
+                .purchaseId(r.getPurchaseId())
+                .referenceNo(r.getReferenceNo())
+                .vehicleNo(r.getVehicleNo())
+                .purchaseDate(r.getPurchaseDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastPaymentDate(r.getLastPaymentDate())
+                .vendorName(r.getVendorName())
+                .vendorMobile(r.getVendorMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(PayableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return PayablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private boolean isExchangePurchase(Long purchaseId) {

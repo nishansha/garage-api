@@ -185,7 +185,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0) as salesCount,
 
-                COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
+                COALESCE((SELECT SUM(s.net_sale_amount) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0) as totalRevenue,
 
@@ -193,13 +193,24 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0) as grossProfit,
 
-                COALESCE((SELECT SUM(s.net_sale_amount) FROM app_sale s
-                          WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false
-                          AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')), 0) as totalReceivables,
+                COALESCE((
+                    SELECT SUM(s.net_sale_amount) - COALESCE(SUM(sp_sum.paid), 0)
+                    FROM app_sale s
+                    LEFT JOIN (
+                        SELECT sale_id, SUM(amount) as paid
+                        FROM app_sale_payment
+                        WHERE deleted = false
+                        GROUP BY sale_id
+                    ) sp_sum ON sp_sum.sale_id = s.id
+                    WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
+                    AND s.deleted = false
+                    AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')
+                ), 0) as totalReceivables,
 
                 COALESCE((
-                    SELECT SUM(po.total_amount) - COALESCE(SUM(pp_sum.paid), 0)
+                    SELECT SUM(po.total_amount)
+                         - COALESCE(SUM(pp_sum.paid), 0)
+                         - COALESCE(SUM(exp_sum.expense), 0)
                     FROM app_purchase_order po
                     LEFT JOIN (
                         SELECT purchase_order_id, SUM(amount) as paid
@@ -207,6 +218,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                         WHERE deleted = false
                         GROUP BY purchase_order_id
                     ) pp_sum ON pp_sum.purchase_order_id = po.id
+                    LEFT JOIN (
+                        SELECT purchase_order_id, SUM(amount) as expense
+                        FROM app_expense
+                        WHERE deleted = false AND purchase_order_id IS NOT NULL
+                        GROUP BY purchase_order_id
+                    ) exp_sum ON exp_sum.purchase_order_id = po.id
                     WHERE DATE_TRUNC('month', po.order_date) = m.month_date
                     AND po.deleted = false
                 ), 0) as totalPayables,
@@ -230,14 +247,49 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = """
             SELECT
               COUNT(*) as pendingCount,
-              COALESCE(SUM(s.net_sale_amount), 0) as pendingAmount,
+              COALESCE(SUM(s.net_sale_amount) - COALESCE(SUM(sp_sum.paid), 0), 0) as pendingAmount,
               COALESCE(SUM(CASE WHEN s.payment_status = 'FINANCE_PENDING' THEN s.finance_amount ELSE 0 END), 0) as financePendingAmount
             FROM app_sale s
+            LEFT JOIN (
+                SELECT sale_id, SUM(amount) as paid
+                FROM app_sale_payment
+                WHERE deleted = false
+                GROUP BY sale_id
+            ) sp_sum ON sp_sum.sale_id = s.id
             WHERE s.deleted = false
               AND s.sale_date BETWEEN :startDate AND :endDate
               AND s.payment_status IN ('PENDING', 'PARTIAL', 'FINANCE_PENDING')
             """, nativeQuery = true)
     PLPendingMetrics getPendingByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query(value = """
+            SELECT
+                s.id            as saleId,
+                s.invoice_no    as invoiceNo,
+                s.payment_status as paymentStatus,
+                inv.product_no  as vehicleNo,
+                s.sale_date     as saleDate,
+                s.net_sale_amount as amount,
+                (s.net_sale_amount - COALESCE(sp_sum.paid, 0)) as pendingAmount,
+                sp_sum.last_payment_date as lastPaymentDate,
+                c.name          as customerName,
+                c.mobile        as customerMobile
+            FROM app_sale s
+            JOIN app_inventory inv ON inv.id = s.inventory_id
+            JOIN app_customer c    ON c.id = s.customer_id
+            LEFT JOIN (
+                SELECT sale_id,
+                       SUM(amount)      as paid,
+                       MAX(payment_date) as last_payment_date
+                FROM app_sale_payment
+                WHERE deleted = false
+                GROUP BY sale_id
+            ) sp_sum ON sp_sum.sale_id = s.id
+            WHERE s.deleted = false
+              AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')
+            ORDER BY s.sale_date DESC
+            """, nativeQuery = true)
+    List<ReceivableRow> findReceivables();
 
     @Query("""
             SELECT pd.purchase.id as purchaseId,

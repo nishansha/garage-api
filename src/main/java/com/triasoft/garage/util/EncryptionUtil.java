@@ -30,12 +30,8 @@ public class EncryptionUtil {
 
     public void generateKeys() {
         try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048);
-            KeyPair keyPair = keyPairGenerator.generateKeyPair();
-
-            this.publicKey = keyPair.getPublic();
-            this.privateKey = keyPair.getPrivate();
+            this.publicKey = loadPublicKey();
+            this.privateKey = loadPrivateKey();
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate keys", e);
         }
@@ -97,7 +93,7 @@ public class EncryptionUtil {
     public static void main(String[] args) {
         EncryptionUtil encryptionUtil = new EncryptionUtil();
         encryptionUtil.generateKeys();
-        String encryptedVal = encryptionUtil.encrypt("Nishan");
+        String encryptedVal = encryptionUtil.encrypt("123");
         System.out.println("encryptedVal : " + encryptedVal);
 
         String decryptedVal = encryptionUtil.decrypt(encryptedVal);

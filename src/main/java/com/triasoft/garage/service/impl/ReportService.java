@@ -6,14 +6,21 @@ import com.triasoft.garage.model.report.AccountBalanceInfo;
 import com.triasoft.garage.model.report.MonthlyTrendInfo;
 import com.triasoft.garage.model.report.MonthlyTrendRs;
 import com.triasoft.garage.model.report.PLReportRs;
+import com.triasoft.garage.model.report.PayableInfo;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.ReceivableInfo;
+import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.projection.MonthlyTrendMetrics;
 import com.triasoft.garage.projection.PLDirectEntryMetrics;
 import com.triasoft.garage.projection.PLExpenseMetrics;
 import com.triasoft.garage.projection.PLPendingMetrics;
+import com.triasoft.garage.projection.PayableRow;
 import com.triasoft.garage.projection.ProfitMetrics;
+import com.triasoft.garage.projection.ReceivableRow;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
+import com.triasoft.garage.repository.PurchaseRepository;
 import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +40,7 @@ public class ReportService {
     private static final DateTimeFormatter PERIOD_DISPLAY = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
     private final SaleRepository saleRepository;
+    private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
     private final DirectEntryRepository directEntryRepository;
     private final PaymentAccountRepository paymentAccountRepository;
@@ -136,6 +144,53 @@ public class ReportService {
                     .build();
         }).toList();
         return MonthlyTrendRs.builder().trend(trend).build();
+    }
+
+    public ReceivablesSummaryRs getReceivablesSummary() {
+        List<ReceivableRow> rows = saleRepository.findReceivables();
+        List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
+                .saleId(r.getSaleId())
+                .invoiceNo(r.getInvoiceNo())
+                .paymentStatus(r.getPaymentStatus())
+                .vehicleNo(r.getVehicleNo())
+                .saleDate(r.getSaleDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastPaymentDate(r.getLastPaymentDate())
+                .customerName(r.getCustomerName())
+                .customerMobile(r.getCustomerMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(ReceivableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return ReceivablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    public PayablesSummaryRs getPayablesSummary() {
+        List<PayableRow> rows = purchaseRepository.findPayables();
+        List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
+                .purchaseId(r.getPurchaseId())
+                .referenceNo(r.getReferenceNo())
+                .vehicleNo(r.getVehicleNo())
+                .purchaseDate(r.getPurchaseDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastPaymentDate(r.getLastPaymentDate())
+                .vendorName(r.getVendorName())
+                .vendorMobile(r.getVendorMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(PayableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return PayablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
     }
 
     private BigDecimal safe(BigDecimal value) {

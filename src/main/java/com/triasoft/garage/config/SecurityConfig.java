@@ -98,5 +98,8 @@ public class SecurityConfig {
 //        SecretKey key = Jwts.SIG.HS256.key().build();
 //        String secretString = Encoders.BASE64.encode(key.getEncoded());
 //        System.out.println("Store this secret: " + secretString);
+//        BCryptPasswordEncoder bCryptPasswordEncoder =  new BCryptPasswordEncoder();
+//        String pwd = bCryptPasswordEncoder.encode("123");
+//        System.out.println(pwd);
 //    }
 }

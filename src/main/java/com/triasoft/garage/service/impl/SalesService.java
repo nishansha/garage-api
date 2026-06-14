@@ -10,10 +10,13 @@ import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
+import com.triasoft.garage.model.report.ReceivableInfo;
+import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.sale.SalePaymentRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
 import com.triasoft.garage.model.sale.SalesRs;
+import com.triasoft.garage.projection.ReceivableRow;
 import com.triasoft.garage.projection.SaleMetrics;
 import com.triasoft.garage.repository.*;
 import com.triasoft.garage.specifiction.SaleSpecification;
@@ -95,6 +98,7 @@ public class SalesService {
                 .profit(sale.getProfitAmount())
                 .isExchange(sale.isExchanged())
                 .isFinanced(sale.isFinanced())
+                .paymentStatus(sale.getPaymentStatus())
                 .statusId(sale.getStatus() != null ? sale.getStatus().getId() : null)
                 .statusName(sale.getStatus() != null ? sale.getStatus().getDescription() : null)
                 .build();
@@ -561,6 +565,34 @@ public class SalesService {
                 .referenceNo(p.getReferenceNo())
                 .notes(p.getNotes())
                 .build();
+    }
+
+    public ReceivablesSummaryRs getReceivablesSummary() {
+        List<ReceivableRow> rows = saleRepository.findReceivables();
+        List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
+                .saleId(r.getSaleId())
+                .invoiceNo(r.getInvoiceNo())
+                .paymentStatus(r.getPaymentStatus())
+                .vehicleNo(r.getVehicleNo())
+                .saleDate(r.getSaleDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastPaymentDate(r.getLastPaymentDate())
+                .customerName(r.getCustomerName())
+                .customerMobile(r.getCustomerMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(ReceivableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return ReceivablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
 //    public SaleSummaryRs getMonthlyProfitReport(UserDTO user) {

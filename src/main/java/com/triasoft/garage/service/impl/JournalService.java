@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -222,13 +223,22 @@ public class JournalService {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new EntityNotFoundException("Purchase not found: " + purchaseId));
 
+        // total_amount on Purchase includes both the base vehicle price AND linked expenses.
+        // Purchase-linked expenses post their own EXPENSE journals (DR Inventory / CR cash),
+        // so this PURCHASE journal must use only the base (vendor-billed) amount to avoid:
+        //  • double-debiting Inventory (once here, once in EXPENSE)
+        //  • inflating A/P by expense amounts that were paid directly, not invoiced by vendor
+        BigDecimal expensesSum = purchase.getPurchaseExpenses().stream()
+                .map(e -> safe(e.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal baseAmount = safe(purchase.getTotalAmount()).subtract(expensesSum);
+
         Journal journal = createJournal(REF_PURCHASE, purchaseId, purchase.getOrderDate(),
                 "Purchase " + purchase.getReferenceNo() + " — " + purchase.getVendor().getName());
 
-        BigDecimal amount = safe(purchase.getTotalAmount());
         List<JournalDetail> lines = List.of(
-                debit(journal, coa(COA_INVENTORY), amount, "Inventory in"),
-                credit(journal, coa(COA_AP), amount, "Vendor payable — " + purchase.getVendor().getName())
+                debit(journal, coa(COA_INVENTORY), baseAmount, "Inventory in (vehicle base)"),
+                credit(journal, coa(COA_AP), baseAmount, "Vendor payable — " + purchase.getVendor().getName())
         );
         saveBalanced(lines);
     }
@@ -305,7 +315,7 @@ public class JournalService {
         if (amount.signum() == 0) return; // nothing to post
 
         ChartOfAccount paymentCoa = paymentAccountCoa(account);
-        Journal journal = createJournal(REF_OPENING_BALANCE, paymentAccountId, LocalDate.now(),
+        Journal journal = createJournal(REF_OPENING_BALANCE, paymentAccountId, Objects.nonNull(account.getOpeningDate()) ? account.getOpeningDate() : LocalDate.now(),
                 "Opening balance for " + account.getName());
 
         List<JournalDetail> lines = List.of(

@@ -8,6 +8,7 @@ import org.hibernate.annotations.DynamicUpdate;
 
 import java.io.Serial;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -37,6 +38,9 @@ public class PaymentAccount extends AuditGenericEntity {
 
     @Column(name = "opening_balance", nullable = false)
     private BigDecimal openingBalance;
+
+    @Column(name = "opening_date", nullable = false)
+    private LocalDate openingDate;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;

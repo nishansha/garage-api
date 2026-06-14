@@ -6,6 +6,8 @@ import com.triasoft.garage.model.report.BalanceSheetRs;
 import com.triasoft.garage.model.report.MonthlyTrendRs;
 import com.triasoft.garage.model.report.PLFromJournalRs;
 import com.triasoft.garage.model.report.PLReportRs;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
 import com.triasoft.garage.service.impl.JournalQueryService;
 import com.triasoft.garage.service.impl.ReportService;
@@ -59,6 +61,16 @@ public class ReportController {
     ResponseEntity<ApiResponse<BalanceSheetRs>> getBalanceSheet(
             @RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         return ResponseEntity.ok(ApiResponse.success(journalQueryService.getBalanceSheet(asOfDate)));
+    }
+
+    @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getReceivablesSummary()));
+    }
+
+    @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary() {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getPayablesSummary()));
     }
 
     @GetMapping(value = "/pl-from-journal", produces = MediaType.APPLICATION_JSON_VALUE)
