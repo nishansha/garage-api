@@ -40,6 +40,6 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
 
     Page<Inventory> findByStatusIn(List<StatusEnum> statuses, Pageable pageable);
 
-    @Query("SELECT i.purchaseOrderDetail.purchase.id as purchaseId, i.status as status FROM Inventory i WHERE i.purchaseOrderDetail.purchase.id IN :ids")
+    @Query("SELECT i.purchaseOrderDetail.purchase.id as purchaseId, i.status as status, i.sourceSaleId as sourceSaleId FROM Inventory i WHERE i.purchaseOrderDetail.purchase.id IN :ids")
     List<PurchaseInventoryStatusProjection> findStatusByPurchaseIdIn(@Param("ids") List<Long> ids);
 }

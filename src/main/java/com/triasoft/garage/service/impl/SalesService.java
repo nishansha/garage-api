@@ -119,20 +119,20 @@ public class SalesService {
         sale.setSaleRate(saleRq.getSaleRate());
         sale.setExchanged(saleRq.isExchanged());
         sale.setFinanced(saleRq.isFinanced());
-        sale.setFinanceAmount(saleRq.getFinanceAmount());
-        sale.setFinanceCompany(saleRq.getFinanceCompany());
-        sale.setEmiAmount(saleRq.getEmiAmount());
         BigDecimal exchangeAmt = saleRq.isExchanged() && Objects.nonNull(saleRq.getExchangeAmount()) ? saleRq.getExchangeAmount() : BigDecimal.ZERO;
         sale.setExchangeAmount(exchangeAmt);
         sale.setNetSaleAmount(saleRq.getSaleRate().subtract(exchangeAmt));
+        BigDecimal financeAmt = resolveFinanceAmount(saleRq, sale.getNetSaleAmount());
+        sale.setFinanceAmount(financeAmt);
+        sale.setFinanceCompany(saleRq.isFinanced() ? saleRq.getFinanceCompany() : null);
+        sale.setEmiAmount(saleRq.isFinanced() ? saleRq.getEmiAmount() : null);
         sale.setLandedCostAtSale(stock.getLandedCost());
         sale.setProfitAmount(saleRq.getSaleRate().subtract(stock.getLandedCost()));
         sale.setStatus(saleRq.getStatusId() != null
                 ? lookupHelper.get(saleRq.getStatusId())
                 : lookupHelper.getStatus(LookupTypeEnum.SALES_STAUS, StatusEnum.COMPLETED));
-        if (sale.getNetSaleAmount().compareTo(BigDecimal.ZERO) < 0) {
-            sale.setPaymentStatus(StatusEnum.REFUND);
-        } else if (sale.getNetSaleAmount().compareTo(BigDecimal.ZERO) == 0) {
+        if (sale.getNetSaleAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            // Sale fully covered by exchange (or exchange exceeds sale — settlement tracked on trade-in Purchase).
             sale.setPaymentStatus(StatusEnum.PAID);
         } else if (saleRq.isFinanced()) {
             sale.setPaymentStatus(StatusEnum.FINANCE_PENDING);
@@ -197,6 +197,8 @@ public class SalesService {
         exchangePurchaseRq.setNotes("Garage Exchange");
         exchangePurchaseRq.setExpenses(details.getExpenses());
         exchangePurchaseRq.setSourceSaleId(sale.getId());
+        exchangePurchaseRq.setDeliveredDate(Objects.isNull(details.getDeliveredDate()) ? saleRq.getDate() : details.getDeliveredDate());
+        exchangePurchaseRq.setColorId(details.getColorId());
         purchaseService.create(exchangePurchaseRq, user);
     }
 
@@ -237,6 +239,11 @@ public class SalesService {
         Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
         BigDecimal paidAmount = salePaymentRepository.sumAmountBySaleId(id);
         BigDecimal pending = existingSale.getNetSaleAmount().subtract(paidAmount);
+        BigDecimal financePaid = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.FINANCE);
+        BigDecimal customerPaid = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.CUSTOMER);
+        BigDecimal financeAmount = existingSale.isFinanced() && existingSale.getFinanceAmount() != null
+                ? existingSale.getFinanceAmount() : BigDecimal.ZERO;
+        BigDecimal customerPayable = existingSale.getNetSaleAmount().subtract(financeAmount);
         SaleDTO dto = convertToDTO(existingSale);
         dto.setInvoiceNo(existingSale.getInvoiceNo());
         dto.setStockId(existingSale.getInventory().getId());
@@ -248,6 +255,11 @@ public class SalesService {
         dto.setEmiAmount(existingSale.getEmiAmount());
         dto.setPaidAmount(paidAmount);
         dto.setPendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending);
+        dto.setPaidFinanceAmount(financePaid);
+        dto.setPendingFinanceAmount(existingSale.isFinanced()
+                ? clampZero(financeAmount.subtract(financePaid)) : BigDecimal.ZERO);
+        dto.setPaidCustomerAmount(customerPaid);
+        dto.setPendingCustomerAmount(clampZero(customerPayable.subtract(customerPaid)));
         dto.setPayments(salePaymentRepository.findBySaleIdOrderByPaymentDateDesc(id)
                 .stream().map(this::toPaymentDTO).toList());
         if (existingSale.isExchanged()) {
@@ -282,24 +294,40 @@ public class SalesService {
         }
         syncExchangeVehicle(existingSale, salesRq, user);
         BigDecimal exchangeAmt = salesRq.isExchanged() && Objects.nonNull(salesRq.getExchangeAmount()) ? salesRq.getExchangeAmount() : BigDecimal.ZERO;
+        BigDecimal newNetSaleAmount = salesRq.getSaleRate().subtract(exchangeAmt);
+        BigDecimal newFinanceAmount = resolveFinanceAmount(salesRq, newNetSaleAmount);
+        BigDecimal financePaidSoFar = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.FINANCE);
+        BigDecimal customerPaidSoFar = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.CUSTOMER);
+        if (!salesRq.isFinanced() && financePaidSoFar.compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_412",
+                    "Cannot disable finance: finance payments of " + financePaidSoFar + " already exist. Delete them first."));
+        }
+        if (salesRq.isFinanced() && financePaidSoFar.compareTo(newFinanceAmount) > 0) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_413",
+                    "Finance amount cannot be lower than finance payments already recorded (" + financePaidSoFar + ")."));
+        }
+        BigDecimal newCustomerCap = newNetSaleAmount.subtract(newFinanceAmount != null ? newFinanceAmount : BigDecimal.ZERO);
+        if (customerPaidSoFar.compareTo(newCustomerCap) > 0) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_414",
+                    "Customer payments already recorded (" + customerPaidSoFar + ") exceed the new customer payable amount (" + newCustomerCap + ")."));
+        }
         existingSale.setSaleDate(salesRq.getDate());
         existingSale.setExchanged(salesRq.isExchanged());
         existingSale.setSaleRate(salesRq.getSaleRate());
         existingSale.setExchangeAmount(exchangeAmt);
         existingSale.setFinanced(salesRq.isFinanced());
-        existingSale.setFinanceCompany(salesRq.getFinanceCompany());
-        existingSale.setFinanceAmount(salesRq.getFinanceAmount());
-        existingSale.setEmiAmount(salesRq.getEmiAmount());
+        existingSale.setFinanceCompany(salesRq.isFinanced() ? salesRq.getFinanceCompany() : null);
+        existingSale.setFinanceAmount(newFinanceAmount);
+        existingSale.setEmiAmount(salesRq.isFinanced() ? salesRq.getEmiAmount() : null);
         existingSale.setModifiedBy(user.getId());
         existingSale.setModifiedAt(LocalDateTime.now());
-        existingSale.setNetSaleAmount(salesRq.getSaleRate().subtract(exchangeAmt));
+        existingSale.setNetSaleAmount(newNetSaleAmount);
         existingSale.setProfitAmount(salesRq.getSaleRate().subtract(existingSale.getLandedCostAtSale()));
         if (salesRq.getStatusId() != null) {
             existingSale.setStatus(lookupHelper.get(salesRq.getStatusId()));
         }
-        if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) < 0) {
-            existingSale.setPaymentStatus(StatusEnum.REFUND);
-        } else if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) == 0) {
+        if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            // Sale fully covered by exchange (or exchange exceeds sale — settlement tracked on trade-in Purchase).
             existingSale.setPaymentStatus(StatusEnum.PAID);
         } else if (salesRq.isFinanced()) {
             existingSale.setPaymentStatus(StatusEnum.FINANCE_PENDING);
@@ -398,6 +426,7 @@ public class SalesService {
         if (rq.getAmount().compareTo(remaining) > 0) {
             throw new BusinessException(new ErrorCode.CustomError("SAL_401", "Payment amount exceeds the remaining balance for this sale"));
         }
+        validatePayerBucket(sale, rq.getPayerType(), rq.getAmount(), BigDecimal.ZERO);
         PaymentAccount paymentAccount = resolvePaymentAccount(rq);
         SalePayment payment = new SalePayment();
         payment.setSale(sale);
@@ -436,6 +465,8 @@ public class SalesService {
             }
             reverseSalePaymentTransaction(payment);
         }
+        BigDecimal excludeFromBucket = rq.getPayerType() == payment.getPayerType() ? payment.getAmount() : BigDecimal.ZERO;
+        validatePayerBucket(sale, rq.getPayerType(), rq.getAmount(), excludeFromBucket);
         payment.setAmount(rq.getAmount());
         payment.setPaymentDate(rq.getPaymentDate() != null ? rq.getPaymentDate() : payment.getPaymentDate());
         payment.setPaymentMethod(rq.getPaymentMethod());
@@ -468,6 +499,50 @@ public class SalesService {
         recalculatePaymentStatus(sale, newTotal);
         saleRepository.save(sale);
         return SalesRs.builder().build();
+    }
+
+    private BigDecimal resolveFinanceAmount(SalesRq saleRq, BigDecimal netSaleAmount) {
+        if (!saleRq.isFinanced()) {
+            return null;
+        }
+        BigDecimal financeAmount = saleRq.getFinanceAmount();
+        if (financeAmount == null || financeAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_410",
+                    "Finance amount is required and must be greater than zero for a financed sale."));
+        }
+        if (financeAmount.compareTo(netSaleAmount) > 0) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_411",
+                    "Finance amount (" + financeAmount + ") cannot exceed net sale amount (" + netSaleAmount + ")."));
+        }
+        return financeAmount;
+    }
+
+    private void validatePayerBucket(Sale sale, PayerTypeEnum payerType, BigDecimal newAmount, BigDecimal excludeAmount) {
+        if (payerType == PayerTypeEnum.FINANCE && !sale.isFinanced()) {
+            throw new BusinessException(new ErrorCode.CustomError("SAL_420",
+                    "Finance payment not allowed on a non-financed sale."));
+        }
+        BigDecimal cap = bucketCap(sale, payerType);
+        BigDecimal bucketPaid = salePaymentRepository.sumAmountBySaleIdAndPayerType(sale.getId(), payerType)
+                .subtract(excludeAmount);
+        if (bucketPaid.add(newAmount).compareTo(cap) > 0) {
+            String bucketLabel = payerType == PayerTypeEnum.FINANCE ? "finance" : "customer";
+            throw new BusinessException(new ErrorCode.CustomError("SAL_421",
+                    "Payment exceeds the " + bucketLabel + " payable amount (" + cap + "). "
+                            + "Edit the sale to revise the finance amount if needed."));
+        }
+    }
+
+    private BigDecimal bucketCap(Sale sale, PayerTypeEnum payerType) {
+        BigDecimal financeAmount = sale.isFinanced() && sale.getFinanceAmount() != null
+                ? sale.getFinanceAmount() : BigDecimal.ZERO;
+        return payerType == PayerTypeEnum.FINANCE
+                ? financeAmount
+                : sale.getNetSaleAmount().subtract(financeAmount);
+    }
+
+    private BigDecimal clampZero(BigDecimal value) {
+        return value.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : value;
     }
 
     private PaymentAccount resolvePaymentAccount(SalePaymentRq rq) {

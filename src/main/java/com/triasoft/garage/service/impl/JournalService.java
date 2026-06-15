@@ -35,6 +35,7 @@ public class JournalService {
     private static final String COA_FINANCE_RECEIVABLE = "1150";
     private static final String COA_INVENTORY = "1200";
     private static final String COA_AP = "2000";
+    private static final String COA_CUSTOMER_SETTLEMENT_PAYABLE = "2400";
     private static final String COA_OPENING_BALANCE_EQUITY = "3900";
     private static final String COA_SALES_REVENUE = "4000";
     private static final String COA_COGS = "5000";
@@ -49,6 +50,7 @@ public class JournalService {
     private final ExpenseRepository expenseRepository;
     private final DirectEntryRepository directEntryRepository;
     private final PaymentAccountRepository paymentAccountRepository;
+    private final InventoryRepository inventoryRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Public API
@@ -168,10 +170,6 @@ public class JournalService {
         BigDecimal landedCost = safe(sale.getLandedCostAtSale());
         BigDecimal customerAR = saleRate.subtract(exchange).subtract(finance);
 
-        if (customerAR.signum() < 0) {
-            throw new BusinessException("JNL_410", "Finance + exchange exceeds sale rate for sale " + sale.getInvoiceNo());
-        }
-
         Journal journal = createJournal(REF_SALE, saleId, sale.getSaleDate(),
                 "Sale " + sale.getInvoiceNo() + " — " + sale.getCustomer().getName());
 
@@ -193,6 +191,10 @@ public class JournalService {
         lines.add(credit(journal, coa(COA_SALES_REVENUE), saleRate, "Sales revenue"));
         if (landedCost.signum() > 0) {
             lines.add(credit(journal, coa(COA_INVENTORY), landedCost, "Inventory out"));
+        }
+        if (customerAR.signum() < 0) {
+            lines.add(credit(journal, coa(COA_CUSTOMER_SETTLEMENT_PAYABLE), customerAR.abs(),
+                    "Customer settlement payable — " + sale.getCustomer().getName()));
         }
 
         saveBalanced(lines);
@@ -248,11 +250,16 @@ public class JournalService {
                 .orElseThrow(() -> new EntityNotFoundException("Purchase payment not found: " + paymentId));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(payment.getPaymentAccount());
+        boolean isExchange = inventoryRepository.findByPurchaseOrderDetailPurchaseId(payment.getPurchase().getId())
+                .map(inv -> inv.getSourceSaleId() != null)
+                .orElse(false);
+        ChartOfAccount debitAccount = isExchange ? coa(COA_CUSTOMER_SETTLEMENT_PAYABLE) : coa(COA_AP);
+        String debitLabel = isExchange ? "Customer settlement payable cleared" : "Vendor payable cleared";
         Journal journal = createJournal(REF_PURCHASE_PAYMENT, paymentId, payment.getPaymentDate(),
                 "Payment for purchase " + payment.getPurchase().getReferenceNo());
 
         List<JournalDetail> lines = List.of(
-                debit(journal, coa(COA_AP), payment.getAmount(), "Vendor payable cleared"),
+                debit(journal, debitAccount, payment.getAmount(), debitLabel),
                 credit(journal, paymentCoa, payment.getAmount(),
                         "Cash out from " + payment.getPaymentAccount().getName())
         );

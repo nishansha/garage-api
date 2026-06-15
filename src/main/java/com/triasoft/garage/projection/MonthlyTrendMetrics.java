@@ -7,6 +7,7 @@ public interface MonthlyTrendMetrics {
     String getMonthLabel();
     Long getSalesCount();
     BigDecimal getTotalRevenue();
+    BigDecimal getOtherIncome();
     BigDecimal getGrossProfit();
     BigDecimal getTotalReceivables();
     BigDecimal getTotalPayables();

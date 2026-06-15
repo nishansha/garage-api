@@ -130,8 +130,12 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 po.reference_no  as referenceNo,
                 pd_agg.vehicle_no as vehicleNo,
                 po.order_date    as purchaseDate,
-                po.total_amount  as amount,
-                (po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)) as pendingAmount,
+                CASE WHEN tradein.unit_cost IS NOT NULL THEN tradein.unit_cost
+                     ELSE po.total_amount END as amount,
+                CASE WHEN tradein.unit_cost IS NOT NULL
+                     THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
+                     ELSE po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)
+                END as pendingAmount,
                 pp_sum.last_payment_date as lastPaymentDate,
                 v.name           as vendorName,
                 v.mobile         as vendorMobile
@@ -158,8 +162,18 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 WHERE deleted = false AND purchase_order_id IS NOT NULL
                 GROUP BY purchase_order_id
             ) exp_sum ON exp_sum.purchase_order_id = po.id
+            LEFT JOIN (
+                SELECT pod.purchase_order_id, pod.unit_cost, s.sale_rate
+                FROM app_purchase_order_detail pod
+                JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                JOIN app_sale s ON s.id = inv.source_sale_id
+                WHERE inv.source_sale_id IS NOT NULL
+            ) tradein ON tradein.purchase_order_id = po.id
             WHERE po.deleted = false
-              AND (po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)) > 0
+              AND CASE WHEN tradein.unit_cost IS NOT NULL
+                       THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
+                       ELSE po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)
+                  END > 0
             ORDER BY po.order_date DESC
             """, nativeQuery = true)
     List<PayableRow> findPayables();

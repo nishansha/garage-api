@@ -72,7 +72,7 @@ public class ReportService {
         BigDecimal totalOpEx = generalExpenses.add(directAdjustments);
 
         // ── 5. Net profit ─────────────────────────────────────────────────────
-        BigDecimal netProfit = grossProfit.subtract(totalOpEx);
+        BigDecimal netProfit = grossProfit.add(otherIncome).subtract(totalOpEx);
 
         // ── 6. Margin percentages ─────────────────────────────────────────────
         double grossMarginPct = pct(grossProfit, vehicleSalesRevenue);
@@ -130,17 +130,23 @@ public class ReportService {
         List<MonthlyTrendMetrics> rows = saleRepository.getMonthlyTrend(months);
         List<MonthlyTrendInfo> trend = rows.stream().map(r -> {
             BigDecimal revenue = safe(r.getTotalRevenue());
+            BigDecimal otherIncome = safe(r.getOtherIncome());
             BigDecimal grossProfit = safe(r.getGrossProfit());
+            BigDecimal expenses = safe(r.getTotalExpenses());
+            BigDecimal netProfit = grossProfit.add(otherIncome).subtract(expenses);
             return MonthlyTrendInfo.builder()
                     .month(r.getMonth())
                     .monthLabel(r.getMonthLabel())
                     .salesCount(r.getSalesCount() != null ? r.getSalesCount() : 0L)
                     .totalRevenue(revenue)
+                    .otherIncome(otherIncome)
                     .grossProfit(grossProfit)
                     .grossMarginPct(pct(grossProfit, revenue))
+                    .netProfit(netProfit)
+                    .netMarginPct(pct(netProfit, revenue))
                     .totalReceivables(safe(r.getTotalReceivables()))
                     .totalPayables(safe(r.getTotalPayables()))
-                    .totalExpenses(safe(r.getTotalExpenses()))
+                    .totalExpenses(expenses)
                     .build();
         }).toList();
         return MonthlyTrendRs.builder().trend(trend).build();

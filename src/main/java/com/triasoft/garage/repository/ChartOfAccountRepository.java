@@ -19,7 +19,7 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     List<ChartOfAccount> findByTypeAndIsDirectPostableTrue(String type);
 
-    Optional<Long> findFirstByTypeOrderByCodeDesc(String type);
+    Optional<ChartOfAccount> findFirstByTypeOrderByCodeDesc(String type);
 
     Optional<ChartOfAccount> findByTypeAndLabelIgnoreCase(String type, String label);
 

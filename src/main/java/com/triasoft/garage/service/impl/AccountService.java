@@ -16,10 +16,13 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class AccountService {
+
+    private static final Set<String> ALLOWED_TYPES = Set.of("ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE");
 
     private final ChartOfAccountRepository chatOfAccountRepository;
 
@@ -60,6 +63,7 @@ public class AccountService {
 
     private ChartOfAccount createChartOfAccount(ChatOfAccountDTO accountDTO, UserDTO user) {
         Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeOrderByCodeDesc(accountDTO.getType())
+                .map(c -> Long.parseLong(c.getCode()))
                 .orElseGet(() -> getDefaultCodes(accountDTO.getType()));
 
         Long nextCode = ++lastInsertedCode;
@@ -74,6 +78,13 @@ public class AccountService {
         return chatOfAccountRepository.save(chartOfAccount);
     }
 
+    private void validateType(String type) {
+        if (type == null || !ALLOWED_TYPES.contains(type.toUpperCase())) {
+            throw new BusinessException(new ErrorCode.CustomError("COA_400",
+                    "Type must be one of " + ALLOWED_TYPES));
+        }
+    }
+
     private Long getDefaultCodes(String type) {
         return switch (type.toUpperCase()) {
             case "ASSET" -> 1600L;
@@ -86,6 +97,7 @@ public class AccountService {
     }
 
     public AccountRs create(AccountRq accountRq, UserDTO user) {
+        validateType(accountRq.getType());
         ChartOfAccount chartOfAccount = chatOfAccountRepository.findByTypeAndLabelIgnoreCase(accountRq.getType(), accountRq.getLabel()).orElse(null);
         if (Objects.nonNull(chartOfAccount)) throw new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_EXIST);
 
@@ -101,11 +113,14 @@ public class AccountService {
     }
 
     public AccountRs update(Long id, AccountRq accountRq, UserDTO user) {
+        validateType(accountRq.getType());
         ChartOfAccount chartOfAccount = chatOfAccountRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));
         chartOfAccount.setLabel(accountRq.getLabel());
         chartOfAccount.setDescription(accountRq.getDescription());
         if (!chartOfAccount.getType().equalsIgnoreCase(accountRq.getType())) {
-            Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeOrderByCodeDesc(accountRq.getType()).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));
+            Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeOrderByCodeDesc(accountRq.getType())
+                    .map(c -> Long.parseLong(c.getCode()))
+                    .orElseGet(() -> getDefaultCodes(accountRq.getType()));
             Long nextCode = ++lastInsertedCode;
             chartOfAccount.setName(StringUtils.hasLength(accountRq.getName()) ? accountRq.getName() : (accountRq.getType().charAt(0) + " - " + nextCode));
             chartOfAccount.setCode(nextCode.toString());
