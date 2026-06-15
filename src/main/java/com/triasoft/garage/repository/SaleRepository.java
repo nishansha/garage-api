@@ -41,9 +41,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
 
     @Query(value = """
             SELECT
-              (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale
+              (SELECT COALESCE(SUM(sale_rate), 0) FROM app_sale
                WHERE deleted = false AND sale_date >= :startOfMonth) as totalSales,
-              (SELECT COALESCE(SUM(net_sale_amount), 0) FROM app_sale
+              (SELECT COALESCE(SUM(sale_rate), 0) FROM app_sale
                WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as salesBeforeMonth,
 
               (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order
@@ -57,7 +57,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
               (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
                JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
-                 AND coa.type <> 'EQUITY'
+                 AND coa.type = 'EXPENSE'
                  AND d.entry_date >= :startOfMonth) as totalExpenses,
 
               (SELECT COALESCE(SUM(amount), 0) FROM app_expense
@@ -66,12 +66,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
               (SELECT COALESCE(SUM(d.amount), 0) FROM app_direct_entry d
                JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
-                 AND coa.type <> 'EQUITY'
+                 AND coa.type = 'EXPENSE'
                  AND d.entry_date >= :startOfLastMonth AND d.entry_date < :startOfMonth) as expensesBeforeMonth,
 
-              (SELECT COALESCE(SUM(net_sale_amount - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
+              (SELECT COALESCE(SUM(sale_rate - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
                WHERE deleted = false AND sale_date >= :startOfMonth) as totalGrossProfit,
-              (SELECT COALESCE(SUM(net_sale_amount - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
+              (SELECT COALESCE(SUM(sale_rate - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
                WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as grossProfitBeforeMonth
 
             FROM (SELECT 1) data
@@ -82,7 +82,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = """
             (SELECT 'SALE' as activityType, 
                     CONCAT(v.description, ' sale to ', c.name) as description, 
-                    CAST(s.sale_date AS TIMESTAMP) as dateTime, 'C' as txnType, s.net_sale_amount as txnAmount
+                    CAST(s.sale_date AS TIMESTAMP) as dateTime, 'C' as txnType, s.sale_rate as txnAmount
              FROM app_sale s
              JOIN app_inventory i ON s.inventory_id = i.id
              JOIN app_product p ON i.product_id = p.id
@@ -146,7 +146,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
         )
         SELECT 
             TO_CHAR(m.month_date, 'YYYY-MM') as monthName,
-            COALESCE((SELECT SUM(net_sale_amount) FROM app_sale s 
+            COALESCE((SELECT SUM(sale_rate) FROM app_sale s
                       WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0) as sales,
             COALESCE((SELECT SUM(
                           CASE WHEN tradein.unit_cost IS NOT NULL
@@ -163,7 +163,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                       WHERE DATE_TRUNC('month', p.order_date) = m.month_date AND p.deleted = false), 0) as purchases,
             COALESCE((SELECT SUM(amount) FROM app_expense e 
                       WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as expenses,
-            COALESCE((SELECT SUM(s.net_sale_amount - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
+            COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
                       WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0)
             +
             COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
@@ -202,7 +202,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0) as salesCount,
 
-                COALESCE((SELECT SUM(s.net_sale_amount) FROM app_sale s
+                COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0)
                 +
@@ -218,7 +218,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           AND d.deleted = false AND d.direction = 'IN'
                           AND coa.type = 'REVENUE'), 0) as otherIncome,
 
-                COALESCE((SELECT SUM(s.net_sale_amount - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
+                COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
                           AND s.deleted = false), 0) as grossProfit,
 
