@@ -8,6 +8,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,8 +46,14 @@ public class StockSpecification {
                         cb.like(cb.lower(root.get("uin")), pattern)
                 ));
             }
-
-            predicates.add(cb.equal(root.get("status"), StatusEnum.AVAILABLE));
+            if (StringUtils.hasLength(filter.getStatus())) {
+                predicates.add(cb.equal(root.get("status"), StatusEnum.valueOf(filter.getStatus())));
+            } else {
+                predicates.add(cb.or(
+                        cb.equal(root.get("status"), StatusEnum.AVAILABLE),
+                        cb.equal(root.get("status"), StatusEnum.PENDING_DELIVERY))
+                );
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

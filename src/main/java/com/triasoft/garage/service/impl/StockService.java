@@ -24,10 +24,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,9 +40,13 @@ public class StockService {
     private final InventoryRepository inventoryRepository;
     private final SaleRepository saleRepository;
 
-    public StockRs getAll(Pageable pageable, UserDTO user) {
-        Page<Inventory> page = inventoryRepository.findByStatusIn(
-                List.of(StatusEnum.AVAILABLE, StatusEnum.PENDING_DELIVERY), pageable);
+    public StockRs getAll(Pageable pageable,String status, UserDTO user) {
+
+        List<StatusEnum> statuses = List.of(StatusEnum.AVAILABLE, StatusEnum.PENDING_DELIVERY);
+        if(StringUtils.hasLength(status)){
+            statuses = List.of(StatusEnum.valueOf(status));
+        }
+        Page<Inventory> page = inventoryRepository.findByStatusIn(statuses, pageable);
         List<StockDTO> products = page.getContent().stream().map(this::convertToDTO).toList();
         StockRs stockRs = StockRs.builder().products(products).build();
         stockRs.setTotalPages(page.getTotalPages());

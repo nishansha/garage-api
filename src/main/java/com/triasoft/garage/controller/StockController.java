@@ -27,9 +27,9 @@ public class StockController {
     private final StockService stockService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<StockRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<StockRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, @RequestParam("status") String status, HttpServletRequest request) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return ResponseEntity.ok(ApiResponse.success(stockService.getAll(pageable, UserUtil.getUser(request))));
+        return ResponseEntity.ok(ApiResponse.success(stockService.getAll(pageable, status, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -19,5 +19,6 @@ public class FilterRq implements Serializable {
     private String modelId;
     private String variantId;
     private String typeId;
+    private String status;
 
 }
