@@ -23,7 +23,7 @@ public class DirectEntrySpecification {
             }
             if (filter.getTypeId() != null) {
                 try {
-                    predicates.add(cb.equal(root.get("type").get("id"), Long.parseLong(filter.getTypeId())));
+                    predicates.add(cb.equal(root.get("chartOfAccount").get("id"), Long.parseLong(filter.getTypeId())));
                 } catch (NumberFormatException ignored) {}
             }
             if (filter.getStaffId() != null && !filter.getStaffId().isBlank()) {

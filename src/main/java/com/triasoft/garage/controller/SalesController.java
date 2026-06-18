@@ -3,6 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
+import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.sale.SalePaymentRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
@@ -77,5 +78,10 @@ public class SalesController {
     @DeleteMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> deletePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.deletePayment(id, paymentId, UserUtil.getUser(request))));
+    }
+
+    @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
+        return ResponseEntity.ok(ApiResponse.success(salesService.getReceivablesSummary()));
     }
 }

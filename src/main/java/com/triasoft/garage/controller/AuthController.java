@@ -23,4 +23,9 @@ public class AuthController {
     ResponseEntity<ApiResponse<LoginRs>> authenticateUser(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
     }
+
+    @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<LoginRs>> refresh(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(ApiResponse.success(authService.refresh(request)));
+    }
 }

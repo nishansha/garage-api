@@ -37,4 +37,7 @@ public class ChartOfAccount extends AuditGenericEntity {
     @Column(name = "is_control_account")
     private boolean isControlEnabled;
 
+    @Column(name = "is_direct_postable")
+    private boolean isDirectPostable = true;
+
 }

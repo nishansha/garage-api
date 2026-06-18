@@ -44,7 +44,11 @@ public class PurchaseDTO implements Serializable {
     private String notes;
     private boolean isSold;
     private boolean isEditable;
+    private boolean isExchange;
     private Long sourceSaleId;
+    private BigDecimal settlementAmount;
+    private BigDecimal paidByOffset;
+    private BigDecimal paidByCash;
 
     private String ownerName;
     private String ownerMobileNo;

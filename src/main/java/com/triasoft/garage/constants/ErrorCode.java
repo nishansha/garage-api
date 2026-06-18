@@ -77,7 +77,11 @@ public class ErrorCode {
         OVERPAYMENT("BUS_126", "Payment amount exceeds the remaining balance for this purchase"),
         PURCHASE_EXPENSE_LOCKED("BUS_127", "Expenses for this purchase are locked. The vehicle was sold and the sale month has ended."),
         DIRECT_ENTRY_NOT_FOUND("BUS_128", "Direct entry not found"),
-        DIRECT_ENTRY_ALREADY_REVERSED("BUS_129", "Direct entry has already been reversed");
+        DIRECT_ENTRY_ALREADY_REVERSED("BUS_129", "Direct entry has already been reversed"),
+        JOURNAL_COA_MISSING("BUS_130", "Required CoA account is missing from the chart of accounts"),
+        JOURNAL_NOT_BALANCED("BUS_131", "Journal entry is not balanced: total debits must equal total credits"),
+        JOURNAL_ALREADY_POSTED("BUS_132", "A journal entry already exists for this reference"),
+        JOURNAL_PAYMENT_ACCOUNT_COA_MISSING("BUS_133", "Payment account is not linked to a chart of accounts entry");
 
         private final String code;
         private final String message;

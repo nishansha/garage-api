@@ -19,7 +19,7 @@ public class DirectEntryRq implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private LocalDate entryDate;
-    private Long typeId;
+    private Long coaId;
     private TransactionDirectionEnum direction;
     private BigDecimal amount;
     private Long paymentAccountId;

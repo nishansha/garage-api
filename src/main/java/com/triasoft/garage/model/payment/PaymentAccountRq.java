@@ -6,6 +6,7 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 public class PaymentAccountRq implements Serializable {
@@ -19,6 +20,7 @@ public class PaymentAccountRq implements Serializable {
     private String ifscCode;
     private AccountTypeEnum accountType;
     private BigDecimal openingBalance;
+    private LocalDate openingDate;
     private Boolean isActive;
 
 }

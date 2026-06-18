@@ -40,6 +40,10 @@ public class SaleDTO implements Serializable {
     private String statusName;
     private BigDecimal paidAmount;
     private BigDecimal pendingAmount;
+    private BigDecimal paidFinanceAmount;
+    private BigDecimal pendingFinanceAmount;
+    private BigDecimal paidCustomerAmount;
+    private BigDecimal pendingCustomerAmount;
     private List<SalePaymentDTO> payments;
 
 }

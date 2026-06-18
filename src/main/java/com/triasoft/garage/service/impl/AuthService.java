@@ -1,6 +1,8 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
 import com.triasoft.garage.util.EncryptionUtil;
@@ -31,5 +33,9 @@ public class AuthService {
         rs.setFullName(user.getName());
         rs.setRole(user.getRole());
         return rs;
+    }
+
+    public LoginRs refresh(LoginRq request) {
+        throw new BusinessException(ErrorCode.Security.TOKEN_EXPIRED);
     }
 }

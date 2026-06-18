@@ -47,7 +47,7 @@ public class SaleSpecification {
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("invoiceNo")), pattern),
                         cb.like(cb.lower(customer.get("name")), pattern),
-                        cb.like(cb.lower(customer.get("mobileNo")), pattern)
+                        cb.like(cb.lower(customer.get("mobile")), pattern)
                 ));
             }
 

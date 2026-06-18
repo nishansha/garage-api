@@ -19,9 +19,8 @@ public class DirectEntryDTO implements Serializable {
 
     private Long id;
     private LocalDate entryDate;
-    private Long typeId;
-    private String typeCode;
-    private String typeName;
+    private Long coaId;
+    private String coaLabel;
     private TransactionDirectionEnum direction;
     private BigDecimal amount;
     private Long paymentAccountId;

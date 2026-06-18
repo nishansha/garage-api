@@ -7,6 +7,7 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.service.impl.PurchaseService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,5 +78,10 @@ public class PurchaseController {
     @DeleteMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<PurchaseRs>> deletePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseService.deletePayment(id, paymentId, UserUtil.getUser(request))));
+    }
+
+    @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary() {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.getPayablesSummary()));
     }
 }

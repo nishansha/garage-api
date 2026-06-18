@@ -1,7 +1,9 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.*;
-import com.triasoft.garage.projection.PurchaseEditabilityProjection;
+import com.triasoft.garage.model.report.PayableInfo;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.projection.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
@@ -18,11 +20,6 @@ import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
-import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
-import com.triasoft.garage.projection.PurchaseInventoryStatusProjection;
-import com.triasoft.garage.projection.PurchaseListProjection;
-import com.triasoft.garage.projection.PurchasePaidProjection;
-import com.triasoft.garage.projection.PurchaseMetrics;
 import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.InventoryRepository;
 import com.triasoft.garage.repository.SaleRepository;
@@ -75,19 +72,26 @@ public class PurchaseService {
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
+    private final JournalService journalService;
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
         Page<PurchaseListProjection> purchasePage = purchaseRepository.findAllForList(pageable);
         List<PurchaseListProjection> content = purchasePage.getContent();
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
-        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
+        List<PurchaseInventoryStatusProjection> inventoryStatuses = ids.isEmpty()
+                ? List.of() : inventoryRepository.findStatusByPurchaseIdIn(ids);
+        Map<Long, Boolean> soldMap = buildSoldMap(inventoryStatuses);
+        Map<Long, Boolean> exchangeMap = buildExchangeMap(inventoryStatuses);
+        Map<Long, BigDecimal> saleRateMap = buildSaleRateMap(inventoryStatuses);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
                 .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
                         paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
-                        editabilityMap.getOrDefault(p.getId(), true)))
+                        editabilityMap.getOrDefault(p.getId(), true),
+                        exchangeMap.getOrDefault(p.getId(), false),
+                        saleRateMap.get(p.getId())))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -102,7 +106,17 @@ public class PurchaseService {
         PurchaseDetail purchaseDetail = purchase.getPurchaseDetails().get(0);
         Product product = purchaseDetail.getProduct();
         BigDecimal unitCost = purchaseDetail.getUnitCost();
-        BigDecimal pending = unitCost.subtract(paidAmount);
+        boolean isExchange = inventory != null && inventory.getSourceSaleId() != null;
+        BigDecimal settlementAmount = isExchange ? unitCost : null;
+        BigDecimal paidByOffset = isExchange ? resolvePaidByOffset(inventory.getSourceSaleId(), unitCost) : null;
+        BigDecimal paidByCash = isExchange ? paidAmount : null;
+        BigDecimal effectivePaid = isExchange ? clampZero(safe(paidByOffset).add(safe(paidByCash))) : paidAmount;
+        BigDecimal pending = isExchange
+                ? clampZero(unitCost.subtract(effectivePaid))
+                : clampZero(unitCost.subtract(paidAmount));
+        StatusEnum status = isExchange
+                ? deriveSettlementStatus(unitCost, safe(paidByOffset), safe(paidByCash))
+                : derivePaymentStatus(paidAmount, unitCost);
         LookupMaster color = inventory != null ? inventory.getColor() : null;
         return PurchaseDTO.builder()
                 .id(purchase.getId())
@@ -120,9 +134,14 @@ public class PurchaseService {
                 .segmentName(product.getSegment() != null ? product.getSegment().getDescription() : null)
                 .purchaseRate(purchaseDetail.getUnitCost())
                 .totalCost(purchase.getTotalAmount())
-                .paidAmount(paidAmount)
-                .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
-                .paymentStatus(derivePaymentStatus(paidAmount, unitCost))
+                .paidAmount(effectivePaid)
+                .pendingAmount(pending)
+                .paymentStatus(status)
+                .isExchange(isExchange)
+                .sourceSaleId(inventory != null ? inventory.getSourceSaleId() : null)
+                .settlementAmount(settlementAmount)
+                .paidByOffset(paidByOffset)
+                .paidByCash(paidByCash)
                 .makeYear(inventory != null ? inventory.getMakeYear() : null)
                 .colorName(color != null ? color.getDescription() : null)
                 .colorId(color != null ? color.getId() : null)
@@ -138,6 +157,36 @@ public class PurchaseService {
                 .build();
     }
 
+    private BigDecimal computeRemainingPayable(Purchase purchase, BigDecimal alreadyPaidByCash) {
+        Optional<Inventory> invOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId());
+        if (invOpt.isPresent() && invOpt.get().getSourceSaleId() != null) {
+            BigDecimal unitCost = purchase.getPurchaseDetails().get(0).getUnitCost();
+            BigDecimal saleOffset = resolvePaidByOffset(invOpt.get().getSourceSaleId(), unitCost);
+            return unitCost.subtract(saleOffset).subtract(alreadyPaidByCash);
+        }
+        return purchase.getTotalAmount().subtract(alreadyPaidByCash);
+    }
+
+    private BigDecimal resolvePaidByOffset(Long sourceSaleId, BigDecimal settlementAmount) {
+        if (sourceSaleId == null) return BigDecimal.ZERO;
+        return saleRepository.findById(sourceSaleId)
+                .map(Sale::getSaleRate)
+                .map(rate -> rate.min(settlementAmount))
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private StatusEnum deriveSettlementStatus(BigDecimal settlementAmount, BigDecimal paidByOffset, BigDecimal paidByCash) {
+        BigDecimal totalPaid = paidByOffset.add(paidByCash);
+        if (totalPaid.compareTo(settlementAmount) >= 0) return StatusEnum.PAID;
+        if (totalPaid.compareTo(BigDecimal.ZERO) > 0) return StatusEnum.PARTIAL;
+        return StatusEnum.PENDING;
+    }
+
+    private BigDecimal clampZero(BigDecimal value) {
+        if (value == null) return BigDecimal.ZERO;
+        return value.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : value;
+    }
+
     private StatusEnum derivePaymentStatus(BigDecimal paidAmount, BigDecimal totalAmount) {
         if (paidAmount.compareTo(BigDecimal.ZERO) == 0) return StatusEnum.PENDING;
         if (paidAmount.compareTo(totalAmount) >= 0) return StatusEnum.PAID;
@@ -150,18 +199,49 @@ public class PurchaseService {
                 .collect(Collectors.toMap(PurchasePaidProjection::getPurchaseId, PurchasePaidProjection::getTotalPaid));
     }
 
-    private Map<Long, Boolean> fetchSoldMap(List<Long> purchaseIds) {
-        if (CollectionUtils.isEmpty(purchaseIds)) return Map.of();
-        return inventoryRepository.findStatusByPurchaseIdIn(purchaseIds).stream()
-                .collect(Collectors.toMap(
-                        PurchaseInventoryStatusProjection::getPurchaseId,
-                        p -> StatusEnum.SOLD.equals(p.getStatus()),
-                        (a, b) -> a
-                ));
+    private Map<Long, Boolean> buildSoldMap(List<PurchaseInventoryStatusProjection> rows) {
+        return rows.stream().collect(Collectors.toMap(
+                PurchaseInventoryStatusProjection::getPurchaseId,
+                p -> StatusEnum.SOLD.equals(p.getStatus()),
+                (a, b) -> a
+        ));
     }
 
-    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, boolean isEditable) {
-        BigDecimal pending = p.getPurchaseRate().subtract(paidAmount);
+    private Map<Long, Boolean> buildExchangeMap(List<PurchaseInventoryStatusProjection> rows) {
+        return rows.stream().collect(Collectors.toMap(
+                PurchaseInventoryStatusProjection::getPurchaseId,
+                p -> p.getSourceSaleId() != null,
+                (a, b) -> a
+        ));
+    }
+
+    private Map<Long, BigDecimal> buildSaleRateMap(List<PurchaseInventoryStatusProjection> rows) {
+        Map<Long, Long> purchaseToSaleId = rows.stream()
+                .filter(r -> r.getSourceSaleId() != null)
+                .collect(Collectors.toMap(
+                        PurchaseInventoryStatusProjection::getPurchaseId,
+                        PurchaseInventoryStatusProjection::getSourceSaleId,
+                        (a, b) -> a));
+        if (purchaseToSaleId.isEmpty()) return Map.of();
+        Map<Long, BigDecimal> rateBySaleId = saleRepository.findAllById(purchaseToSaleId.values()).stream()
+                .collect(Collectors.toMap(Sale::getId, Sale::getSaleRate, (a, b) -> a));
+        Map<Long, BigDecimal> result = new java.util.HashMap<>();
+        purchaseToSaleId.forEach((purchaseId, saleId) -> {
+            BigDecimal rate = rateBySaleId.get(saleId);
+            if (rate != null) result.put(purchaseId, rate);
+        });
+        return result;
+    }
+
+    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
+        BigDecimal total = p.getPurchaseRate();
+        BigDecimal paidByOffset = isExchange && sourceSaleRate != null ? sourceSaleRate.min(total) : null;
+        BigDecimal paidByCash = isExchange ? paidAmount : null;
+        BigDecimal effectivePaid = isExchange ? clampZero(safe(paidByOffset).add(safe(paidByCash))) : paidAmount;
+        BigDecimal pending = isExchange ? clampZero(total.subtract(effectivePaid)) : clampZero(total.subtract(paidAmount));
+        StatusEnum status = isExchange
+                ? deriveSettlementStatus(total, safe(paidByOffset), safe(paidByCash))
+                : derivePaymentStatus(paidAmount, total);
         return PurchaseDTO.builder()
                 .id(p.getId())
                 .date(p.getDate())
@@ -170,17 +250,28 @@ public class PurchaseService {
                 .brandName(p.getBrandName())
                 .modelName(p.getModelName())
                 .variantName(p.getVariantName())
-                .purchaseRate(p.getPurchaseRate())
-                .paidAmount(paidAmount)
-                .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
-                .paymentStatus(derivePaymentStatus(paidAmount, p.getPurchaseRate()))
+                .purchaseRate(total)
+                .paidAmount(effectivePaid)
+                .pendingAmount(pending)
+                .paymentStatus(status)
                 .isSold(isSold)
                 .isEditable(isEditable)
+                .isExchange(isExchange)
+                .settlementAmount(isExchange ? total : null)
+                .paidByOffset(paidByOffset)
+                .paidByCash(paidByCash)
                 .build();
     }
 
-    private PurchaseDTO convertListProjectionToDTOWithExpenses(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, BigDecimal totalExpenses, boolean isEditable) {
-        BigDecimal pending = p.getPurchaseRate().subtract(paidAmount);
+    private PurchaseDTO convertListProjectionToDTOWithExpenses(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, BigDecimal totalExpenses, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
+        BigDecimal total = p.getPurchaseRate();
+        BigDecimal paidByOffset = isExchange && sourceSaleRate != null ? sourceSaleRate.min(total) : null;
+        BigDecimal paidByCash = isExchange ? paidAmount : null;
+        BigDecimal effectivePaid = isExchange ? clampZero(safe(paidByOffset).add(safe(paidByCash))) : paidAmount;
+        BigDecimal pending = isExchange ? clampZero(total.subtract(effectivePaid)) : clampZero(total.subtract(paidAmount));
+        StatusEnum status = isExchange
+                ? deriveSettlementStatus(total, safe(paidByOffset), safe(paidByCash))
+                : derivePaymentStatus(paidAmount, total);
         return PurchaseDTO.builder()
                 .id(p.getId())
                 .date(p.getDate())
@@ -189,13 +280,17 @@ public class PurchaseService {
                 .brandName(p.getBrandName())
                 .modelName(p.getModelName())
                 .variantName(p.getVariantName())
-                .purchaseRate(p.getPurchaseRate())
+                .purchaseRate(total)
                 .totalExpenses(totalExpenses)
-                .paidAmount(paidAmount)
-                .pendingAmount(pending.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pending)
-                .paymentStatus(derivePaymentStatus(paidAmount, p.getPurchaseRate()))
+                .paidAmount(effectivePaid)
+                .pendingAmount(pending)
+                .paymentStatus(status)
                 .isSold(isSold)
                 .isEditable(isEditable)
+                .isExchange(isExchange)
+                .settlementAmount(isExchange ? total : null)
+                .paidByOffset(paidByOffset)
+                .paidByCash(paidByCash)
                 .build();
     }
 
@@ -203,7 +298,11 @@ public class PurchaseService {
         Page<PurchaseListProjection> purchasePage = purchaseRepository.findAllWithExpenses(pageable);
         List<PurchaseListProjection> content = purchasePage.getContent();
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
-        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
+        List<PurchaseInventoryStatusProjection> inventoryStatuses = ids.isEmpty()
+                ? List.of() : inventoryRepository.findStatusByPurchaseIdIn(ids);
+        Map<Long, Boolean> soldMap = buildSoldMap(inventoryStatuses);
+        Map<Long, Boolean> exchangeMap = buildExchangeMap(inventoryStatuses);
+        Map<Long, BigDecimal> saleRateMap = buildSaleRateMap(inventoryStatuses);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         Map<Long, BigDecimal> expenseSumMap = getExpenseSumMap(ids);
         Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
@@ -213,7 +312,9 @@ public class PurchaseService {
                         soldMap.getOrDefault(p.getId(), false),
                         paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
                         expenseSumMap.getOrDefault(p.getId(), BigDecimal.ZERO),
-                        editabilityMap.getOrDefault(p.getId(), true)))
+                        editabilityMap.getOrDefault(p.getId(), true),
+                        exchangeMap.getOrDefault(p.getId(), false),
+                        saleRateMap.get(p.getId())))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -289,13 +390,19 @@ public class PurchaseService {
                 pageable);
         List<PurchaseListProjection> content = purchasePage.getContent();
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
-        Map<Long, Boolean> soldMap = fetchSoldMap(ids);
+        List<PurchaseInventoryStatusProjection> inventoryStatuses = ids.isEmpty()
+                ? List.of() : inventoryRepository.findStatusByPurchaseIdIn(ids);
+        Map<Long, Boolean> soldMap = buildSoldMap(inventoryStatuses);
+        Map<Long, Boolean> exchangeMap = buildExchangeMap(inventoryStatuses);
+        Map<Long, BigDecimal> saleRateMap = buildSaleRateMap(inventoryStatuses);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
                 .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
                         paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
-                        editabilityMap.getOrDefault(p.getId(), true)))
+                        editabilityMap.getOrDefault(p.getId(), true),
+                        exchangeMap.getOrDefault(p.getId(), false),
+                        saleRateMap.get(p.getId())))
                 .toList();
         PurchaseRs purchaseRs = PurchaseRs.builder().purchases(purchases).build();
         purchaseRs.setTotalPages(purchasePage.getTotalPages());
@@ -346,12 +453,19 @@ public class PurchaseService {
 
         StatusEnum inventoryStatus = purchaseRq.getDeliveredDate() != null ? StatusEnum.AVAILABLE : StatusEnum.PENDING_DELIVERY;
         createInventoryRecord(savedPurchase, detail, product, purchaseRq, totalExpenseAmt, inventoryStatus);
+        if (purchaseRq.getSourceSaleId() == null) {
+            journalService.post(JournalService.REF_PURCHASE, savedPurchase.getId());
+        }
         return rs;
     }
 
     @Transactional
     public PurchaseRs update(Long purchaseId, PurchaseRq purchaseRq, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
+        boolean isExchange = isExchangePurchase(purchaseId);
+        if (!isExchange) {
+            journalService.reverse(JournalService.REF_PURCHASE, purchaseId);
+        }
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             if (!computeIsEditableForDetail(purchase, inventoryOpt.get())) {
@@ -445,6 +559,9 @@ public class PurchaseService {
             }
         }
 
+        if (!isExchange) {
+            journalService.post(JournalService.REF_PURCHASE, purchaseId);
+        }
         return new PurchaseRs();
     }
 
@@ -557,6 +674,9 @@ public class PurchaseService {
         }
         purchase.getPurchaseExpenses().forEach(this::reverseExpenseTransaction);
         purchase.getPayments().forEach(this::reversePaymentTransaction);
+        if (!isExchangePurchase(id)) {
+            journalService.reverse(JournalService.REF_PURCHASE, id);
+        }
         purchaseRepository.delete(purchase);
         inventoryOpt.ifPresent(inventoryRepository::delete);
         return PurchaseRs.builder().build();
@@ -581,7 +701,7 @@ public class PurchaseService {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
         BigDecimal alreadyPaid = purchasePaymentRepository.sumAmountByPurchaseId(purchaseId);
-        BigDecimal remaining = purchase.getTotalAmount().subtract(alreadyPaid);
+        BigDecimal remaining = computeRemainingPayable(purchase, alreadyPaid);
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(new ErrorCode.CustomError("PAY_400", "Purchase is already fully paid"));
         }
@@ -619,7 +739,7 @@ public class PurchaseService {
         if (amountChanged || accountChanged) {
             BigDecimal alreadyPaid = purchasePaymentRepository.sumAmountByPurchaseId(purchaseId);
             BigDecimal paidExcludingThis = alreadyPaid.subtract(payment.getAmount());
-            BigDecimal remaining = purchase.getTotalAmount().subtract(paidExcludingThis);
+            BigDecimal remaining = computeRemainingPayable(purchase, paidExcludingThis);
             if (rq.getAmount().compareTo(remaining) > 0) {
                 throw new BusinessException(ErrorCode.Business.OVERPAYMENT);
             }
@@ -688,6 +808,7 @@ public class PurchaseService {
         transaction.setDescription("Purchase payment – " + purchaseRefNo);
         transaction.setNotes(payment.getNotes());
         transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
 
         // TODO [JOURNAL ENTRY] - Purchase Payment Made
         // Trigger  : every time a vendor payment is recorded (this method is the single entry point).
@@ -712,6 +833,7 @@ public class PurchaseService {
         transaction.setDirection(TransactionDirectionEnum.OUT);
         transaction.setDescription("Purchase expense – " + purchaseRefNo);
         transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_EXPENSE, expense.getId());
 
         // TODO [JOURNAL ENTRY] - Purchase Expense Paid
         // Trigger  : when a purchase-linked expense is created with a paymentAccountId.
@@ -739,6 +861,7 @@ public class PurchaseService {
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
                 });
+        journalService.reverse(JournalService.REF_EXPENSE, expense.getId());
     }
 
     private void reversePaymentTransaction(PurchasePayment payment) {
@@ -757,6 +880,40 @@ public class PurchaseService {
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
                 });
+        journalService.reverse(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
+    }
+
+    public PayablesSummaryRs getPayablesSummary() {
+        List<PayableRow> rows = purchaseRepository.findPayables();
+        List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
+                .purchaseId(r.getPurchaseId())
+                .referenceNo(r.getReferenceNo())
+                .vehicleNo(r.getVehicleNo())
+                .purchaseDate(r.getPurchaseDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastPaymentDate(r.getLastPaymentDate())
+                .vendorName(r.getVendorName())
+                .vendorMobile(r.getVendorMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(PayableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return PayablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private boolean isExchangePurchase(Long purchaseId) {
+        return inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId)
+                .map(inv -> inv.getSourceSaleId() != null)
+                .orElse(false);
     }
 
     private PurchasePaymentDTO toPaymentDTO(PurchasePayment p) {
