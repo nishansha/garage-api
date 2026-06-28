@@ -42,14 +42,32 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = """
             SELECT
               (SELECT COALESCE(SUM(sale_rate), 0) FROM app_sale
-               WHERE deleted = false AND sale_date >= :startOfMonth) as totalSales,
+               WHERE deleted = false AND sale_date >= :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(s.sale_rate), 0) FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               WHERE sr.deleted = false AND sr.return_date >= :startOfMonth) as totalSales,
+
               (SELECT COALESCE(SUM(sale_rate), 0) FROM app_sale
-               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as salesBeforeMonth,
+               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(s.sale_rate), 0) FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               WHERE sr.deleted = false
+                 AND sr.return_date >= :startOfLastMonth AND sr.return_date < :startOfMonth) as salesBeforeMonth,
 
               (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order
-               WHERE deleted = false AND order_date >= :startOfMonth) as totalPurchases,
+               WHERE deleted = false AND order_date >= :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(pr.inventory_landed_cost), 0) FROM app_purchase_return pr
+               WHERE pr.deleted = false AND pr.return_date >= :startOfMonth) as totalPurchases,
+
               (SELECT COALESCE(SUM(total_amount), 0) FROM app_purchase_order
-               WHERE deleted = false AND order_date >= :startOfLastMonth AND order_date < :startOfMonth) as purchasesBeforeMonth,
+               WHERE deleted = false AND order_date >= :startOfLastMonth AND order_date < :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(pr.inventory_landed_cost), 0) FROM app_purchase_return pr
+               WHERE pr.deleted = false
+                 AND pr.return_date >= :startOfLastMonth AND pr.return_date < :startOfMonth) as purchasesBeforeMonth,
 
               (SELECT COALESCE(SUM(amount), 0) FROM app_expense
                WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfMonth)
@@ -58,7 +76,18 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
                  AND coa.type = 'EXPENSE'
-                 AND d.entry_date >= :startOfMonth) as totalExpenses,
+                 AND d.entry_date >= :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount)), 0)
+               FROM app_purchase_return pr
+               WHERE pr.deleted = false AND pr.return_date >= :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(GREATEST(0, inv.landed_cost - s.exchange_amount)), 0)
+               FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               JOIN app_inventory inv ON inv.source_sale_id = s.id
+               WHERE sr.deleted = false AND sr.return_date >= :startOfMonth
+                 AND sr.exchange_handling = 'RETURN_TO_BUYER') as totalExpenses,
 
               (SELECT COALESCE(SUM(amount), 0) FROM app_expense
                WHERE deleted = false AND purchase_order_id IS NULL AND date >= :startOfLastMonth AND date < :startOfMonth)
@@ -67,12 +96,44 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                WHERE d.deleted = false AND d.direction = 'OUT'
                  AND coa.type = 'EXPENSE'
-                 AND d.entry_date >= :startOfLastMonth AND d.entry_date < :startOfMonth) as expensesBeforeMonth,
+                 AND d.entry_date >= :startOfLastMonth AND d.entry_date < :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount)), 0)
+               FROM app_purchase_return pr
+               WHERE pr.deleted = false
+                 AND pr.return_date >= :startOfLastMonth AND pr.return_date < :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(GREATEST(0, inv.landed_cost - s.exchange_amount)), 0)
+               FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               JOIN app_inventory inv ON inv.source_sale_id = s.id
+               WHERE sr.deleted = false
+                 AND sr.return_date >= :startOfLastMonth AND sr.return_date < :startOfMonth
+                 AND sr.exchange_handling = 'RETURN_TO_BUYER') as expensesBeforeMonth,
 
               (SELECT COALESCE(SUM(sale_rate - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
-               WHERE deleted = false AND sale_date >= :startOfMonth) as totalGrossProfit,
+               WHERE deleted = false AND sale_date >= :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)), 0) FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               WHERE sr.deleted = false AND sr.return_date >= :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount), 0)
+               FROM app_sale_return sr
+               WHERE sr.deleted = false AND sr.return_date >= :startOfMonth) as totalGrossProfit,
+
               (SELECT COALESCE(SUM(sale_rate - COALESCE(landed_cost_at_sale, 0)), 0) FROM app_sale
-               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth) as grossProfitBeforeMonth
+               WHERE deleted = false AND sale_date >= :startOfLastMonth AND sale_date < :startOfMonth)
+              -
+              (SELECT COALESCE(SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)), 0) FROM app_sale_return sr
+               JOIN app_sale s ON s.id = sr.sale_id
+               WHERE sr.deleted = false
+                 AND sr.return_date >= :startOfLastMonth AND sr.return_date < :startOfMonth)
+              +
+              (SELECT COALESCE(SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount), 0)
+               FROM app_sale_return sr
+               WHERE sr.deleted = false
+                 AND sr.return_date >= :startOfLastMonth AND sr.return_date < :startOfMonth) as grossProfitBeforeMonth
 
             FROM (SELECT 1) data
             """, nativeQuery = true)
@@ -144,10 +205,14 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             FROM months
             WHERE month_date > DATE_TRUNC('month', CURRENT_DATE - CAST(:monthCount - 1 || ' month' AS INTERVAL))
         )
-        SELECT 
+        SELECT
             TO_CHAR(m.month_date, 'YYYY-MM') as monthName,
             COALESCE((SELECT SUM(sale_rate) FROM app_sale s
-                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0) as sales,
+                      WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0)
+            -
+            COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
+                      JOIN app_sale s ON s.id = sr.sale_id
+                      WHERE DATE_TRUNC('month', sr.return_date) = m.month_date AND sr.deleted = false), 0) as sales,
             COALESCE((SELECT SUM(
                           CASE WHEN tradein.unit_cost IS NOT NULL
                                THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost)
@@ -160,11 +225,33 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           JOIN app_sale s ON s.id = inv.source_sale_id
                           WHERE inv.source_sale_id IS NOT NULL
                       ) tradein ON tradein.purchase_order_id = p.id
-                      WHERE DATE_TRUNC('month', p.order_date) = m.month_date AND p.deleted = false), 0) as purchases,
-            COALESCE((SELECT SUM(amount) FROM app_expense e 
-                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0) as expenses,
+                      WHERE DATE_TRUNC('month', p.order_date) = m.month_date AND p.deleted = false), 0)
+            -
+            COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
+                      WHERE DATE_TRUNC('month', pr.return_date) = m.month_date AND pr.deleted = false), 0) as purchases,
+            COALESCE((SELECT SUM(amount) FROM app_expense e
+                      WHERE DATE_TRUNC('month', e.date) = m.month_date AND e.deleted = false AND e.purchase_order_id IS NULL), 0)
+            +
+            COALESCE((SELECT SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount))
+                      FROM app_purchase_return pr
+                      WHERE DATE_TRUNC('month', pr.return_date) = m.month_date AND pr.deleted = false), 0)
+            +
+            COALESCE((SELECT SUM(GREATEST(0, inv.landed_cost - s.exchange_amount))
+                      FROM app_sale_return sr
+                      JOIN app_sale s ON s.id = sr.sale_id
+                      JOIN app_inventory inv ON inv.source_sale_id = s.id
+                      WHERE DATE_TRUNC('month', sr.return_date) = m.month_date AND sr.deleted = false
+                      AND sr.exchange_handling = 'RETURN_TO_BUYER'), 0) as expenses,
             COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
                       WHERE DATE_TRUNC('month', s.sale_date) = m.month_date AND s.deleted = false), 0)
+            -
+            COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale_return sr
+                      JOIN app_sale s ON s.id = sr.sale_id
+                      WHERE DATE_TRUNC('month', sr.return_date) = m.month_date AND sr.deleted = false), 0)
+            +
+            COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
+                      FROM app_sale_return sr
+                      WHERE DATE_TRUNC('month', sr.return_date) = m.month_date AND sr.deleted = false), 0)
             +
             COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
                       JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
@@ -179,7 +266,18 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                       JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                       WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                       AND d.deleted = false AND d.direction = 'OUT'
-                      AND coa.type = 'EXPENSE'), 0) as profit
+                      AND coa.type = 'EXPENSE'), 0)
+            -
+            COALESCE((SELECT SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount))
+                      FROM app_purchase_return pr
+                      WHERE DATE_TRUNC('month', pr.return_date) = m.month_date AND pr.deleted = false), 0)
+            -
+            COALESCE((SELECT SUM(GREATEST(0, inv.landed_cost - s.exchange_amount))
+                      FROM app_sale_return sr
+                      JOIN app_sale s ON s.id = sr.sale_id
+                      JOIN app_inventory inv ON inv.source_sale_id = s.id
+                      WHERE DATE_TRUNC('month', sr.return_date) = m.month_date AND sr.deleted = false
+                      AND sr.exchange_handling = 'RETURN_TO_BUYER'), 0) as profit
         FROM months m
         ORDER BY m.month_date DESC
         """, nativeQuery = true)
@@ -210,17 +308,43 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                           AND d.deleted = false AND d.direction = 'IN'
-                          AND coa.type = 'REVENUE'), 0) as totalRevenue,
+                          AND coa.type = 'REVENUE'), 0)
+                -
+                COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
+                          JOIN app_sale s ON s.id = sr.sale_id
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false), 0)
+                +
+                COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
+                          FROM app_sale_return sr
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false), 0) as totalRevenue,
 
                 COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                           AND d.deleted = false AND d.direction = 'IN'
-                          AND coa.type = 'REVENUE'), 0) as otherIncome,
+                          AND coa.type = 'REVENUE'), 0)
+                +
+                COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
+                          FROM app_sale_return sr
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false), 0) as otherIncome,
 
                 COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false), 0) as grossProfit,
+                          AND s.deleted = false), 0)
+                -
+                COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0))
+                          FROM app_sale_return sr
+                          JOIN app_sale s ON s.id = sr.sale_id
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false), 0)
+                +
+                COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
+                          FROM app_sale_return sr
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false), 0) as grossProfit,
 
                 COALESCE((
                     SELECT SUM(s.net_sale_amount) - COALESCE(SUM(sp_sum.paid), 0)
@@ -240,7 +364,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                     SELECT SUM(
                         CASE WHEN tradein.unit_cost IS NOT NULL
                              THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
-                             ELSE po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)
+                             ELSE GREATEST(0,
+                                      po.total_amount
+                                      - COALESCE(pp_sum.paid, 0)
+                                      - COALESCE(exp_sum.expense, 0)
+                                      - COALESCE(pr_sum.returned_unwind, 0))
                         END
                     )
                     FROM app_purchase_order po
@@ -263,6 +391,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                         JOIN app_sale s ON s.id = inv.source_sale_id
                         WHERE inv.source_sale_id IS NOT NULL
                     ) tradein ON tradein.purchase_order_id = po.id
+                    LEFT JOIN (
+                        SELECT purchase_id, SUM(return_amount) as returned_unwind
+                        FROM app_purchase_return
+                        WHERE deleted = false
+                        GROUP BY purchase_id
+                    ) pr_sum ON pr_sum.purchase_id = po.id
                     WHERE DATE_TRUNC('month', po.order_date) = m.month_date
                     AND po.deleted = false
                 ), 0) as totalPayables,
@@ -276,7 +410,20 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
                           AND d.deleted = false AND d.direction = 'OUT'
-                          AND coa.type = 'EXPENSE'), 0) as totalExpenses
+                          AND coa.type = 'EXPENSE'), 0)
+                +
+                COALESCE((SELECT SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount))
+                          FROM app_purchase_return pr
+                          WHERE DATE_TRUNC('month', pr.return_date) = m.month_date
+                          AND pr.deleted = false), 0)
+                +
+                COALESCE((SELECT SUM(GREATEST(0, inv.landed_cost - s.exchange_amount))
+                          FROM app_sale_return sr
+                          JOIN app_sale s ON s.id = sr.sale_id
+                          JOIN app_inventory inv ON inv.source_sale_id = s.id
+                          WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
+                          AND sr.deleted = false
+                          AND sr.exchange_handling = 'RETURN_TO_BUYER'), 0) as totalExpenses
 
             FROM months m
             ORDER BY m.month_date ASC

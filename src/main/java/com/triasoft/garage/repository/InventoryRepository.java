@@ -38,6 +38,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
 
     List<Inventory> findAllByStatus(StatusEnum status);
 
+    boolean existsByPurchaseOrderDetailPurchaseIdAndStatusNot(Long purchaseId, StatusEnum status);
+
     Page<Inventory> findByStatusIn(List<StatusEnum> statuses, Pageable pageable);
 
     @Query("SELECT i.purchaseOrderDetail.purchase.id as purchaseId, i.status as status, i.sourceSaleId as sourceSaleId FROM Inventory i WHERE i.purchaseOrderDetail.purchase.id IN :ids")

@@ -1,13 +1,17 @@
 package com.triasoft.garage.controller;
 
 import com.triasoft.garage.dto.SaleDTO;
+import com.triasoft.garage.dto.SaleReturnDTO;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
+import com.triasoft.garage.model.sale.ReturnFormDataRs;
 import com.triasoft.garage.model.sale.SalePaymentRq;
+import com.triasoft.garage.model.sale.SaleReturnRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
 import com.triasoft.garage.model.sale.SalesRs;
+import com.triasoft.garage.service.impl.SaleReturnService;
 import com.triasoft.garage.service.impl.SalesService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 public class SalesController {
 
     private final SalesService salesService;
+    private final SaleReturnService saleReturnService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
@@ -83,5 +88,19 @@ public class SalesController {
     @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
         return ResponseEntity.ok(ApiResponse.success(salesService.getReceivablesSummary()));
+    }
+
+    // ───────────────────────── Sale Returns ─────────────────────────
+
+    @GetMapping(value = "/{id}/return/form-data", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<ReturnFormDataRs.Body>> returnFormData(@PathVariable("id") Long id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(saleReturnService.getFormData(id, UserUtil.getUser(request))));
+    }
+
+    @PostMapping(value = "/{id}/return", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<SaleReturnDTO>> createReturn(@PathVariable("id") Long id,
+                                                            @RequestBody SaleReturnRq rq,
+                                                            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(saleReturnService.create(id, rq, UserUtil.getUser(request))));
     }
 }

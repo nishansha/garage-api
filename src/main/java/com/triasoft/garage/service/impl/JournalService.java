@@ -1,6 +1,7 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.ErrorCode;
+import com.triasoft.garage.constants.ExchangeHandlingEnum;
 import com.triasoft.garage.constants.JournalStatusEnum;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
@@ -29,16 +30,26 @@ public class JournalService {
     public static final String REF_DIRECT_ENTRY = "DIRECT_ENTRY";
     public static final String REF_OPENING_BALANCE = "OPENING_BALANCE";
     public static final String REF_MANUAL_JOURNAL = "MANUAL_JOURNAL";
+    public static final String REF_SALE_RETURN = "SALE_RETURN";
+    public static final String REF_SALE_RETURN_REFUND = "SALE_RETURN_REFUND";
+    public static final String REF_PURCHASE_RETURN = "PURCHASE_RETURN";
+    public static final String REF_PURCHASE_RETURN_RECEIPT = "PURCHASE_RETURN_RECEIPT";
 
     // CoA codes for system-managed accounts
     private static final String COA_AR = "1100";
     private static final String COA_FINANCE_RECEIVABLE = "1150";
+    private static final String COA_VENDOR_REFUND_RECEIVABLE = "1170";
     private static final String COA_INVENTORY = "1200";
     private static final String COA_AP = "2000";
     private static final String COA_CUSTOMER_SETTLEMENT_PAYABLE = "2400";
+    private static final String COA_CUSTOMER_REFUND_PAYABLE = "2410";
     private static final String COA_OPENING_BALANCE_EQUITY = "3900";
     private static final String COA_SALES_REVENUE = "4000";
     private static final String COA_COGS = "5000";
+    private static final String COA_RETURN_DEDUCTION_INCOME = "4520";
+    private static final String COA_GAIN_ON_EXCHANGE_ADJ = "4530";
+    private static final String COA_LOSS_RETURNED_EXCHANGE = "5510";
+    private static final String COA_LOSS_PURCHASE_RETURN = "5520";
 
     private final JournalRepository journalRepository;
     private final JournalDetailRepository journalDetailRepository;
@@ -51,6 +62,10 @@ public class JournalService {
     private final DirectEntryRepository directEntryRepository;
     private final PaymentAccountRepository paymentAccountRepository;
     private final InventoryRepository inventoryRepository;
+    private final SaleReturnRepository saleReturnRepository;
+    private final SaleRefundPaymentRepository saleRefundPaymentRepository;
+    private final PurchaseReturnRepository purchaseReturnRepository;
+    private final PurchaseReturnReceiptRepository purchaseReturnReceiptRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Public API
@@ -62,13 +77,17 @@ public class JournalService {
             throw new BusinessException(ErrorCode.Business.JOURNAL_ALREADY_POSTED);
         }
         switch (referenceType) {
-            case REF_SALE             -> handleSale(referenceId);
-            case REF_SALE_PAYMENT     -> handleSalePayment(referenceId);
-            case REF_PURCHASE         -> handlePurchase(referenceId);
-            case REF_PURCHASE_PAYMENT -> handlePurchasePayment(referenceId);
-            case REF_EXPENSE          -> handleExpense(referenceId);
-            case REF_DIRECT_ENTRY     -> handleDirectEntry(referenceId);
-            case REF_OPENING_BALANCE  -> handleOpeningBalance(referenceId);
+            case REF_SALE                    -> handleSale(referenceId);
+            case REF_SALE_PAYMENT            -> handleSalePayment(referenceId);
+            case REF_PURCHASE                -> handlePurchase(referenceId);
+            case REF_PURCHASE_PAYMENT        -> handlePurchasePayment(referenceId);
+            case REF_EXPENSE                 -> handleExpense(referenceId);
+            case REF_DIRECT_ENTRY            -> handleDirectEntry(referenceId);
+            case REF_OPENING_BALANCE         -> handleOpeningBalance(referenceId);
+            case REF_SALE_RETURN             -> handleSaleReturn(referenceId);
+            case REF_SALE_RETURN_REFUND      -> handleSaleReturnRefund(referenceId);
+            case REF_PURCHASE_RETURN         -> handlePurchaseReturn(referenceId);
+            case REF_PURCHASE_RETURN_RECEIPT -> handlePurchaseReturnReceipt(referenceId);
             default -> throw new BusinessException("JNL_400", "Unknown reference type: " + referenceType);
         }
     }
@@ -310,6 +329,165 @@ public class JournalService {
         List<JournalDetail> lines = List.of(
                 debit(journal, debitAccount, entry.getAmount(), offsetCoa.getLabel()),
                 credit(journal, creditAccount, entry.getAmount(), offsetCoa.getLabel())
+        );
+        saveBalanced(lines);
+    }
+
+    private void handleSaleReturn(Long saleReturnId) {
+        SaleReturn sr = saleReturnRepository.findById(saleReturnId)
+                .orElseThrow(() -> new EntityNotFoundException("Sale return not found: " + saleReturnId));
+        Sale sale = sr.getSale();
+
+        BigDecimal saleRate = safe(sale.getSaleRate());
+        BigDecimal landedCostA = safe(sale.getLandedCostAtSale());
+        BigDecimal customerPaid = safe(sr.getCustomerPaidAmount());
+        BigDecimal exchange = safe(sale.getExchangeAmount());
+        BigDecimal soldDed = safe(sr.getSoldVehicleDeductionAmount());
+        BigDecimal exchDed = safe(sr.getExchangeVehicleDeductionAmount());
+        BigDecimal totalDed = soldDed.add(exchDed);
+        // Outstanding receivable to cancel = whatever the customer still owed us in cash before return.
+        BigDecimal outstandingAr = saleRate.subtract(exchange).subtract(customerPaid).max(BigDecimal.ZERO);
+
+        Journal journal = createJournal(REF_SALE_RETURN, saleReturnId, sr.getReturnDate(),
+                "Sale return for " + sale.getInvoiceNo() + " — " + sale.getCustomer().getName());
+
+        List<JournalDetail> lines = new ArrayList<>();
+        // Always: reverse revenue + restore sold inventory + reverse COGS
+        if (saleRate.signum() > 0) {
+            lines.add(debit(journal, coa(COA_SALES_REVENUE), saleRate, "Reverse sales revenue"));
+        }
+        if (landedCostA.signum() > 0) {
+            lines.add(debit(journal, coa(COA_INVENTORY), landedCostA, "Sold vehicle back to inventory"));
+            lines.add(credit(journal, coa(COA_COGS), landedCostA, "Reverse COGS"));
+        }
+
+        BigDecimal refundPayable;
+        if (sr.getExchangeHandling() == ExchangeHandlingEnum.RETURN_TO_BUYER) {
+            // Exchange vehicle goes back; expenses on car B become sunk loss; inventory of car B leaves.
+            Inventory exchangeInv = inventoryRepository.findBySourceSaleId(sale.getId()).orElse(null);
+            BigDecimal landedCostB = exchangeInv != null ? safe(exchangeInv.getLandedCost()) : exchange;
+            BigDecimal expensesOnB = landedCostB.subtract(exchange);
+
+            if (landedCostB.signum() > 0) {
+                lines.add(credit(journal, coa(COA_INVENTORY), landedCostB, "Trade-in vehicle returned to buyer"));
+            }
+            if (expensesOnB.signum() > 0) {
+                lines.add(debit(journal, coa(COA_LOSS_RETURNED_EXCHANGE), expensesOnB,
+                        "Sunk expenses on returned trade-in"));
+            }
+            refundPayable = customerPaid.subtract(soldDed);
+        } else if (sr.getExchangeHandling() == ExchangeHandlingEnum.KEEP_AND_BUYBACK) {
+            BigDecimal buyback = safe(sr.getExchangeBuybackAmount());
+            BigDecimal gain = exchange.subtract(buyback); // ≥ 0 due to cap (buyback ≤ exchange)
+            if (gain.signum() > 0) {
+                lines.add(credit(journal, coa(COA_GAIN_ON_EXCHANGE_ADJ), gain,
+                        "Gain on exchange buyback renegotiation"));
+            }
+            refundPayable = customerPaid.add(buyback).subtract(totalDed);
+        } else {
+            // NONE
+            refundPayable = customerPaid.subtract(soldDed);
+        }
+
+        // Cancel any outstanding A/R the customer still owed us (the sale is unwound).
+        if (outstandingAr.signum() > 0) {
+            lines.add(credit(journal, coa(COA_AR), outstandingAr,
+                    "Cancel outstanding A/R from " + sale.getCustomer().getName()));
+        }
+        // Record the new liability for cash we owe customer (separate from A/R so balance sheet is clean).
+        if (refundPayable.signum() > 0) {
+            lines.add(credit(journal, coa(COA_CUSTOMER_REFUND_PAYABLE), refundPayable,
+                    "Refund payable to " + sale.getCustomer().getName()));
+        }
+        if (totalDed.signum() > 0) {
+            lines.add(credit(journal, coa(COA_RETURN_DEDUCTION_INCOME), totalDed,
+                    "Return deduction income"));
+        }
+        saveBalanced(lines);
+    }
+
+    private void handleSaleReturnRefund(Long refundId) {
+        SaleRefundPayment refund = saleRefundPaymentRepository.findById(refundId)
+                .orElseThrow(() -> new EntityNotFoundException("Sale refund payment not found: " + refundId));
+
+        ChartOfAccount paymentCoa = paymentAccountCoa(refund.getPaymentAccount());
+        Journal journal = createJournal(REF_SALE_RETURN_REFUND, refundId, refund.getPaymentDate(),
+                "Refund payment for return of sale " + refund.getSaleReturn().getSale().getInvoiceNo());
+
+        List<JournalDetail> lines = List.of(
+                debit(journal, coa(COA_CUSTOMER_REFUND_PAYABLE), refund.getAmount(),
+                        "Settle refund payable"),
+                credit(journal, paymentCoa, refund.getAmount(),
+                        "Refund paid from " + refund.getPaymentAccount().getName())
+        );
+        saveBalanced(lines);
+    }
+
+    private void handlePurchaseReturn(Long purchaseReturnId) {
+        PurchaseReturn pr = purchaseReturnRepository.findById(purchaseReturnId)
+                .orElseThrow(() -> new EntityNotFoundException("Purchase return not found: " + purchaseReturnId));
+
+        // Stored `returnAmount` holds the unwind value (= outstandingAp + refundAmount).
+        // Split it for proper presentation: A/P cancellation goes to A/P (liability),
+        // refund-from-vendor goes to a dedicated asset account so the balance sheet doesn't
+        // show A/P with a debit balance.
+        Purchase purchase = pr.getPurchase();
+        BigDecimal unwindAmount = safe(pr.getReturnAmount());
+        BigDecimal landedCost = safe(pr.getInventoryLandedCost());
+        BigDecimal vendorInvoice = computeVendorInvoiceAmount(purchase);
+        BigDecimal paidToVendor = safe(purchasePaymentRepository.sumAmountByPurchaseId(purchase.getId()));
+        BigDecimal outstandingAp = vendorInvoice.subtract(paidToVendor).max(BigDecimal.ZERO);
+        // Cap at unwindAmount in the (unlikely) edge case that outstandingAp drifted higher.
+        BigDecimal apToCancel = outstandingAp.min(unwindAmount);
+        BigDecimal vendorReceivable = unwindAmount.subtract(apToCancel).max(BigDecimal.ZERO);
+        BigDecimal loss = landedCost.subtract(unwindAmount); // sunk expenses + restocking fee
+
+        Journal journal = createJournal(REF_PURCHASE_RETURN, purchaseReturnId, pr.getReturnDate(),
+                "Purchase return for inventory " + pr.getInventory().getUin() +
+                        " (PO " + purchase.getReferenceNo() + ")");
+
+        List<JournalDetail> lines = new ArrayList<>();
+        if (apToCancel.signum() > 0) {
+            lines.add(debit(journal, coa(COA_AP), apToCancel, "Cancel outstanding vendor A/P"));
+        }
+        if (vendorReceivable.signum() > 0) {
+            lines.add(debit(journal, coa(COA_VENDOR_REFUND_RECEIVABLE), vendorReceivable,
+                    "Refund receivable from " + purchase.getVendor().getName()));
+        }
+        if (loss.signum() > 0) {
+            lines.add(debit(journal, coa(COA_LOSS_PURCHASE_RETURN), loss,
+                    "Loss on purchase return (unrecovered cost)"));
+        } else if (loss.signum() < 0) {
+            lines.add(credit(journal, coa(COA_GAIN_ON_EXCHANGE_ADJ), loss.abs(),
+                    "Gain on purchase return"));
+        }
+        if (landedCost.signum() > 0) {
+            lines.add(credit(journal, coa(COA_INVENTORY), landedCost, "Inventory out — returned to vendor"));
+        }
+        saveBalanced(lines);
+    }
+
+    /** Vendor's net invoice = purchase total − sum of expenses (which post their own journals). */
+    private BigDecimal computeVendorInvoiceAmount(Purchase purchase) {
+        BigDecimal expensesSum = expenseRepository.findByPurchaseId(purchase.getId()).stream()
+                .map(e -> safe(e.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return safe(purchase.getTotalAmount()).subtract(expensesSum).max(BigDecimal.ZERO);
+    }
+
+    private void handlePurchaseReturnReceipt(Long receiptId) {
+        PurchaseReturnReceipt receipt = purchaseReturnReceiptRepository.findById(receiptId)
+                .orElseThrow(() -> new EntityNotFoundException("Purchase return receipt not found: " + receiptId));
+
+        ChartOfAccount paymentCoa = paymentAccountCoa(receipt.getPaymentAccount());
+        Journal journal = createJournal(REF_PURCHASE_RETURN_RECEIPT, receiptId, receipt.getPaymentDate(),
+                "Vendor refund receipt for PO " + receipt.getPurchaseReturn().getPurchase().getReferenceNo());
+
+        List<JournalDetail> lines = List.of(
+                debit(journal, paymentCoa, receipt.getAmount(),
+                        "Refund received to " + receipt.getPaymentAccount().getName()),
+                credit(journal, coa(COA_VENDOR_REFUND_RECEIVABLE), receipt.getAmount(),
+                        "Settle vendor refund receivable")
         );
         saveBalanced(lines);
     }

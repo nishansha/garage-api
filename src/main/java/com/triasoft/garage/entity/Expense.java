@@ -21,7 +21,7 @@ public class Expense extends AuditGenericEntity {
     @Serial
     private static final long serialVersionUID = 5393592326235319975L;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "purchase_order_id")
     private Purchase purchase;
 

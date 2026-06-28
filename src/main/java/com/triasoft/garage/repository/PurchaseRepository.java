@@ -134,7 +134,11 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                      ELSE po.total_amount END as amount,
                 CASE WHEN tradein.unit_cost IS NOT NULL
                      THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
-                     ELSE po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)
+                     ELSE GREATEST(0,
+                              po.total_amount
+                              - COALESCE(pp_sum.paid, 0)
+                              - COALESCE(exp_sum.expense, 0)
+                              - COALESCE(pr_sum.returned_unwind, 0))
                 END as pendingAmount,
                 pp_sum.last_payment_date as lastPaymentDate,
                 v.name           as vendorName,
@@ -169,10 +173,20 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 JOIN app_sale s ON s.id = inv.source_sale_id
                 WHERE inv.source_sale_id IS NOT NULL
             ) tradein ON tradein.purchase_order_id = po.id
+            LEFT JOIN (
+                SELECT purchase_id, SUM(return_amount) as returned_unwind
+                FROM app_purchase_return
+                WHERE deleted = false
+                GROUP BY purchase_id
+            ) pr_sum ON pr_sum.purchase_id = po.id
             WHERE po.deleted = false
               AND CASE WHEN tradein.unit_cost IS NOT NULL
                        THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
-                       ELSE po.total_amount - COALESCE(pp_sum.paid, 0) - COALESCE(exp_sum.expense, 0)
+                       ELSE GREATEST(0,
+                                po.total_amount
+                                - COALESCE(pp_sum.paid, 0)
+                                - COALESCE(exp_sum.expense, 0)
+                                - COALESCE(pr_sum.returned_unwind, 0))
                   END > 0
             ORDER BY po.order_date DESC
             """, nativeQuery = true)
