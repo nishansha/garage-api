@@ -108,7 +108,7 @@ public class SalesService {
     public SalesRs create(SalesRq saleRq, UserDTO user) {
         Customer customer = customerRepository.findByMobile(saleRq.getCustomerMobileNo()).orElseGet(() -> createCustomer(saleRq, user));
         Inventory stock = inventoryRepository.findById(saleRq.getStockId()).orElseThrow(() -> new EntityNotFoundException("Vehicle not found in stock"));
-        if (StatusEnum.SOLD.equals(stock.getStatus())) {
+        if (!StatusEnum.AVAILABLE.equals(stock.getStatus())) {
             throw new BusinessException(ErrorCode.Business.ALREADY_SOLD);
         }
         Sale sale = new Sale();
@@ -277,8 +277,8 @@ public class SalesService {
         journalService.reverse(JournalService.REF_SALE, id);
         if (!existingSale.getInventory().getId().equals(salesRq.getStockId())) {
             Inventory newStock = inventoryRepository.findById(salesRq.getStockId()).orElseThrow(() -> new EntityNotFoundException("New stock item not found"));
-            if (StatusEnum.SOLD.equals(newStock.getStatus())) {
-                throw new BusinessException("Selected vehicle is already sold to someone else!");
+            if (!StatusEnum.AVAILABLE.equals(newStock.getStatus())) {
+                throw new BusinessException(ErrorCode.Business.ALREADY_SOLD);
             }
             Inventory oldStock = existingSale.getInventory();
             oldStock.setStatus(StatusEnum.AVAILABLE);
