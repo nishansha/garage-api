@@ -82,12 +82,14 @@ public class PurchaseService {
         List<PurchaseInventoryStatusProjection> inventoryStatuses = ids.isEmpty()
                 ? List.of() : inventoryRepository.findStatusByPurchaseIdIn(ids);
         Map<Long, Boolean> soldMap = buildSoldMap(inventoryStatuses);
+        Map<Long, Boolean> returnedMap = buildReturnedMap(inventoryStatuses);
         Map<Long, Boolean> exchangeMap = buildExchangeMap(inventoryStatuses);
         Map<Long, BigDecimal> saleRateMap = buildSaleRateMap(inventoryStatuses);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
                 .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
+                        returnedMap.getOrDefault(p.getId(), false),
                         paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
                         editabilityMap.getOrDefault(p.getId(), true),
                         exchangeMap.getOrDefault(p.getId(), false),
@@ -154,6 +156,7 @@ public class PurchaseService {
                 .ownerMobileNo(purchase.getVendor().getMobile())
                 .ownerShipSerialNo(purchaseDetail.getOwnershipSerialNo())
                 .isSold(inventory != null && StatusEnum.SOLD.equals(inventory.getStatus()))
+                .isReturned(inventory != null && StatusEnum.RETURNED_TO_VENDOR.equals(inventory.getStatus()))
                 .build();
     }
 
@@ -207,6 +210,14 @@ public class PurchaseService {
         ));
     }
 
+    private Map<Long, Boolean> buildReturnedMap(List<PurchaseInventoryStatusProjection> rows) {
+        return rows.stream().collect(Collectors.toMap(
+                PurchaseInventoryStatusProjection::getPurchaseId,
+                p -> StatusEnum.RETURNED_TO_VENDOR.equals(p.getStatus()),
+                (a, b) -> a
+        ));
+    }
+
     private Map<Long, Boolean> buildExchangeMap(List<PurchaseInventoryStatusProjection> rows) {
         return rows.stream().collect(Collectors.toMap(
                 PurchaseInventoryStatusProjection::getPurchaseId,
@@ -233,7 +244,7 @@ public class PurchaseService {
         return result;
     }
 
-    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, BigDecimal paidAmount, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
+    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, boolean isReturned,  BigDecimal paidAmount, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
         BigDecimal total = p.getPurchaseRate();
         BigDecimal paidByOffset = isExchange && sourceSaleRate != null ? sourceSaleRate.min(total) : null;
         BigDecimal paidByCash = isExchange ? paidAmount : null;
@@ -256,6 +267,7 @@ public class PurchaseService {
                 .paymentStatus(status)
                 .isSold(isSold)
                 .isEditable(isEditable)
+                .isReturned(isReturned)
                 .isExchange(isExchange)
                 .settlementAmount(isExchange ? total : null)
                 .paidByOffset(paidByOffset)
@@ -345,7 +357,13 @@ public class PurchaseService {
     }
 
     private boolean computeIsEditableForDetail(Purchase purchase, Inventory inventory) {
-        if (inventory == null || !StatusEnum.SOLD.equals(inventory.getStatus())) return true;
+
+        if (Objects.nonNull(inventory) && StatusEnum.RETURNED_TO_VENDOR.equals(inventory.getStatus()))
+            return false;
+
+        if (inventory == null || !StatusEnum.SOLD.equals(inventory.getStatus()))
+            return true;
+
         if (CollectionUtils.isEmpty(purchase.getPurchaseDetails())) return true;
         var category = purchase.getPurchaseDetails().get(0).getProduct().getCategory();
         if (category == null || !category.isExpenseLockEnabled() || category.getExpenseLockWindow() == null) return true;
@@ -393,12 +411,14 @@ public class PurchaseService {
         List<PurchaseInventoryStatusProjection> inventoryStatuses = ids.isEmpty()
                 ? List.of() : inventoryRepository.findStatusByPurchaseIdIn(ids);
         Map<Long, Boolean> soldMap = buildSoldMap(inventoryStatuses);
+        Map<Long, Boolean> returnedMap = buildReturnedMap(inventoryStatuses);
         Map<Long, Boolean> exchangeMap = buildExchangeMap(inventoryStatuses);
         Map<Long, BigDecimal> saleRateMap = buildSaleRateMap(inventoryStatuses);
         Map<Long, BigDecimal> paidMap = getPaidAmountMap(ids);
         Map<Long, Boolean> editabilityMap = buildEditabilityMap(ids, soldMap);
         List<PurchaseDTO> purchases = content.stream()
                 .map(p -> convertListProjectionToDTO(p, soldMap.getOrDefault(p.getId(), false),
+                        returnedMap.getOrDefault(p.getId(), false),
                         paidMap.getOrDefault(p.getId(), BigDecimal.ZERO),
                         editabilityMap.getOrDefault(p.getId(), true),
                         exchangeMap.getOrDefault(p.getId(), false),

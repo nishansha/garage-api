@@ -66,7 +66,7 @@ public class Sale extends AuditGenericEntity {
     @Column(name = "profit_amount")
     private BigDecimal profitAmount;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "status_id", nullable = false)
     private LookupMaster status;
 

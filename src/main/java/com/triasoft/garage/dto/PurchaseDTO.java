@@ -43,6 +43,7 @@ public class PurchaseDTO implements Serializable {
     private String pickupLocation;
     private String notes;
     private boolean isSold;
+    private boolean isReturned;
     private boolean isEditable;
     private boolean isExchange;
     private Long sourceSaleId;
