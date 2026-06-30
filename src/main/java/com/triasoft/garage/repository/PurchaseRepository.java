@@ -103,24 +103,36 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
-            WHERE EXISTS (SELECT 1 FROM Expense e WHERE e.purchase = p)
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
             JOIN p.purchaseDetails pd
             JOIN pd.product prod
-            WHERE EXISTS (SELECT 1 FROM Expense e WHERE e.purchase = p)
             """)
     Page<PurchaseListProjection> findAllWithExpenses(Pageable pageable);
 
-    @Query(value = "SELECT " +
-            "COALESCE(SUM(CASE WHEN p.order_date >= :startOfMonth THEN p.total_amount ELSE 0 END), 0) as totalThisMonth, " +
-            "COALESCE(SUM(CASE WHEN p.order_date >= :startOfLastMonth AND p.order_date <= :endOfLastMonth THEN p.total_amount ELSE 0 END), 0) as totalLastMonth, " +
-            "COUNT(CASE WHEN p.order_date = :today THEN 1 END) as todayCount, " +
-            "COUNT(CASE WHEN p.order_date >= :startOfMonth THEN 1 END) as monthCount " +
-            "FROM app_purchase_order p " +
-            "WHERE p.order_date >= :startOfLastMonth " +
-            "AND p.deleted = false", nativeQuery = true)
+    @Query(value = """
+            SELECT
+              COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
+                        WHERE p.order_date >= :startOfMonth AND p.deleted = false), 0)
+              -
+              COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
+                        WHERE pr.return_date >= :startOfMonth AND pr.deleted = false), 0) as totalThisMonth,
+              COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
+                        WHERE p.order_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND p.deleted = false), 0)
+              -
+              COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
+                        WHERE pr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND pr.deleted = false), 0) as totalLastMonth,
+              COALESCE((SELECT COUNT(*) FROM app_purchase_order p
+                        LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
+                        WHERE p.order_date = :today AND p.deleted = false
+                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')), 0) as todayCount,
+              COALESCE((SELECT COUNT(*) FROM app_purchase_order p
+                        LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
+                        WHERE p.order_date >= :startOfMonth AND p.deleted = false
+                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')), 0) as monthCount
+            FROM (SELECT 1) data
+            """, nativeQuery = true)
     PurchaseMetrics getPurchaseSummaryMetrics(@Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth,
                                               @Param("startOfMonth") LocalDate startOfMonth, @Param("today") LocalDate today);
 
