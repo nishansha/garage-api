@@ -8,6 +8,7 @@ import com.triasoft.garage.constants.TransactionTypeEnum;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.Expense;
+import com.triasoft.garage.entity.Inventory;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Purchase;
 import com.triasoft.garage.entity.Sale;
@@ -99,6 +100,9 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseRs create(ExpenseRq expenseRq, UserDTO user) {
+        if (expenseRq.getPaymentAccountId() == null) {
+            throw new BusinessException(ErrorCode.Business.EXPENSE_PAYMENT_ACCOUNT_REQUIRED);
+        }
         Expense expense = new Expense();
         expense.setDate(expenseRq.getDate());
         expense.setAmount(expenseRq.getAmount());
@@ -124,7 +128,8 @@ public class ExpenseService {
             purchase.setTotalAmount(purchase.getTotalAmount().add(expenseRq.getAmount()));
             purchaseRepository.save(purchase);
 
-            inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId()).ifPresent(inventory -> {
+            Optional<Inventory> invOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId());
+            invOpt.ifPresent(inventory -> {
                 inventory.setLandedCost(inventory.getLandedCost().add(expenseRq.getAmount()));
                 inventoryRepository.save(inventory);
             });
@@ -134,6 +139,8 @@ public class ExpenseService {
                         purchase.getReferenceNo(), paymentAccount, TransactionDirectionEnum.OUT);
                 journalService.post(JournalService.REF_EXPENSE, saved.getId());
             }
+
+            invOpt.ifPresent(purchaseService::syncSaleAfterLandedCostChange);
         } else {
             Expense saved = expenseRepository.save(expense);
             if (paymentAccount != null) {
@@ -153,6 +160,9 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseRs update(Long id, ExpenseRq expenseRq, UserDTO user) {
+        if (expenseRq.getPaymentAccountId() == null) {
+            throw new BusinessException(ErrorCode.Business.EXPENSE_PAYMENT_ACCOUNT_REQUIRED);
+        }
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.EXP_NOT_FOUNT));
 
         if (expense.getPurchase() != null) {
@@ -206,10 +216,12 @@ public class ExpenseService {
             Purchase purchase = expense.getPurchase();
             purchase.setTotalAmount(purchase.getTotalAmount().add(delta));
             purchaseRepository.save(purchase);
-            inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId()).ifPresent(inventory -> {
+            Optional<Inventory> invOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId());
+            invOpt.ifPresent(inventory -> {
                 inventory.setLandedCost(inventory.getLandedCost().add(delta));
                 inventoryRepository.save(inventory);
             });
+            invOpt.ifPresent(purchaseService::syncSaleAfterLandedCostChange);
         }
 
         return ExpenseRs.builder().build();
@@ -230,10 +242,12 @@ public class ExpenseService {
             Purchase purchase = expense.getPurchase();
             purchase.setTotalAmount(purchase.getTotalAmount().subtract(expense.getAmount()));
             purchaseRepository.save(purchase);
-            inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId()).ifPresent(inventory -> {
+            Optional<Inventory> invOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchase.getId());
+            invOpt.ifPresent(inventory -> {
                 inventory.setLandedCost(inventory.getLandedCost().subtract(expense.getAmount()));
                 inventoryRepository.save(inventory);
             });
+            invOpt.ifPresent(purchaseService::syncSaleAfterLandedCostChange);
         }
 
         expenseRepository.delete(expense);

@@ -356,6 +356,26 @@ public class PurchaseService {
         return result;
     }
 
+    /**
+     * Keep the active Sale snapshot and SALE journal aligned with the inventory's
+     * current landed cost. Call after any change that mutates
+     * {@code inventory.getLandedCost()} on a potentially-sold inventory.
+     * No-op if the inventory is not SOLD or no active sale exists for it.
+     */
+    public void syncSaleAfterLandedCostChange(Inventory inventory) {
+        if (!StatusEnum.SOLD.equals(inventory.getStatus()))
+            return;
+        Sale sale = saleRepository.findByInventoryId(inventory.getId());
+        if (sale == null)
+            return;
+        BigDecimal newLandedCost = inventory.getLandedCost();
+        sale.setLandedCostAtSale(newLandedCost);
+        sale.setProfitAmount(sale.getSaleRate().subtract(newLandedCost));
+        saleRepository.save(sale);
+        journalService.reverse(JournalService.REF_SALE, sale.getId());
+        journalService.post(JournalService.REF_SALE, sale.getId());
+    }
+
     private boolean computeIsEditableForDetail(Purchase purchase, Inventory inventory) {
 
         if (Objects.nonNull(inventory) && StatusEnum.RETURNED_TO_VENDOR.equals(inventory.getStatus()))
@@ -569,14 +589,7 @@ public class PurchaseService {
                 inventory.setReceivedDate(purchaseRq.getDeliveredDate().atStartOfDay());
             }
             inventoryRepository.save(inventory);
-            if (StatusEnum.SOLD.equals(inventory.getStatus())) {
-                Sale sale = saleRepository.findByInventoryId(inventory.getId());
-                if (sale != null) {
-                    sale.setLandedCostAtSale(newLandedCost);
-                    sale.setProfitAmount(sale.getSaleRate().subtract(newLandedCost));
-                    saleRepository.save(sale);
-                }
-            }
+            syncSaleAfterLandedCostChange(inventory);
         }
 
         if (!isExchange) {
