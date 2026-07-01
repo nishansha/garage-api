@@ -41,6 +41,7 @@ public class SaleReturnService {
     private final SaleRefundPaymentRepository saleRefundPaymentRepository;
     private final JournalService journalService;
     private final PurchaseService purchaseService;
+    private final PurchaseRepository purchaseRepository;
     private final LookupHelper lookupHelper;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -186,6 +187,32 @@ public class SaleReturnService {
         saleRepository.save(sale);
 
         journalService.post(JournalService.REF_SALE_RETURN, sr.getId());
+
+        // For KEEP_AND_BUYBACK: post a PURCHASE journal for the exchange vehicle and
+        // update its cost basis to the buyback amount (was the original exchange amount).
+        if (handling == ExchangeHandlingEnum.KEEP_AND_BUYBACK && sale.isExchanged()) {
+            final BigDecimal buyback = sr.getExchangeBuybackAmount() != null
+                    ? sr.getExchangeBuybackAmount() : BigDecimal.ZERO;
+            final BigDecimal exchangeAmount = safeAmt(sale.getExchangeAmount());
+            final LocalDate returnDate = sr.getReturnDate();
+            final String customerName = sale.getCustomer().getName();
+            inventoryRepository.findBySourceSaleId(saleId).ifPresent(exchInv -> {
+                Purchase exchPurchase = exchInv.getPurchaseOrderDetail().getPurchase();
+                BigDecimal delta = buyback.subtract(exchangeAmount);
+                if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                    exchPurchase.setTotalAmount(exchPurchase.getTotalAmount().add(delta));
+                    exchInv.setLandedCost(exchInv.getLandedCost().add(delta));
+                    inventoryRepository.save(exchInv);
+                }
+                // Mark the purchase as a buyback-recorded standalone purchase. From this
+                // point on, update/delete/findPayables treat it as a regular purchase,
+                // not as an unsettled exchange.
+                exchPurchase.setBuybackRecordedAt(returnDate);
+                purchaseRepository.save(exchPurchase);
+                journalService.postExchangeBuybackPurchase(
+                        exchPurchase.getId(), buyback, returnDate, customerName);
+            });
+        }
 
         return SaleReturnDTO.builder()
                 .id(sr.getId())
@@ -539,7 +566,7 @@ public class SaleReturnService {
                     reversal.setDescription("Reversal – " + original.getDescription());
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
-                    journalService.reverse(JournalService.REF_SALE_RETURN_REFUND, refund.getId());
+                    journalService.reverseOnDate(JournalService.REF_SALE_RETURN_REFUND, refund.getId(), LocalDate.now());
                 });
     }
 }

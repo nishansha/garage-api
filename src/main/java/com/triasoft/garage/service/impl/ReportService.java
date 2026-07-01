@@ -17,12 +17,7 @@ import com.triasoft.garage.projection.PLPendingMetrics;
 import com.triasoft.garage.projection.PayableRow;
 import com.triasoft.garage.projection.ProfitMetrics;
 import com.triasoft.garage.projection.ReceivableRow;
-import com.triasoft.garage.repository.DirectEntryRepository;
-import com.triasoft.garage.repository.ExpenseRepository;
-import com.triasoft.garage.repository.PaymentAccountRepository;
-import com.triasoft.garage.repository.PurchaseRepository;
-import com.triasoft.garage.repository.SaleRepository;
-import com.triasoft.garage.repository.TransactionRepository;
+import com.triasoft.garage.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +35,7 @@ public class ReportService {
     private static final DateTimeFormatter PERIOD_DISPLAY = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
     private final SaleRepository saleRepository;
+    private final JournalRepository journalRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
     private final DirectEntryRepository directEntryRepository;
@@ -127,7 +123,7 @@ public class ReportService {
     }
 
     public MonthlyTrendRs getMonthlyTrend(int months) {
-        List<MonthlyTrendMetrics> rows = saleRepository.getMonthlyTrend(months);
+        List<MonthlyTrendMetrics> rows = journalRepository.getMonthlyTrendFromJournal(months);
         List<MonthlyTrendInfo> trend = rows.stream().map(r -> {
             BigDecimal revenue = safe(r.getTotalRevenue());
             BigDecimal otherIncome = safe(r.getOtherIncome());
@@ -136,7 +132,7 @@ public class ReportService {
             BigDecimal netProfit = grossProfit.add(otherIncome).subtract(expenses);
             return MonthlyTrendInfo.builder()
                     .month(r.getMonth())
-                    .monthLabel(r.getMonthLabel())
+                        .monthLabel(r.getMonthLabel())
                     .salesCount(r.getSalesCount() != null ? r.getSalesCount() : 0L)
                     .totalRevenue(revenue)
                     .otherIncome(otherIncome)

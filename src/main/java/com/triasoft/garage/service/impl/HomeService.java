@@ -12,6 +12,7 @@ import com.triasoft.garage.projection.ActivityProjection;
 import com.triasoft.garage.projection.BalanceMetrics;
 import com.triasoft.garage.projection.ProductMetrics;
 import com.triasoft.garage.projection.SummaryMetrics;
+import com.triasoft.garage.repository.JournalRepository;
 import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.util.CommonUtil;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,12 @@ import java.util.List;
 public class HomeService {
 
     private final SaleRepository saleRepository;
+    private final JournalRepository journalRepository;
 
     public SummaryRs summaryData(UserDTO user) {
         LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
         LocalDate startOfLastMonth = startOfMonth.minusMonths(1);
-        SummaryMetrics metrics = saleRepository.getFinancialSummary(startOfMonth, startOfLastMonth);
+        SummaryMetrics metrics = journalRepository.getFinancialSummaryFromJournal(startOfMonth, startOfLastMonth);
 
         // grossProfit already has purchase expenses absorbed via landed_cost — only subtract general expenses
         BigDecimal thisMonthProfit = metrics.getTotalGrossProfit().subtract(metrics.getTotalExpenses());
@@ -82,7 +84,7 @@ public class HomeService {
     }
 
     public OverviewRs getOverview(Integer monthCount, UserDTO user) {
-        List<BalanceMetrics> results = saleRepository.getMonthlyBalanceSheet(monthCount);
+        List<BalanceMetrics> results = journalRepository.getMonthlyBalanceSheetFromJournal(monthCount);
         List<SummaryInfo> data = results.stream().map(m -> SummaryInfo.builder()
                 .month(m.getMonthName())
                 .totalSales(m.getSales())

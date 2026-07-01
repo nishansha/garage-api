@@ -15,6 +15,8 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     Optional<ChartOfAccount> findByCode(String code);
 
+    Optional<ChartOfAccount> findBySystemRole(String systemRole);
+
     List<ChartOfAccount> findByIsDirectPostableTrue();
 
     List<ChartOfAccount> findByTypeAndIsDirectPostableTrue(String type);

@@ -40,4 +40,7 @@ public class ChartOfAccount extends AuditGenericEntity {
     @Column(name = "is_direct_postable")
     private boolean isDirectPostable = true;
 
+    @Column(name = "system_role")
+    private String systemRole;
+
 }

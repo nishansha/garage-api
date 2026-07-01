@@ -114,23 +114,49 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
     @Query(value = """
             SELECT
               COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                        WHERE p.order_date >= :startOfMonth AND p.deleted = false), 0)
+                        WHERE p.order_date >= :startOfMonth AND p.deleted = false
+                          AND NOT EXISTS (
+                              SELECT 1 FROM app_purchase_order_detail pod
+                              JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                              WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
+                          )), 0)
+              + COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
+                          WHERE p.buyback_recorded_at >= :startOfMonth
+                            AND p.deleted = false), 0)
               -
               COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
                         WHERE pr.return_date >= :startOfMonth AND pr.deleted = false), 0) as totalThisMonth,
               COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                        WHERE p.order_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND p.deleted = false), 0)
+                        WHERE p.order_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND p.deleted = false
+                          AND NOT EXISTS (
+                              SELECT 1 FROM app_purchase_order_detail pod
+                              JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                              WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
+                          )), 0)
+              + COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
+                          WHERE p.buyback_recorded_at BETWEEN :startOfLastMonth AND :endOfLastMonth
+                            AND p.deleted = false), 0)
               -
               COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
                         WHERE pr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND pr.deleted = false), 0) as totalLastMonth,
               COALESCE((SELECT COUNT(*) FROM app_purchase_order p
                         LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
                         WHERE p.order_date = :today AND p.deleted = false
-                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')), 0) as todayCount,
+                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')
+                          AND NOT EXISTS (
+                              SELECT 1 FROM app_purchase_order_detail pod
+                              JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                              WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
+                          )), 0) as todayCount,
               COALESCE((SELECT COUNT(*) FROM app_purchase_order p
                         LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
                         WHERE p.order_date >= :startOfMonth AND p.deleted = false
-                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')), 0) as monthCount
+                          AND (ls.code IS NULL OR ls.code <> 'RETURNED')
+                          AND NOT EXISTS (
+                              SELECT 1 FROM app_purchase_order_detail pod
+                              JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                              WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
+                          )), 0) as monthCount
             FROM (SELECT 1) data
             """, nativeQuery = true)
     PurchaseMetrics getPurchaseSummaryMetrics(@Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth,
@@ -183,7 +209,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 FROM app_purchase_order_detail pod
                 JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
                 JOIN app_sale s ON s.id = inv.source_sale_id
+                JOIN app_purchase_order po_x ON po_x.id = pod.purchase_order_id
                 WHERE inv.source_sale_id IS NOT NULL
+                  AND po_x.buyback_recorded_at IS NULL
             ) tradein ON tradein.purchase_order_id = po.id
             LEFT JOIN (
                 SELECT purchase_id, SUM(return_amount) as returned_unwind
@@ -192,6 +220,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 GROUP BY purchase_id
             ) pr_sum ON pr_sum.purchase_id = po.id
             WHERE po.deleted = false
+              -- Buyback-recorded exchange purchases are tracked via the SaleReturn
+              -- Customer Refund Payable and shown in /sale-returns/payables, not here.
+              AND po.buyback_recorded_at IS NULL
               AND CASE WHEN tradein.unit_cost IS NOT NULL
                        THEN tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)
                        ELSE GREATEST(0,
