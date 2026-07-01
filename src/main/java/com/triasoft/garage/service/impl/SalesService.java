@@ -601,7 +601,7 @@ public class SalesService {
                     reversal.setDescription("Reversal – " + original.getDescription());
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
-                    journalService.reverse(JournalService.REF_SALE_PAYMENT, payment.getId());
+                    journalService.reverseOnDate(JournalService.REF_SALE_PAYMENT, payment.getId(), LocalDate.now());
 
                     // TODO [JOURNAL ENTRY] - Sale Payment Reversal
                     // Trigger  : called on payment update (amount/account changed) or payment delete.

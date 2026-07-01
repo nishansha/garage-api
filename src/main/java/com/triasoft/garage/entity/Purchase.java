@@ -52,6 +52,15 @@ public class Purchase extends AuditGenericEntity {
     @Column(name = "pickup_location")
     private String pickupLocation;
 
+    /**
+     * Set when a KEEP_AND_BUYBACK sale return promotes this exchange purchase to a
+     * standalone purchase. Semantically: "the accounting record for the buyback event
+     * exists as of this date." NOT related to buyback payment settlement — the
+     * refund payable to the customer may still be outstanding.
+     */
+    @Column(name = "buyback_recorded_at")
+    private LocalDate buybackRecordedAt;
+
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseDetail> purchaseDetails = new ArrayList<>();
 

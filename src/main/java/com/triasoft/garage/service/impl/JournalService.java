@@ -3,6 +3,7 @@ package com.triasoft.garage.service.impl;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.ExchangeHandlingEnum;
 import com.triasoft.garage.constants.JournalStatusEnum;
+import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.repository.*;
@@ -35,21 +36,8 @@ public class JournalService {
     public static final String REF_PURCHASE_RETURN = "PURCHASE_RETURN";
     public static final String REF_PURCHASE_RETURN_RECEIPT = "PURCHASE_RETURN_RECEIPT";
 
-    // CoA codes for system-managed accounts
-    private static final String COA_AR = "1100";
-    private static final String COA_FINANCE_RECEIVABLE = "1150";
-    private static final String COA_VENDOR_REFUND_RECEIVABLE = "1170";
-    private static final String COA_INVENTORY = "1200";
-    private static final String COA_AP = "2000";
-    private static final String COA_CUSTOMER_SETTLEMENT_PAYABLE = "2400";
-    private static final String COA_CUSTOMER_REFUND_PAYABLE = "2410";
-    private static final String COA_OPENING_BALANCE_EQUITY = "3900";
-    private static final String COA_SALES_REVENUE = "4000";
-    private static final String COA_COGS = "5000";
-    private static final String COA_RETURN_DEDUCTION_INCOME = "4520";
-    private static final String COA_GAIN_ON_EXCHANGE_ADJ = "4530";
-    private static final String COA_LOSS_RETURNED_EXCHANGE = "5510";
-    private static final String COA_LOSS_PURCHASE_RETURN = "5520";
+    // System-managed CoA accounts are looked up by SystemCoaRole, so user-editable
+    // code/name changes don't break journal posting or aggregation queries.
 
     private final JournalRepository journalRepository;
     private final JournalDetailRepository journalDetailRepository;
@@ -146,14 +134,27 @@ public class JournalService {
 
     @Transactional
     public void reverse(String referenceType, Long referenceId) {
+        // Correction reversals (edit/delete of a record) always use the original
+        // journal date so the correction stays in the same period it was posted.
+        reverseOn(referenceType, referenceId, null);
+    }
+
+    @Transactional
+    public void reverseOnDate(String referenceType, Long referenceId, LocalDate reversalDate) {
+        // Payment/receipt cancellations use today — the cancellation is a current-period event.
+        reverseOn(referenceType, referenceId, reversalDate);
+    }
+
+    private void reverseOn(String referenceType, Long referenceId, LocalDate reversalDate) {
         Journal original = journalRepository.findActiveByReferenceTypeAndReferenceId(referenceType, referenceId)
                 .orElse(null);
-        if (original == null) return; // nothing to reverse
+        if (original == null)
+            return; // nothing to reverse
 
         List<JournalDetail> originalLines = journalDetailRepository.findByJournalId(original.getId());
 
         Journal reversal = new Journal();
-        reversal.setJournalDate(LocalDate.now());
+        reversal.setJournalDate(reversalDate != null ? reversalDate : original.getJournalDate());
         reversal.setReferenceType(referenceType);
         reversal.setReferenceId(referenceId);
         reversal.setDescription("Reversal of: " + original.getDescription());
@@ -194,25 +195,25 @@ public class JournalService {
 
         List<JournalDetail> lines = new ArrayList<>();
         if (customerAR.signum() > 0) {
-            lines.add(debit(journal, coa(COA_AR), customerAR, "Customer receivable — " + sale.getCustomer().getName()));
+            lines.add(debit(journal, coa(SystemCoaRole.AR), customerAR, "Customer receivable — " + sale.getCustomer().getName()));
         }
         if (finance.signum() > 0) {
-            lines.add(debit(journal, coa(COA_FINANCE_RECEIVABLE), finance,
+            lines.add(debit(journal, coa(SystemCoaRole.FINANCE_RECEIVABLE), finance,
                     "Finance receivable — " + sale.getFinanceCompany()));
         }
         if (exchange.signum() > 0) {
-            lines.add(debit(journal, coa(COA_INVENTORY), exchange,
+            lines.add(debit(journal, coa(SystemCoaRole.INVENTORY), exchange,
                     "Trade-in vehicle received"));
         }
         if (landedCost.signum() > 0) {
-            lines.add(debit(journal, coa(COA_COGS), landedCost, "COGS at sale"));
+            lines.add(debit(journal, coa(SystemCoaRole.COGS), landedCost, "COGS at sale"));
         }
-        lines.add(credit(journal, coa(COA_SALES_REVENUE), saleRate, "Sales revenue"));
+        lines.add(credit(journal, coa(SystemCoaRole.SALES_REVENUE), saleRate, "Sales revenue"));
         if (landedCost.signum() > 0) {
-            lines.add(credit(journal, coa(COA_INVENTORY), landedCost, "Inventory out"));
+            lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), landedCost, "Inventory out"));
         }
         if (customerAR.signum() < 0) {
-            lines.add(credit(journal, coa(COA_CUSTOMER_SETTLEMENT_PAYABLE), customerAR.abs(),
+            lines.add(credit(journal, coa(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE), customerAR.abs(),
                     "Customer settlement payable — " + sale.getCustomer().getName()));
         }
 
@@ -226,7 +227,7 @@ public class JournalService {
         ChartOfAccount paymentCoa = paymentAccountCoa(payment.getPaymentAccount());
         boolean fromFinance = payment.getPayerType() != null
                 && "FINANCE".equalsIgnoreCase(payment.getPayerType().name());
-        ChartOfAccount creditAccount = fromFinance ? coa(COA_FINANCE_RECEIVABLE) : coa(COA_AR);
+        ChartOfAccount creditAccount = fromFinance ? coa(SystemCoaRole.FINANCE_RECEIVABLE) : coa(SystemCoaRole.AR);
         String label = fromFinance ? "Finance disbursement" : "Customer payment";
 
         Journal journal = createJournal(REF_SALE_PAYMENT, paymentId, payment.getPaymentDate(),
@@ -258,8 +259,8 @@ public class JournalService {
                 "Purchase " + purchase.getReferenceNo() + " — " + purchase.getVendor().getName());
 
         List<JournalDetail> lines = List.of(
-                debit(journal, coa(COA_INVENTORY), baseAmount, "Inventory in (vehicle base)"),
-                credit(journal, coa(COA_AP), baseAmount, "Vendor payable — " + purchase.getVendor().getName())
+                debit(journal, coa(SystemCoaRole.INVENTORY), baseAmount, "Inventory in (vehicle base)"),
+                credit(journal, coa(SystemCoaRole.AP), baseAmount, "Vendor payable — " + purchase.getVendor().getName())
         );
         saveBalanced(lines);
     }
@@ -272,7 +273,7 @@ public class JournalService {
         boolean isExchange = inventoryRepository.findByPurchaseOrderDetailPurchaseId(payment.getPurchase().getId())
                 .map(inv -> inv.getSourceSaleId() != null)
                 .orElse(false);
-        ChartOfAccount debitAccount = isExchange ? coa(COA_CUSTOMER_SETTLEMENT_PAYABLE) : coa(COA_AP);
+        ChartOfAccount debitAccount = isExchange ? coa(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE) : coa(SystemCoaRole.AP);
         String debitLabel = isExchange ? "Customer settlement payable cleared" : "Vendor payable cleared";
         Journal journal = createJournal(REF_PURCHASE_PAYMENT, paymentId, payment.getPaymentDate(),
                 "Payment for purchase " + payment.getPurchase().getReferenceNo());
@@ -293,10 +294,12 @@ public class JournalService {
             throw new BusinessException("JNL_411", "Expense must have a payment account to post journal");
         }
         ChartOfAccount paymentCoa = paymentAccountCoa(expense.getPaymentAccount());
-        // If linked to a purchase → capitalize into inventory (landed cost).
-        // Otherwise → debit the expense CoA selected by user.
+        // Purchase-linked expenses always capitalise into Inventory regardless of
+        // whether the vehicle is sold. syncSaleAfterLandedCostChange() then reverse+
+        // reposts the SALE journal (on the original sale date) so COGS in the sale
+        // month automatically reflects the updated landed cost.
         ChartOfAccount debitAccount = expense.getPurchase() != null
-                ? coa(COA_INVENTORY)
+                ? coa(SystemCoaRole.INVENTORY)
                 : expense.getExpenseAccount();
         String label = expense.getPurchase() != null
                 ? "Vehicle prep expense (capitalized)"
@@ -354,11 +357,11 @@ public class JournalService {
         List<JournalDetail> lines = new ArrayList<>();
         // Always: reverse revenue + restore sold inventory + reverse COGS
         if (saleRate.signum() > 0) {
-            lines.add(debit(journal, coa(COA_SALES_REVENUE), saleRate, "Reverse sales revenue"));
+            lines.add(debit(journal, coa(SystemCoaRole.SALES_REVENUE), saleRate, "Reverse sales revenue"));
         }
         if (landedCostA.signum() > 0) {
-            lines.add(debit(journal, coa(COA_INVENTORY), landedCostA, "Sold vehicle back to inventory"));
-            lines.add(credit(journal, coa(COA_COGS), landedCostA, "Reverse COGS"));
+            lines.add(debit(journal, coa(SystemCoaRole.INVENTORY), landedCostA, "Sold vehicle back to inventory"));
+            lines.add(credit(journal, coa(SystemCoaRole.COGS), landedCostA, "Reverse COGS"));
         }
 
         BigDecimal refundPayable;
@@ -369,21 +372,28 @@ public class JournalService {
             BigDecimal expensesOnB = landedCostB.subtract(exchange);
 
             if (landedCostB.signum() > 0) {
-                lines.add(credit(journal, coa(COA_INVENTORY), landedCostB, "Trade-in vehicle returned to buyer"));
+                lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), landedCostB, "Trade-in vehicle returned to buyer"));
             }
             if (expensesOnB.signum() > 0) {
-                lines.add(debit(journal, coa(COA_LOSS_RETURNED_EXCHANGE), expensesOnB,
+                lines.add(debit(journal, coa(SystemCoaRole.LOSS_RETURNED_EXCHANGE), expensesOnB,
                         "Sunk expenses on returned trade-in"));
             }
             refundPayable = customerPaid.subtract(soldDed);
         } else if (sr.getExchangeHandling() == ExchangeHandlingEnum.KEEP_AND_BUYBACK) {
             BigDecimal buyback = safe(sr.getExchangeBuybackAmount());
             BigDecimal gain = exchange.subtract(buyback); // ≥ 0 due to cap (buyback ≤ exchange)
+            // Cancel the SALE journal's DR Inventory for the exchange vehicle — it will be
+            // re-entered at buyback price via a separate PURCHASE journal (postExchangeBuybackPurchase).
+            if (exchange.signum() > 0) {
+                lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), exchange,
+                        "Exchange vehicle reclassified to standalone purchase"));
+            }
             if (gain.signum() > 0) {
-                lines.add(credit(journal, coa(COA_GAIN_ON_EXCHANGE_ADJ), gain,
+                lines.add(credit(journal, coa(SystemCoaRole.GAIN_ON_EXCHANGE_ADJ), gain,
                         "Gain on exchange buyback renegotiation"));
             }
-            refundPayable = customerPaid.add(buyback).subtract(totalDed);
+            // Buyback liability is recorded in the companion PURCHASE journal, not here.
+            refundPayable = customerPaid.subtract(totalDed);
         } else {
             // NONE
             refundPayable = customerPaid.subtract(soldDed);
@@ -391,16 +401,16 @@ public class JournalService {
 
         // Cancel any outstanding A/R the customer still owed us (the sale is unwound).
         if (outstandingAr.signum() > 0) {
-            lines.add(credit(journal, coa(COA_AR), outstandingAr,
+            lines.add(credit(journal, coa(SystemCoaRole.AR), outstandingAr,
                     "Cancel outstanding A/R from " + sale.getCustomer().getName()));
         }
         // Record the new liability for cash we owe customer (separate from A/R so balance sheet is clean).
         if (refundPayable.signum() > 0) {
-            lines.add(credit(journal, coa(COA_CUSTOMER_REFUND_PAYABLE), refundPayable,
+            lines.add(credit(journal, coa(SystemCoaRole.CUSTOMER_REFUND_PAYABLE), refundPayable,
                     "Refund payable to " + sale.getCustomer().getName()));
         }
         if (totalDed.signum() > 0) {
-            lines.add(credit(journal, coa(COA_RETURN_DEDUCTION_INCOME), totalDed,
+            lines.add(credit(journal, coa(SystemCoaRole.RETURN_DEDUCTION_INCOME), totalDed,
                     "Return deduction income"));
         }
         saveBalanced(lines);
@@ -415,7 +425,7 @@ public class JournalService {
                 "Refund payment for return of sale " + refund.getSaleReturn().getSale().getInvoiceNo());
 
         List<JournalDetail> lines = List.of(
-                debit(journal, coa(COA_CUSTOMER_REFUND_PAYABLE), refund.getAmount(),
+                debit(journal, coa(SystemCoaRole.CUSTOMER_REFUND_PAYABLE), refund.getAmount(),
                         "Settle refund payable"),
                 credit(journal, paymentCoa, refund.getAmount(),
                         "Refund paid from " + refund.getPaymentAccount().getName())
@@ -448,21 +458,21 @@ public class JournalService {
 
         List<JournalDetail> lines = new ArrayList<>();
         if (apToCancel.signum() > 0) {
-            lines.add(debit(journal, coa(COA_AP), apToCancel, "Cancel outstanding vendor A/P"));
+            lines.add(debit(journal, coa(SystemCoaRole.AP), apToCancel, "Cancel outstanding vendor A/P"));
         }
         if (vendorReceivable.signum() > 0) {
-            lines.add(debit(journal, coa(COA_VENDOR_REFUND_RECEIVABLE), vendorReceivable,
+            lines.add(debit(journal, coa(SystemCoaRole.VENDOR_REFUND_RECEIVABLE), vendorReceivable,
                     "Refund receivable from " + purchase.getVendor().getName()));
         }
         if (loss.signum() > 0) {
-            lines.add(debit(journal, coa(COA_LOSS_PURCHASE_RETURN), loss,
+            lines.add(debit(journal, coa(SystemCoaRole.LOSS_PURCHASE_RETURN), loss,
                     "Loss on purchase return (unrecovered cost)"));
         } else if (loss.signum() < 0) {
-            lines.add(credit(journal, coa(COA_GAIN_ON_EXCHANGE_ADJ), loss.abs(),
+            lines.add(credit(journal, coa(SystemCoaRole.GAIN_ON_EXCHANGE_ADJ), loss.abs(),
                     "Gain on purchase return"));
         }
         if (landedCost.signum() > 0) {
-            lines.add(credit(journal, coa(COA_INVENTORY), landedCost, "Inventory out — returned to vendor"));
+            lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), landedCost, "Inventory out — returned to vendor"));
         }
         saveBalanced(lines);
     }
@@ -486,7 +496,7 @@ public class JournalService {
         List<JournalDetail> lines = List.of(
                 debit(journal, paymentCoa, receipt.getAmount(),
                         "Refund received to " + receipt.getPaymentAccount().getName()),
-                credit(journal, coa(COA_VENDOR_REFUND_RECEIVABLE), receipt.getAmount(),
+                credit(journal, coa(SystemCoaRole.VENDOR_REFUND_RECEIVABLE), receipt.getAmount(),
                         "Settle vendor refund receivable")
         );
         saveBalanced(lines);
@@ -505,7 +515,7 @@ public class JournalService {
 
         List<JournalDetail> lines = List.of(
                 debit(journal, paymentCoa, amount, "Opening balance — " + account.getName()),
-                credit(journal, coa(COA_OPENING_BALANCE_EQUITY), amount, "Opening Balance Equity")
+                credit(journal, coa(SystemCoaRole.OPENING_BALANCE_EQUITY), amount, "Opening Balance Equity")
         );
         saveBalanced(lines);
     }
@@ -555,8 +565,8 @@ public class JournalService {
         journalDetailRepository.saveAll(lines);
     }
 
-    private ChartOfAccount coa(String code) {
-        return chartOfAccountRepository.findByCode(code)
+    private ChartOfAccount coa(SystemCoaRole role) {
+        return chartOfAccountRepository.findBySystemRole(role.name())
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.JOURNAL_COA_MISSING));
     }
 
@@ -565,6 +575,29 @@ public class JournalService {
             throw new BusinessException(ErrorCode.Business.JOURNAL_PAYMENT_ACCOUNT_COA_MISSING);
         }
         return account.getChartOfAccount();
+    }
+
+    /**
+     * Posts a PURCHASE journal for an exchange vehicle that the garage has decided
+     * to keep after a KEEP_AND_BUYBACK sale return. The SALE_RETURN journal cancels
+     * the original SALE's DR Inventory for the exchange vehicle; this journal
+     * re-enters it at the buyback price and records the matching liability to the customer.
+     */
+    @Transactional
+    public void postExchangeBuybackPurchase(Long purchaseId, BigDecimal buybackAmount,
+                                             LocalDate journalDate, String customerName) {
+        if (journalRepository.findActiveByReferenceTypeAndReferenceId(REF_PURCHASE, purchaseId).isPresent()) {
+            return; // idempotent — already posted
+        }
+        Journal journal = createJournal(REF_PURCHASE, purchaseId, journalDate,
+                "Exchange vehicle buyback — " + customerName);
+        List<JournalDetail> lines = List.of(
+                debit(journal, coa(SystemCoaRole.INVENTORY), buybackAmount,
+                        "Exchange vehicle acquired at buyback price"),
+                credit(journal, coa(SystemCoaRole.CUSTOMER_REFUND_PAYABLE), buybackAmount,
+                        "Buyback payable to " + customerName)
+        );
+        saveBalanced(lines);
     }
 
     private BigDecimal safe(BigDecimal value) {

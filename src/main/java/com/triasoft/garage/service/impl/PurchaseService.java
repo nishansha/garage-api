@@ -357,10 +357,14 @@ public class PurchaseService {
     }
 
     /**
-     * Keep the active Sale snapshot and SALE journal aligned with the inventory's
-     * current landed cost. Call after any change that mutates
-     * {@code inventory.getLandedCost()} on a potentially-sold inventory.
-     * No-op if the inventory is not SOLD or no active sale exists for it.
+     * Keeps the active Sale snapshot and SALE journal aligned whenever
+     * inventory.landedCost changes on a sold vehicle (post-sale expense
+     * add/edit/delete, or purchase rate edit within the lock window).
+     *
+     * The EXPENSE journal always debits Inventory (capitalised). This method
+     * then reverse+reposts the SALE journal on the ORIGINAL sale date so that
+     * COGS in the sale month reflects the updated landed cost — no cross-month
+     * bleed because JournalService.reverse() now uses original.getJournalDate().
      */
     public void syncSaleAfterLandedCostChange(Inventory inventory) {
         if (!StatusEnum.SOLD.equals(inventory.getStatus()))
@@ -913,7 +917,7 @@ public class PurchaseService {
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
                 });
-        journalService.reverse(JournalService.REF_PURCHASE_PAYMENT, payment.getId());
+        journalService.reverseOnDate(JournalService.REF_PURCHASE_PAYMENT, payment.getId(), LocalDate.now());
     }
 
     public PayablesSummaryRs getPayablesSummary() {
@@ -944,8 +948,12 @@ public class PurchaseService {
     }
 
     private boolean isExchangePurchase(Long purchaseId) {
+        // True only for exchange purchases that have NOT yet been promoted to standalone
+        // via KEEP_AND_BUYBACK. Once buyback_recorded_at is set, the purchase behaves as
+        // a normal vendor purchase for update/delete/payables flows.
         return inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId)
-                .map(inv -> inv.getSourceSaleId() != null)
+                .map(inv -> inv.getSourceSaleId() != null
+                        && inv.getPurchaseOrderDetail().getPurchase().getBuybackRecordedAt() == null)
                 .orElse(false);
     }
 

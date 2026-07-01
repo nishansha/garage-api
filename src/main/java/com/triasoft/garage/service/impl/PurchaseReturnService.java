@@ -436,7 +436,7 @@ public class PurchaseReturnService {
                     reversal.setDescription("Reversal – " + original.getDescription());
                     reversal.setReversalOf(original);
                     transactionRepository.save(reversal);
-                    journalService.reverse(JournalService.REF_PURCHASE_RETURN_RECEIPT, receipt.getId());
+                    journalService.reverseOnDate(JournalService.REF_PURCHASE_RETURN_RECEIPT, receipt.getId(), LocalDate.now());
                 });
     }
 }
