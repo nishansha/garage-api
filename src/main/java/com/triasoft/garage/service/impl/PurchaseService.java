@@ -132,6 +132,8 @@ public class PurchaseService {
                 .modelId(product.getModel() != null ? product.getModel().getId() : null)
                 .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
                 .variantId(product.getVarient() != null ? product.getVarient().getId() : null)
+                .fuelTypeId(product.getFuelType() != null ? product.getFuelType().getId() : null)
+                .fuelType(product.getFuelType() != null ? product.getFuelType().getDescription() : null)
                 .segmentId(product.getSegment() != null ? product.getSegment().getId() : null)
                 .segmentName(product.getSegment() != null ? product.getSegment().getDescription() : null)
                 .purchaseRate(purchaseDetail.getUnitCost())
@@ -261,6 +263,8 @@ public class PurchaseService {
                 .brandName(p.getBrandName())
                 .modelName(p.getModelName())
                 .variantName(p.getVariantName())
+                .fuelTypeId(p.getFuelTypeId())
+                .fuelType(p.getFuelType())
                 .purchaseRate(total)
                 .paidAmount(effectivePaid)
                 .pendingAmount(pending)
@@ -292,6 +296,8 @@ public class PurchaseService {
                 .brandName(p.getBrandName())
                 .modelName(p.getModelName())
                 .variantName(p.getVariantName())
+                .fuelTypeId(p.getFuelTypeId())
+                .fuelType(p.getFuelType())
                 .purchaseRate(total)
                 .totalExpenses(totalExpenses)
                 .paidAmount(effectivePaid)
@@ -425,10 +431,13 @@ public class PurchaseService {
         Long brandId = filterRq.getBrandId() != null ? Long.parseLong(filterRq.getBrandId()) : null;
         Long modelId = filterRq.getModelId() != null ? Long.parseLong(filterRq.getModelId()) : null;
         Long variantId = filterRq.getVariantId() != null ? Long.parseLong(filterRq.getVariantId()) : null;
+        Long fuelTypeId = filterRq.getFuelTypeId() != null ? Long.parseLong(filterRq.getFuelTypeId()) : null;
+        String vehicleNo = filterRq.getVehicleNo() != null && !filterRq.getVehicleNo().isBlank() ? filterRq.getVehicleNo() : null;
+        String searchText = filterRq.getSearchText() != null && !filterRq.getSearchText().isBlank() ? filterRq.getSearchText() : null;
         Page<PurchaseListProjection> purchasePage = purchaseRepository.searchForList(
                 filterRq.getFromDate(), filterRq.getToDate(),
-                brandId, modelId, variantId,
-                filterRq.getVehicleNo(), filterRq.getSearchText(),
+                brandId, modelId, variantId, fuelTypeId,
+                vehicleNo, searchText,
                 pageable);
         List<PurchaseListProjection> content = purchasePage.getContent();
         List<Long> ids = content.stream().map(PurchaseListProjection::getId).toList();
@@ -983,11 +992,16 @@ public class PurchaseService {
     }
 
     private Product findOrCreateProduct(PurchaseRq purchaseRq) {
-        return productRepository.findByBrandIdAndModelIdAndVarientId(purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId()).orElseGet(() -> productService.createProduct(this.convertToProductRq(purchaseRq)));
+        Optional<Product> match = purchaseRq.getFuelTypeId() != null
+                ? productRepository.findByBrandIdAndModelIdAndVarientIdAndFuelTypeId(
+                    purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId(), purchaseRq.getFuelTypeId())
+                : productRepository.findByBrandIdAndModelIdAndVarientId(
+                    purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId());
+        return match.orElseGet(() -> productService.createProduct(this.convertToProductRq(purchaseRq)));
     }
 
     private ProductRq convertToProductRq(PurchaseRq purchaseRq) {
-        return ProductRq.builder().brandId(purchaseRq.getBrandId()).modelId(purchaseRq.getModelId()).varientId(purchaseRq.getVariantId()).segmentId(purchaseRq.getSegmentId()).build();
+        return ProductRq.builder().brandId(purchaseRq.getBrandId()).modelId(purchaseRq.getModelId()).varientId(purchaseRq.getVariantId()).segmentId(purchaseRq.getSegmentId()).fuelTypeId(purchaseRq.getFuelTypeId()).build();
     }
 
     private Long parseOdometer(String odometer) {

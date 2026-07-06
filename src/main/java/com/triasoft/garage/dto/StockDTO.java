@@ -22,6 +22,8 @@ public class StockDTO implements Serializable {
     private String brandName;
     private String modelName;
     private String variantName;
+    private Long fuelTypeId;
+    private String fuelType;
     private BigDecimal totalAmount;
     private BigDecimal purchasedAmount;
     private BigDecimal purchaseExpense;

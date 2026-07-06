@@ -24,6 +24,7 @@ public class ProductRq implements Serializable {
     private Long modelId;
     private Long varientId;
     private Long segmentId;
+    private Long fuelTypeId;
     private String code;
     private String description;
     private ProductTypeEnum type;

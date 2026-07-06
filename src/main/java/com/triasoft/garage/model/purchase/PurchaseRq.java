@@ -32,6 +32,7 @@ public class PurchaseRq extends GenericRq {
     private Long brandId;
     private Long modelId;
     private Long variantId;
+    private Long fuelTypeId;
     private String makeYear;
     private String odometer;
     private Long colorId; //new

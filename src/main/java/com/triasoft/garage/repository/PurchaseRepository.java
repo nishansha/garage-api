@@ -25,6 +25,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
     @Query(value = """
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
+                   fuel.id as fuelTypeId, fuel.description as fuelType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -32,6 +33,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
+            LEFT JOIN prod.fuelType fuel
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
@@ -43,6 +45,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
     @Query(value = """
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
+                   fuel.id as fuelTypeId, fuel.description as fuelType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -50,18 +53,20 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
+            LEFT JOIN prod.fuelType fuel
             JOIN p.vendor vendor
             WHERE (:fromDate IS NULL OR p.orderDate >= :fromDate)
               AND (:toDate IS NULL OR p.orderDate <= :toDate)
               AND (:brandId IS NULL OR brand.id = :brandId)
               AND (:modelId IS NULL OR model.id = :modelId)
               AND (:variantId IS NULL OR variant.id = :variantId)
-              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', :vehicleNo, '%')))
+              AND (:fuelTypeId IS NULL OR fuel.id = :fuelTypeId)
+              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
               AND (:searchText IS NULL OR (
-                   LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(p.notes) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', :searchText, '%'))))
+                   LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
@@ -70,18 +75,20 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
+            LEFT JOIN prod.fuelType fuel
             JOIN p.vendor vendor
             WHERE (:fromDate IS NULL OR p.orderDate >= :fromDate)
               AND (:toDate IS NULL OR p.orderDate <= :toDate)
               AND (:brandId IS NULL OR brand.id = :brandId)
               AND (:modelId IS NULL OR model.id = :modelId)
               AND (:variantId IS NULL OR variant.id = :variantId)
-              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', :vehicleNo, '%')))
+              AND (:fuelTypeId IS NULL OR fuel.id = :fuelTypeId)
+              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
               AND (:searchText IS NULL OR (
-                   LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(p.notes) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', :searchText, '%'))
-                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', :searchText, '%'))))
+                   LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
             """)
     Page<PurchaseListProjection> searchForList(
             @Param("fromDate") LocalDate fromDate,
@@ -89,6 +96,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             @Param("brandId") Long brandId,
             @Param("modelId") Long modelId,
             @Param("variantId") Long variantId,
+            @Param("fuelTypeId") Long fuelTypeId,
             @Param("vehicleNo") String vehicleNo,
             @Param("searchText") String searchText,
             Pageable pageable);
@@ -96,6 +104,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
     @Query(value = """
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
+                   fuel.id as fuelTypeId, fuel.description as fuelType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -103,6 +112,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
+            LEFT JOIN prod.fuelType fuel
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p

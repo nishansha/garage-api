@@ -5,6 +5,7 @@ import com.triasoft.garage.constants.ProductTypeEnum;
 import com.triasoft.garage.dto.*;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
+import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.product.ProductRq;
 import com.triasoft.garage.model.product.ProductRs;
 import com.triasoft.garage.repository.*;
@@ -28,6 +29,7 @@ public class ProductService {
     private final ProductBrandRepository productBrandRepository;
     private final ProductBrandModelRepository productBrandModelRepository;
     private final ProductModelVarientRepository productModelVarientRepository;
+    private final LookupHelper lookupHelper;
 
     public ProductRs getProducts(ProductRq productRq) {
         List<Product> products = productRepository.findAll();
@@ -140,12 +142,19 @@ public class ProductService {
             skuBuilder.append("-").append(productModelVarient.getCode());
             productName.append(" / ").append(productModelVarient.getDescription());
         }
+        LookupMaster fuelType = null;
+        if (Objects.nonNull(productRq.getFuelTypeId())) {
+            fuelType = lookupHelper.get(productRq.getFuelTypeId());
+            skuBuilder.append("-").append(fuelType.getCode());
+            productName.append(" / ").append(fuelType.getDescription());
+        }
         Product newProduct = new Product();
         newProduct.setSku(skuBuilder.toString());
         newProduct.setName(StringUtils.hasLength(productRq.getName()) ? productRq.getName() : productName.toString());
         newProduct.setBrand(productBrand);
         newProduct.setModel(productBrandModel);
         newProduct.setVarient(productModelVarient);
+        newProduct.setFuelType(fuelType);
         newProduct.setCategory(productBrand.getProductCategory());
         if (Objects.nonNull(productRq.getSegmentId())) {
             newProduct.setSegment(productSegmentRepository.findById(productRq.getSegmentId()).orElse(null));

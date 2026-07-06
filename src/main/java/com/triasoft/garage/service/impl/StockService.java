@@ -91,6 +91,8 @@ public class StockService {
                 .brandName(inventory.getProduct().getBrand().getDescription())
                 .modelName(inventory.getProduct().getModel().getDescription())
                 .variantName(inventory.getProduct().getVarient().getDescription())
+                .fuelTypeId(inventory.getProduct().getFuelType() != null ? inventory.getProduct().getFuelType().getId() : null)
+                .fuelType(inventory.getProduct().getFuelType() != null ? inventory.getProduct().getFuelType().getDescription() : null)
                 .purchasedAmount(inventory.getPurchaseOrderDetail().getUnitCost())
                 .purchaseExpense(inventory.getLandedCost().subtract(inventory.getPurchaseOrderDetail().getUnitCost()))
                 .landedCost(inventory.getLandedCost())
