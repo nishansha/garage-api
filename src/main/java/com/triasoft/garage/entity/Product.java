@@ -49,6 +49,10 @@ public class Product extends AuditGenericEntity {
     @JoinColumn(name = "segment_id")
     private ProductSegment segment;
 
+    @ManyToOne
+    @JoinColumn(name = "fuel_type_id")
+    private LookupMaster fuelType;
+
     @Column(name = "document_id")
     private Long documentId;
 }
