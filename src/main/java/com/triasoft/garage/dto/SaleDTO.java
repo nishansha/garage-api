@@ -45,5 +45,6 @@ public class SaleDTO implements Serializable {
     private BigDecimal paidCustomerAmount;
     private BigDecimal pendingCustomerAmount;
     private List<SalePaymentDTO> payments;
+    private List<SaleAmountSplitDTO> amountSplits;
 
 }

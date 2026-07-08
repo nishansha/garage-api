@@ -2,6 +2,7 @@ package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.PurchaseDTO;
+import com.triasoft.garage.dto.SaleAmountSplitDTO;
 import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.dto.SalePaymentDTO;
 import com.triasoft.garage.dto.UserDTO;
@@ -32,8 +33,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +49,7 @@ public class SalesService {
     private final CustomerRepository customerRepository;
     private final SaleRepository saleRepository;
     private final SalePaymentRepository salePaymentRepository;
+    private final SaleAmountSplitRepository saleAmountSplitRepository;
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
     private final LookupHelper lookupHelper;
@@ -172,6 +179,7 @@ public class SalesService {
         }
         stock.setStatus(StatusEnum.SOLD);
         inventoryRepository.save(stock);
+        saveAmountSplits(sale, saleRq.getAmountSplits());
         journalService.post(JournalService.REF_SALE, sale.getId());
         return SalesRs.builder().id(sale.getId()).build();
     }
@@ -262,6 +270,8 @@ public class SalesService {
         dto.setPendingCustomerAmount(clampZero(customerPayable.subtract(customerPaid)));
         dto.setPayments(salePaymentRepository.findBySaleIdOrderByPaymentDateDesc(id)
                 .stream().map(this::toPaymentDTO).toList());
+        dto.setAmountSplits(saleAmountSplitRepository.findBySaleIdOrderByIdAsc(id)
+                .stream().map(this::toAmountSplitDTO).toList());
         if (existingSale.isExchanged()) {
             inventoryRepository.findBySourceSaleId(id).ifPresent(exchangeInv -> {
                 Long purchaseId = exchangeInv.getPurchaseOrderDetail().getPurchase().getId();
@@ -329,12 +339,11 @@ public class SalesService {
         if (existingSale.getNetSaleAmount().compareTo(BigDecimal.ZERO) <= 0) {
             // Sale fully covered by exchange (or exchange exceeds sale — settlement tracked on trade-in Purchase).
             existingSale.setPaymentStatus(StatusEnum.PAID);
-        } else if (salesRq.isFinanced()) {
-            existingSale.setPaymentStatus(StatusEnum.FINANCE_PENDING);
         } else {
-            existingSale.setPaymentStatus(StatusEnum.PENDING);
+            recalculatePaymentStatus(existingSale, financePaidSoFar.add(customerPaidSoFar));
         }
         saleRepository.save(existingSale);
+        syncAmountSplits(existingSale, salesRq.getAmountSplits());
 
         // TODO [JOURNAL ENTRY] - Sale Updated
         // Trigger  : after any sale field that affects amounts or vehicle changes.
@@ -626,6 +635,58 @@ public class SalesService {
         } else {
             sale.setPaymentStatus(StatusEnum.PENDING);
         }
+    }
+
+    private void saveAmountSplits(Sale sale, List<SaleAmountSplitDTO> splits) {
+        if (splits == null || splits.isEmpty()) return;
+        List<SaleAmountSplit> entities = new ArrayList<>();
+        for (SaleAmountSplitDTO dto : splits) {
+            SaleAmountSplit s = new SaleAmountSplit();
+            s.setSale(sale);
+            s.setType(lookupHelper.get(dto.getTypeId()));
+            s.setAmount(dto.getAmount());
+            entities.add(s);
+        }
+        saleAmountSplitRepository.saveAll(entities);
+    }
+
+    private void syncAmountSplits(Sale sale, List<SaleAmountSplitDTO> incoming) {
+        List<SaleAmountSplit> existing = saleAmountSplitRepository.findBySaleIdOrderByIdAsc(sale.getId());
+        Map<Long, SaleAmountSplit> byId = new HashMap<>();
+        for (SaleAmountSplit s : existing) {
+            byId.put(s.getId(), s);
+        }
+        Set<Long> keepIds = new HashSet<>();
+        List<SaleAmountSplit> toSave = new ArrayList<>();
+        if (incoming != null) {
+            for (SaleAmountSplitDTO dto : incoming) {
+                SaleAmountSplit s;
+                if (dto.getId() != null && byId.containsKey(dto.getId())) {
+                    s = byId.get(dto.getId());
+                    keepIds.add(dto.getId());
+                } else {
+                    s = new SaleAmountSplit();
+                    s.setSale(sale);
+                }
+                s.setType(lookupHelper.get(dto.getTypeId()));
+                s.setAmount(dto.getAmount());
+                toSave.add(s);
+            }
+        }
+        List<SaleAmountSplit> toDelete = existing.stream()
+                .filter(s -> !keepIds.contains(s.getId()))
+                .toList();
+        if (!toDelete.isEmpty()) saleAmountSplitRepository.deleteAll(toDelete);
+        if (!toSave.isEmpty()) saleAmountSplitRepository.saveAll(toSave);
+    }
+
+    private SaleAmountSplitDTO toAmountSplitDTO(SaleAmountSplit s) {
+        return SaleAmountSplitDTO.builder()
+                .id(s.getId())
+                .typeId(s.getType().getId())
+                .typeDesc(s.getType().getDescription())
+                .amount(s.getAmount())
+                .build();
     }
 
     private SalePaymentDTO toPaymentDTO(SalePayment p) {

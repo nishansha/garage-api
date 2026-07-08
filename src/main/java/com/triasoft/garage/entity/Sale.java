@@ -76,4 +76,7 @@ public class Sale extends AuditGenericEntity {
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SalePayment> payments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SaleAmountSplit> amountSplits = new ArrayList<>();
 }
