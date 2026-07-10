@@ -23,6 +23,9 @@ public class UserRefreshToken extends GenericEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "session_id")
+    private String sessionId;
+
     @Column(name = "token_hash", nullable = false, unique = true)
     private String tokenHash;
 

@@ -36,7 +36,8 @@ public class ErrorCode {
         INVALID_ACCESS("SEC_101", "Invalid Resource Access"),
         INVALID_TOKEN("SEC_102", "Invalid Token"),
         TOKEN_EXPIRED("SEC_103", "Token Expired"),
-        REFRESH_TOKEN_REUSED("SEC_104", "Refresh token reuse detected; session revoked");
+        REFRESH_TOKEN_REUSED("SEC_104", "Refresh token reuse detected; session revoked"),
+        SESSION_TERMINATED("SEC_105", "Session ended; signed in on another device");
         private final String code;
         private final String message;
 

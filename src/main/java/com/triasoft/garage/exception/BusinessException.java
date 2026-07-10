@@ -6,10 +6,6 @@ import lombok.Getter;
 
 import java.io.Serial;
 
-/**
- * @author Yellin
- * @since 2025-03-14
- */
 @Getter
 public class BusinessException extends RuntimeException {
 
