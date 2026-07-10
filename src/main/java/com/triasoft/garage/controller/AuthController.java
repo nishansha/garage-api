@@ -3,6 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
+import com.triasoft.garage.model.login.RefreshRq;
 import com.triasoft.garage.service.impl.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,13 @@ public class AuthController {
     }
 
     @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<LoginRs>> refresh(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
+    ResponseEntity<ApiResponse<LoginRs>> refresh(@RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
         return ResponseEntity.ok(ApiResponse.success(authService.refresh(request)));
+    }
+
+    @PostMapping(value = "/logout", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<Void>> logout(@RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
+        authService.logout(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
