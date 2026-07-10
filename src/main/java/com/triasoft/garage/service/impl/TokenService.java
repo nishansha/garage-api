@@ -37,7 +37,7 @@ public class TokenService {
         this.secretKey = Keys.hmacShaKeyFor(secretString.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(UserDetails userDetails, UserDTO userDTO) {
+    public String generateToken(UserDetails userDetails, UserDTO userDTO, String sessionId) {
         String userJson = "";
         try {
             userJson = new ObjectMapper().writeValueAsString(userDTO);
@@ -46,6 +46,7 @@ public class TokenService {
         }
         return Jwts.builder()
                 .claim("user", userJson)
+                .claim("sid", sessionId)
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + tokenExpiration))
@@ -80,6 +81,10 @@ public class TokenService {
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public String extractSessionId(String token) {
+        return extractClaim(token, claims -> claims.get("sid", String.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

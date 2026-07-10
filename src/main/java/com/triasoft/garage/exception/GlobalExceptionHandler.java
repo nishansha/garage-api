@@ -25,6 +25,12 @@ public class GlobalExceptionHandler {
         return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(value = {SecurityException.class})
+    public ResponseEntity<ApiResponse<?>> handleSecurityException(ServletWebRequest request, SecurityException exception) {
+        log.error("handleSecurityException - Exception", exception);
+        return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), HttpStatus.UNAUTHORIZED);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleUnexpectedException(ServletWebRequest request, Exception exception) {
         log.error("handleUnexpectedException - Exception", exception);

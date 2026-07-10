@@ -1,5 +1,7 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.constants.ClientChannel;
+import com.triasoft.garage.constants.Constants;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
@@ -22,7 +24,8 @@ public class AuthController {
 
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<LoginRs>> authenticateUser(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
+        ClientChannel channel = ClientChannel.fromHeader(httpServletRequest.getHeader(Constants.HEADER));
+        return ResponseEntity.ok(ApiResponse.success(authService.login(request, channel)));
     }
 
     @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
