@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.DirectEntryDTO;
 import com.triasoft.garage.entity.ChartOfAccount;
@@ -73,6 +75,7 @@ public class DirectEntryService {
     }
 
     @Transactional
+    @VersionCheck(entity = DirectEntry.class)
     public DirectEntryRs update(Long id, DirectEntryRq rq) {
         validate(rq);
         DirectEntry entry = find(id);
@@ -176,6 +179,7 @@ public class DirectEntryService {
     private DirectEntryDTO toDTO(DirectEntry e) {
         return DirectEntryDTO.builder()
                 .id(e.getId())
+                .version(e.getVersion())
                 .entryDate(e.getEntryDate())
                 .coaId(e.getChartOfAccount() != null ? e.getChartOfAccount().getId() : null)
                 .coaLabel(e.getChartOfAccount() != null ? e.getChartOfAccount().getLabel() : null)

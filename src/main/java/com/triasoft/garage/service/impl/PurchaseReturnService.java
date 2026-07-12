@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.PurchaseReturnDTO;
 import com.triasoft.garage.dto.PurchaseReturnReceiptDTO;
@@ -269,6 +271,7 @@ public class PurchaseReturnService {
     private PurchaseReturnReceiptDTO toReceiptDTO(PurchaseReturnReceipt r) {
         return PurchaseReturnReceiptDTO.builder()
                 .id(r.getId())
+                .version(r.getVersion())
                 .amount(r.getAmount())
                 .paymentDate(r.getPaymentDate())
                 .paymentMethod(r.getPaymentMethod())
@@ -325,6 +328,7 @@ public class PurchaseReturnService {
     }
 
     @Transactional
+    @VersionCheck(entity = PurchaseReturnReceipt.class, idIndex = 1)
     public ReceiptCreateRs updateReceipt(Long returnId, Long receiptId, PurchaseReturnReceiptRq rq, UserDTO user) {
         PurchaseReturn pr = purchaseReturnRepository.findById(returnId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_RETURN_NOT_FOUND));

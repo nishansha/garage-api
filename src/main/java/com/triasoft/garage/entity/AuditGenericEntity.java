@@ -3,6 +3,7 @@ package com.triasoft.garage.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedBy;
@@ -38,5 +39,9 @@ public class AuditGenericEntity extends GenericEntity {
     @LastModifiedDate
     @Column(name = "modified_at")
     private LocalDateTime modifiedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
 }

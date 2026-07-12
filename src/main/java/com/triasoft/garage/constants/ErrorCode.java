@@ -48,6 +48,19 @@ public class ErrorCode {
     }
 
     @Getter
+    public enum Concurrency implements Errors {
+        CONCURRENT_MODIFICATION("CON_100", "This record was changed by another operation. Please reload and try again."),
+        VERSION_REQUIRED("CON_101", "A version is required to update this record. Please reload and try again.");
+        private final String code;
+        private final String message;
+
+        Concurrency(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+    }
+
+    @Getter
     public enum Business implements Errors {
         USER_NOT_FOUND("BUS_100", "Invalid Credentials"),
         PRD_NOT_FOUND("BUS_101", "Product not found"),

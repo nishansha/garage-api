@@ -18,6 +18,7 @@ public class DirectEntryDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Long id;
+    private Long version;
     private LocalDate entryDate;
     private Long coaId;
     private String coaLabel;

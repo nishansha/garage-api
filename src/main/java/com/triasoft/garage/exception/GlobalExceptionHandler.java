@@ -3,6 +3,7 @@ package com.triasoft.garage.exception;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.model.common.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -29,6 +30,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleSecurityException(ServletWebRequest request, SecurityException exception) {
         log.error("handleSecurityException - Exception", exception);
         return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<?>> handleOptimisticLockException(ServletWebRequest request, OptimisticLockingFailureException exception) {
+        log.warn("handleOptimisticLockException - concurrent modification", exception);
+        return buildErrorRs(ErrorCode.Concurrency.CONCURRENT_MODIFICATION.getCode(), ErrorCode.Concurrency.CONCURRENT_MODIFICATION.getMessage(), request.getRequest().getRequestURI(), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(Exception.class)

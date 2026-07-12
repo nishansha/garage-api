@@ -17,6 +17,7 @@ public class PurchasePaymentDTO implements Serializable {
     private static final long serialVersionUID = 7714029341672094812L;
 
     private Long id;
+    private Long version;
     private BigDecimal amount;
     private LocalDate paymentDate;
     private PaymentMethodEnum paymentMethod;

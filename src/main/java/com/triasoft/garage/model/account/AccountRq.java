@@ -1,5 +1,6 @@
 package com.triasoft.garage.model.account;
 
+import com.triasoft.garage.concurrency.Versioned;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,9 +13,11 @@ import java.io.Serializable;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountRq implements Serializable {
+public class AccountRq implements Serializable, Versioned {
     @Serial
     private static final long serialVersionUID = -4425259029479130460L;
+    /** Optimistic-lock version the client last read (required on update). */
+    private Long version;
     private Long id;
     private String type;
     private String code;

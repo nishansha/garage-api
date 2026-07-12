@@ -145,6 +145,7 @@ public class StockService {
     private ExpenseDTO convertToExpenseDTO(Expense expense) {
         return ExpenseDTO.builder()
                 .id(expense.getId())
+                .version(expense.getVersion())
                 .date(expense.getDate())
                 .typeId(expense.getExpenseAccount().getId())
                 .title(expense.getExpenseAccount().getName())
