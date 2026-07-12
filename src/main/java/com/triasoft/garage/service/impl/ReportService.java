@@ -1,5 +1,6 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.model.report.AccountBalanceInfo;
@@ -47,6 +48,7 @@ public class ReportService {
 
     private final SaleRepository saleRepository;
     private final SaleReturnRepository saleReturnRepository;
+    private final JournalDetailRepository journalDetailRepository;
     private final JournalRepository journalRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
@@ -72,16 +74,26 @@ public class ReportService {
         // in the ledger) but are netted out of the sales figures above, so add them back.
         BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(startDate, endDate));
 
+        // Exchange/return gains & losses live only in the ledger (no operational entity),
+        // so pull them from their system-role journal accounts for the period. This closes
+        // the remaining entity-vs-journal P&L gap (only manual journals remain uncaptured).
+        BigDecimal exchangeGain       = ledgerRevenue(SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
+        BigDecimal exchangeReturnLoss = ledgerExpense(SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
+        BigDecimal purchaseReturnLoss = ledgerExpense(SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+
         // ── 3. Revenue totals ─────────────────────────────────────────────────
-        BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome).add(returnDeductionIncome);
+        BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome)
+                .add(returnDeductionIncome).add(exchangeGain);
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
         PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(startDate, endDate);
         BigDecimal generalExpenses  = safe(exp.getGeneralExpenses());
-        BigDecimal totalOpEx = generalExpenses.add(directAdjustments);
+        BigDecimal totalOpEx = generalExpenses.add(directAdjustments)
+                .add(exchangeReturnLoss).add(purchaseReturnLoss);
 
         // ── 5. Net profit ─────────────────────────────────────────────────────
-        BigDecimal netProfit = grossProfit.add(otherIncome).add(returnDeductionIncome).subtract(totalOpEx);
+        BigDecimal netProfit = grossProfit.add(otherIncome).add(returnDeductionIncome)
+                .add(exchangeGain).subtract(totalOpEx);
 
         // ── 6. Margin percentages ─────────────────────────────────────────────
         double grossMarginPct = pct(grossProfit, vehicleSalesRevenue);
@@ -232,6 +244,9 @@ public class ReportService {
                 .grossProfit(grossProfit)
                 .grossMarginPct(grossMarginPct)
                 .returnDeductionIncome(returnDeductionIncome)
+                .exchangeGain(exchangeGain)
+                .exchangeReturnLoss(exchangeReturnLoss)
+                .purchaseReturnLoss(purchaseReturnLoss)
                 .totalOperatingExpenses(totalOpEx)
                 .netProfit(netProfit)
                 .netMarginPct(netMarginPct)
@@ -339,6 +354,18 @@ public class ReportService {
 
     private BigDecimal safe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
+    }
+
+    // Revenue accounts carry a normal credit balance → gain = credit − debit.
+    private BigDecimal ledgerRevenue(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+        return r == null ? BigDecimal.ZERO : safe(r.getCredit()).subtract(safe(r.getDebit()));
+    }
+
+    // Expense/loss accounts carry a normal debit balance → loss = debit − credit.
+    private BigDecimal ledgerExpense(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+        return r == null ? BigDecimal.ZERO : safe(r.getDebit()).subtract(safe(r.getCredit()));
     }
 
     private <T> BigDecimal sumBd(List<T> rows, java.util.function.Function<T, BigDecimal> extractor) {

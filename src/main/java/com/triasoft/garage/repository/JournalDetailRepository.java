@@ -102,6 +102,20 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
               COALESCE(SUM(jd.debit_amount), 0)  as debit,
               COALESCE(SUM(jd.credit_amount), 0) as credit
             FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            WHERE coa.system_role = :systemRole
+              AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
+            """, nativeQuery = true)
+    OpeningBalanceRow sumBySystemRoleInPeriod(@Param("systemRole") String systemRole,
+                                              @Param("fromDate") LocalDate fromDate,
+                                              @Param("toDate") LocalDate toDate);
+
+    @Query(value = """
+            SELECT
+              COALESCE(SUM(jd.debit_amount), 0)  as debit,
+              COALESCE(SUM(jd.credit_amount), 0) as credit
+            FROM app_journal_detail jd
             WHERE jd.journal_id = :journalId
             """, nativeQuery = true)
     OpeningBalanceRow getJournalTotals(@Param("journalId") Long journalId);
