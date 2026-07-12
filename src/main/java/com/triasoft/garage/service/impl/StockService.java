@@ -84,7 +84,7 @@ public class StockService {
     private StockDTO convertToDTO(Inventory inventory) {
         var purchase = inventory.getPurchaseOrderDetail().getPurchase();
         var vendor = purchase.getVendor();
-        return StockDTO.builder()
+        StockDTO dto = StockDTO.builder()
                 .productId(inventory.getId())
                 .purchaseDate(Objects.nonNull(inventory.getReceivedDate()) ? inventory.getReceivedDate().toLocalDate() : null)
                 .productCode(inventory.getProductNo())
@@ -103,6 +103,21 @@ public class StockService {
                 .color(Objects.nonNull(inventory.getColor()) ? inventory.getColor().getDescription() : null)
                 .odometer(inventory.getOdometer())
                 .build();
+        if (StatusEnum.SOLD.equals(inventory.getStatus())) {
+            Sale sale = saleRepository.findByInventoryId(inventory.getId());
+            if (Objects.nonNull(sale)) {
+                dto.setSoldDate(sale.getSaleDate());
+                dto.setSoldAmount(sale.getNetSaleAmount());
+                dto.setSaleRate(sale.getSaleRate());
+                // Use the stored profit_amount (saleRate − landedCostAtSale) — the same
+                // value the P&L per-vehicle list and grossProfit aggregate use, so this
+                // reconciles with the reports.
+                dto.setProfit(sale.getProfitAmount());
+                dto.setCustomerName(sale.getCustomer().getName());
+                dto.setCustomerMobileNo(sale.getCustomer().getMobile());
+            }
+        }
+        return dto;
     }
 
     public LookupRs stockProducts(UserDTO user) {
@@ -123,13 +138,7 @@ public class StockService {
                     .map(this::convertToExpenseDTO).toList();
             stockDTO.setExpenses(expenses);
         }
-        if (StatusEnum.SOLD.equals(inventory.getStatus())) {
-            Sale sale = saleRepository.findByInventoryId(id);
-            if(Objects.nonNull(sale)){
-                stockDTO.setSoldDate(sale.getSaleDate());
-                stockDTO.setSoldAmount(sale.getNetSaleAmount());
-            }
-        }
+        // Sold info (soldDate/soldAmount/saleRate/profit/customer) is populated in convertToDTO.
         return stockDTO;
     }
 
