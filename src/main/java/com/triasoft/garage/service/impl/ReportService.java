@@ -87,10 +87,10 @@ public class ReportService {
         double grossMarginPct = pct(grossProfit, vehicleSalesRevenue);
         double netMarginPct   = pct(netProfit, totalRevenue);
 
-        // ── 7. Cash & bank position (current, not period-bound) ───────────────
+        // ── 7. Cash & bank position (as of month-end) ─────────────────────────
         List<AccountBalanceInfo> cashPosition = paymentAccountRepository.findAllByIsActiveTrue()
                 .stream()
-                .map(this::toAccountBalance)
+                .map(account -> toAccountBalance(account, endDate))
                 .toList();
         BigDecimal totalCash = cashPosition.stream()
                 .map(AccountBalanceInfo::getBalance)
@@ -252,9 +252,9 @@ public class ReportService {
                 .build();
     }
 
-    private AccountBalanceInfo toAccountBalance(PaymentAccount account) {
-        BigDecimal in  = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.IN);
-        BigDecimal out = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.OUT);
+    private AccountBalanceInfo toAccountBalance(PaymentAccount account, java.time.LocalDate asOfDate) {
+        BigDecimal in  = transactionRepository.sumAmountByAccountAndDirectionUpTo(account.getId(), TransactionDirectionEnum.IN, asOfDate);
+        BigDecimal out = transactionRepository.sumAmountByAccountAndDirectionUpTo(account.getId(), TransactionDirectionEnum.OUT, asOfDate);
         BigDecimal balance = account.getOpeningBalance().add(in).subtract(out);
         return AccountBalanceInfo.builder()
                 .id(account.getId())
