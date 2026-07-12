@@ -120,7 +120,8 @@ public class ErrorCode {
         REFUND_EXCEEDS_PAID_TO_VENDOR("BUS_168", "Refund amount cannot exceed what was paid to vendor"),
         EXPENSE_PAYMENT_ACCOUNT_REQUIRED("BUS_169", "Payment account is required to record an expense"),
         PURCHASE_DUPLICATE_VEHICLE_NO("BUS_170", "A vehicle with this number is already in stock"),
-        PAYMENT_ACCOUNT_NO_EXISTS("BUS_171", "A payment account with this account number already exists");
+        PAYMENT_ACCOUNT_NO_EXISTS("BUS_171", "A payment account with this account number already exists"),
+        DATA_RESET_DISABLED("BUS_180", "Data reset is disabled in this environment");
 
         private final String code;
         private final String message;

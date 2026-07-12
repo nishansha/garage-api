@@ -44,6 +44,8 @@ spring:
 
 
 app:
+  data-reset:
+    enabled: true
   cors:
     allowed-origins: "http:localhost:8081"
   jwt:
