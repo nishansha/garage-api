@@ -7,6 +7,7 @@ import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.service.impl.AccountService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -30,7 +31,7 @@ public class AccountController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<AccountRs>> create(@RequestBody AccountRq accountRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<AccountRs>> create(@Valid @RequestBody AccountRq accountRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(accountService.create(accountRq, UserUtil.getUser(request))));
     }
 
@@ -40,7 +41,7 @@ public class AccountController {
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<AccountRs>> update(@RequestBody AccountRq accountRq, @PathVariable("id") Long id, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<AccountRs>> update(@Valid @RequestBody AccountRq accountRq, @PathVariable("id") Long id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(accountService.update(id, accountRq, UserUtil.getUser(request))));
     }
 

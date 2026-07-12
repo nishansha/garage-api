@@ -25,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -65,11 +66,14 @@ public class PaymentAccountService {
         if (paymentAccountRepository.existsByNameIgnoreCase(rq.getName())) {
             throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NAME_EXISTS);
         }
+        if (StringUtils.hasText(rq.getAccountNo()) && paymentAccountRepository.existsByAccountNoIgnoreCase(rq.getAccountNo())) {
+            throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NO_EXISTS);
+        }
         PaymentAccount account = new PaymentAccount();
         account.setName(rq.getName());
         account.setBankName(rq.getBankName());
         account.setAccountNo(rq.getAccountNo());
-        account.setIfscCode(rq.getIfscCode());
+        account.setIfscCode(StringUtils.hasLength(rq.getIfscCode()) ? rq.getIfscCode().toUpperCase(): null);
         account.setAccountType(rq.getAccountType());
         account.setOpeningBalance(rq.getOpeningBalance() != null ? rq.getOpeningBalance() : BigDecimal.ZERO);
         account.setActive(rq.getIsActive() != null ? rq.getIsActive() : true);
@@ -80,17 +84,6 @@ public class PaymentAccountService {
         if (saved.getOpeningBalance() != null && saved.getOpeningBalance().signum() > 0) {
             journalService.post(JournalService.REF_OPENING_BALANCE, saved.getId());
         }
-
-        // TODO [JOURNAL ENTRY] - Payment Account Opening Balance
-        // Trigger  : when openingBalance > 0 at account creation time.
-        // Dr  <account.name>           (Asset – Current Assets)      openingBalance
-        // Cr  Opening Balance Equity   (Equity – Temporary Clearing) openingBalance
-        // Note: "Opening Balance Equity" is a temporary CoA account. After all opening
-        //       balances (assets + liabilities) are entered, the accountant closes this
-        //       account into Owner's Capital / Retained Earnings via a closing entry.
-        // Future call: JournalEntryService.postOpeningBalance(saved.getId(), saved.getOpeningBalance())
-        // CoA required: PaymentAccount must carry a coaId FK; "Opening Balance Equity" account must exist.
-
         return PaymentAccountRs.builder().id(saved.getId()).build();
     }
 
@@ -101,11 +94,18 @@ public class PaymentAccountService {
         if (!account.getName().equalsIgnoreCase(rq.getName()) && paymentAccountRepository.existsByNameIgnoreCase(rq.getName())) {
             throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NAME_EXISTS);
         }
+        if (StringUtils.hasText(rq.getAccountNo()) && paymentAccountRepository.existsByAccountNoIgnoreCaseAndIdNot(rq.getAccountNo(), id)) {
+            throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NO_EXISTS);
+        }
         if (rq.getOpeningBalance() != null && rq.getOpeningBalance().compareTo(account.getOpeningBalance()) != 0) {
             if (transactionRepository.existsByPaymentAccountId(account.getId())) {
                 throw new BusinessException(ErrorCode.Business.OPENING_BALANCE_LOCKED);
             }
             account.setOpeningBalance(rq.getOpeningBalance());
+            journalService.reverse(JournalService.REF_OPENING_BALANCE, account.getId());
+            if (account.getOpeningBalance().signum() > 0) {
+                journalService.post(JournalService.REF_OPENING_BALANCE, account.getId());
+            }
         }
         if (!account.getName().equalsIgnoreCase(rq.getName()) && account.getChartOfAccount() != null) {
             account.getChartOfAccount().setLabel(rq.getName());
@@ -114,7 +114,7 @@ public class PaymentAccountService {
         account.setName(rq.getName());
         account.setBankName(rq.getBankName());
         account.setAccountNo(rq.getAccountNo());
-        account.setIfscCode(rq.getIfscCode());
+        account.setIfscCode(StringUtils.hasLength(rq.getIfscCode()) ? rq.getIfscCode().toUpperCase(): null);
         if (rq.getIsActive() != null) {
             account.setActive(rq.getIsActive());
         }

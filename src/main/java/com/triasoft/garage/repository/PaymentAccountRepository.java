@@ -13,4 +13,8 @@ public interface PaymentAccountRepository extends JpaRepository<PaymentAccount, 
 
     boolean existsByNameIgnoreCase(String name);
 
+    boolean existsByAccountNoIgnoreCase(String accountNo);
+
+    boolean existsByAccountNoIgnoreCaseAndIdNot(String accountNo, Long id);
+
 }

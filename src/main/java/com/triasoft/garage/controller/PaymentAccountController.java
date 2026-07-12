@@ -10,6 +10,7 @@ import com.triasoft.garage.model.payment.TransactionRs;
 import com.triasoft.garage.service.impl.PaymentAccountService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -43,12 +44,12 @@ public class PaymentAccountController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PaymentAccountRs>> create(@RequestBody PaymentAccountRq rq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PaymentAccountRs>> create(@Valid @RequestBody PaymentAccountRq rq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(paymentAccountService.create(rq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PaymentAccountRs>> update(@PathVariable("id") Long id, @RequestBody PaymentAccountRq rq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PaymentAccountRs>> update(@PathVariable("id") Long id, @Valid @RequestBody PaymentAccountRq rq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(paymentAccountService.update(id, rq, UserUtil.getUser(request))));
     }
 
