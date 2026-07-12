@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 public class CommonUtil {
 
     public static double calculateDelta(BigDecimal current, BigDecimal previous) {
+        current = current != null ? current : BigDecimal.ZERO;
+        previous = previous != null ? previous : BigDecimal.ZERO;
         if (previous.compareTo(BigDecimal.ZERO) == 0) {
             return current.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
         }
