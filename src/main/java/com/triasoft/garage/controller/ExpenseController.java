@@ -12,6 +12,7 @@ import com.triasoft.garage.util.UserUtil;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -55,7 +56,7 @@ public class ExpenseController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ExpenseRs>> create(@RequestBody ExpenseRq expenseRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<ExpenseRs>> create(@Valid @RequestBody ExpenseRq expenseRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(expenseService.create(expenseRq, UserUtil.getUser(request))));
     }
 
@@ -65,7 +66,7 @@ public class ExpenseController {
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ExpenseRs>> update(@RequestBody ExpenseRq expenseRq, @PathVariable("id") Long id, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<ExpenseRs>> update(@Valid @RequestBody ExpenseRq expenseRq, @PathVariable("id") Long id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(expenseService.update(id, expenseRq, UserUtil.getUser(request))));
     }
 

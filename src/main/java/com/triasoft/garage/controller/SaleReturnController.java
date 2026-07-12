@@ -9,6 +9,7 @@ import com.triasoft.garage.model.sale.SaleReturnRs;
 import com.triasoft.garage.service.impl.SaleReturnService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -49,7 +50,7 @@ public class SaleReturnController {
 
     @PostMapping(value = "/{id}/refunds", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RefundCreateResponse>> recordRefund(@PathVariable("id") Long id,
-                                                                   @RequestBody RefundPaymentRq rq,
+                                                                   @Valid @RequestBody RefundPaymentRq rq,
                                                                    HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.recordRefund(id, rq, UserUtil.getUser(request))));
     }
@@ -57,7 +58,7 @@ public class SaleReturnController {
     @PutMapping(value = "/{id}/refunds/{refundId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RefundCreateResponse>> updateRefund(@PathVariable("id") Long id,
                                                                                      @PathVariable("refundId") Long refundId,
-                                                                                     @RequestBody RefundPaymentRq rq,
+                                                                                     @Valid @RequestBody RefundPaymentRq rq,
                                                                                      HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.updateRefund(id, refundId, rq, UserUtil.getUser(request))));
     }

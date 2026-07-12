@@ -2,14 +2,18 @@ package com.triasoft.garage.exception;
 
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.model.common.ApiResponse;
+import com.triasoft.garage.model.common.FieldError;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
+
+import java.util.List;
 
 @Slf4j
 @RestControllerAdvice
@@ -30,6 +34,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleSecurityException(ServletWebRequest request, SecurityException exception) {
         log.error("handleSecurityException - Exception", exception);
         return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<?>> handleValidationException(ServletWebRequest request, MethodArgumentNotValidException exception) {
+        List<FieldError> errors = exception.getBindingResult().getFieldErrors().stream()
+                .map(fe -> new FieldError(fe.getField(), fe.getDefaultMessage()))
+                .toList();
+        log.warn("handleValidationException - field validation failed: {}", errors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(
+                ErrorCode.Validation.MISSING_REQUIRED_FIELDS.getCode(),
+                ErrorCode.Validation.MISSING_REQUIRED_FIELDS.getMessage(),
+                request.getRequest().getRequestURI(),
+                errors));
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
