@@ -1,17 +1,12 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.concurrency.VersionCheck;
-
 import com.triasoft.garage.constants.*;
-import com.triasoft.garage.model.report.PayableInfo;
-import com.triasoft.garage.model.report.PayablesSummaryRs;
-import com.triasoft.garage.projection.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.*;
-import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.common.FilterRq;
@@ -20,17 +15,10 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
-import com.triasoft.garage.entity.PaymentAccount;
-import com.triasoft.garage.entity.Transaction;
-import com.triasoft.garage.repository.ExpenseRepository;
-import com.triasoft.garage.repository.InventoryRepository;
-import com.triasoft.garage.repository.SaleRepository;
-import com.triasoft.garage.repository.PaymentAccountRepository;
-import com.triasoft.garage.repository.ProductRepository;
-import com.triasoft.garage.repository.PurchasePaymentRepository;
-import com.triasoft.garage.repository.PurchaseRepository;
-import com.triasoft.garage.repository.TransactionRepository;
-import com.triasoft.garage.repository.VendorRepository;
+import com.triasoft.garage.model.report.PayableInfo;
+import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.projection.*;
+import com.triasoft.garage.repository.*;
 import com.triasoft.garage.util.CommonUtil;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
@@ -47,12 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -249,7 +232,7 @@ public class PurchaseService {
         return result;
     }
 
-    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, boolean isReturned,  BigDecimal paidAmount, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
+    private PurchaseDTO convertListProjectionToDTO(PurchaseListProjection p, boolean isSold, boolean isReturned, BigDecimal paidAmount, boolean isEditable, boolean isExchange, BigDecimal sourceSaleRate) {
         BigDecimal total = p.getPurchaseRate();
         BigDecimal paidByOffset = isExchange && sourceSaleRate != null ? sourceSaleRate.min(total) : null;
         BigDecimal paidByCash = isExchange ? paidAmount : null;
@@ -365,16 +348,6 @@ public class PurchaseService {
         return result;
     }
 
-    /**
-     * Keeps the active Sale snapshot and SALE journal aligned whenever
-     * inventory.landedCost changes on a sold vehicle (post-sale expense
-     * add/edit/delete, or purchase rate edit within the lock window).
-     *
-     * The EXPENSE journal always debits Inventory (capitalised). This method
-     * then reverse+reposts the SALE journal on the ORIGINAL sale date so that
-     * COGS in the sale month reflects the updated landed cost — no cross-month
-     * bleed because JournalService.reverse() now uses original.getJournalDate().
-     */
     public void syncSaleAfterLandedCostChange(Inventory inventory) {
         if (!StatusEnum.SOLD.equals(inventory.getStatus()))
             return;
@@ -399,7 +372,8 @@ public class PurchaseService {
 
         if (CollectionUtils.isEmpty(purchase.getPurchaseDetails())) return true;
         var category = purchase.getPurchaseDetails().get(0).getProduct().getCategory();
-        if (category == null || !category.isExpenseLockEnabled() || category.getExpenseLockWindow() == null) return true;
+        if (category == null || !category.isExpenseLockEnabled() || category.getExpenseLockWindow() == null)
+            return true;
         Sale sale = saleRepository.findByInventoryId(inventory.getId());
         if (sale == null) return true;
         return !LocalDate.now().isAfter(computeExpenseDeadline(sale.getSaleDate(), category.getExpenseLockWindow()));
@@ -469,6 +443,7 @@ public class PurchaseService {
     @Transactional
     public PurchaseRs create(PurchaseRq purchaseRq, UserDTO user) {
         PurchaseRs rs = new PurchaseRs();
+        validateUniqueActiveProductNo(purchaseRq.getVehicleNo(), null);
         Vendor vendor = vendorRepository.findByMobile(purchaseRq.getOwnerMobileNo()).orElseGet(() -> createVendor(purchaseRq, user));
         Product product = findOrCreateProduct(purchaseRq);
         Purchase purchase = new Purchase();
@@ -504,6 +479,7 @@ public class PurchaseService {
     @VersionCheck(entity = Purchase.class)
     public PurchaseRs update(Long purchaseId, PurchaseRq purchaseRq, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
+        validateUniqueActiveProductNo(purchaseRq.getVehicleNo(), purchaseId);
         boolean isExchange = isExchangePurchase(purchaseId);
         if (!isExchange) {
             journalService.reverse(JournalService.REF_PURCHASE, purchaseId);
@@ -525,13 +501,11 @@ public class PurchaseService {
         purchase.setPickupStaffId(purchaseRq.getPickupStaffId());
         purchase.setNotes(purchaseRq.getNotes());
 
-        // Bug 10 & 11: status transition — PENDING → RECEIVED when deliveredDate is first provided
         if (purchaseRq.getDeliveredDate() != null && purchase.getDeliveredDate() == null) {
             purchase.setStatus(lookupHelper.getStatus(LookupTypeEnum.PURCHASE_STATUS, StatusEnum.RECIEVED));
             purchase.setDeliveredDate(purchaseRq.getDeliveredDate());
         }
 
-        // Bug 8 & 9: remove expenses not present in the request before processing
         if (!CollectionUtils.isEmpty(purchaseRq.getExpenses())) {
             Set<Long> incomingIds = purchaseRq.getExpenses().stream()
                     .filter(e -> e.getId() != null)
@@ -545,8 +519,6 @@ public class PurchaseService {
             purchase.getPurchaseExpenses().forEach(this::reverseExpenseTransaction);
             purchase.getPurchaseExpenses().clear();
         }
-        // Flush orphan deletions before adding new expenses — Hibernate processes INSERTs before DELETEs
-        // during a single flush, which would violate the (purchase_order_id, expense_account_id) unique constraint.
         entityManager.flush();
 
         BigDecimal totalExpenseAmt = createAndGetExpense(purchaseRq, purchase, user);
@@ -563,17 +535,6 @@ public class PurchaseService {
                 .filter(e -> !existingExpenseIds.contains(e.getId()))
                 .forEach(e -> createExpenseTransaction(e, savedPurchase.getReferenceNo()));
 
-        // TODO [JOURNAL ENTRY] - Purchase Updated
-        // Trigger  : after a purchase amount or expense is changed.
-        // Strategy : reverse the original journal entry, then post a fresh one with updated amounts.
-        //   Reversal:  Dr Accounts Payable–Vendor  (Liability)   originalTotalAmount
-        //              Cr Vehicle Inventory         (Asset)       originalTotalAmount
-        //   New entry: Dr Vehicle Inventory         (Asset)       newTotalAmount
-        //              Cr Accounts Payable–Vendor   (Liability)   newTotalAmount
-        // Alternative: post a single net-difference adjustment entry if amounts differ by a small delta.
-        // Future call: JournalEntryService.reverseByReference("PURCHASE", purchaseId);
-        //              JournalEntryService.postPurchase(updatedPurchase, totalExpenseAmt)
-
         if (inventoryOpt.isPresent()) {
             Inventory inventory = inventoryOpt.get();
             inventory.setProduct(product);
@@ -585,7 +546,6 @@ public class PurchaseService {
             inventory.setWarehouseId(purchaseRq.getWarehouseId());
             BigDecimal newLandedCost = purchaseRq.getPurchaseRate().add(totalExpenseAmt);
             inventory.setLandedCost(newLandedCost);
-            // PENDING_DELIVERY → AVAILABLE: vehicle has now been received
             if (StatusEnum.PENDING_DELIVERY.equals(inventory.getStatus()) && purchaseRq.getDeliveredDate() != null) {
                 inventory.setStatus(StatusEnum.AVAILABLE);
                 inventory.setReceivedDate(purchaseRq.getDeliveredDate().atStartOfDay());
@@ -627,6 +587,16 @@ public class PurchaseService {
         detail.setTaxAmount(BigDecimal.ZERO);
         detail.setOwnershipSerialNo(purchaseRq.getOwnerShipSerialNo());
         return detail;
+    }
+
+    private void validateUniqueActiveProductNo(String productNo, Long excludePurchaseId) {
+        List<StatusEnum> activeStatuses = List.of(StatusEnum.AVAILABLE, StatusEnum.PENDING_DELIVERY);
+        boolean duplicate = excludePurchaseId == null
+                ? inventoryRepository.existsByProductNoIgnoreCaseAndStatusIn(productNo, activeStatuses)
+                : inventoryRepository.existsByProductNoIgnoreCaseAndStatusInAndPurchaseOrderDetailPurchaseIdNot(productNo, activeStatuses, excludePurchaseId);
+        if (duplicate) {
+            throw new BusinessException(ErrorCode.Business.PURCHASE_DUPLICATE_VEHICLE_NO);
+        }
     }
 
     private Vendor createVendor(PurchaseRq purchaseRq, UserDTO user) {
@@ -823,9 +793,9 @@ public class PurchaseService {
     private PaymentAccount resolveAndValidateAccount(Long accountId, BigDecimal amount) {
         PaymentAccount account = paymentAccountRepository.findById(accountId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
-        BigDecimal totalIn  = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.IN);
+        BigDecimal totalIn = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.IN);
         BigDecimal totalOut = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.OUT);
-        BigDecimal balance  = account.getOpeningBalance().add(totalIn).subtract(totalOut);
+        BigDecimal balance = account.getOpeningBalance().add(totalIn).subtract(totalOut);
         if (balance.compareTo(amount) < 0) {
             throw new BusinessException(ErrorCode.Business.INSUFFICIENT_BALANCE);
         }
@@ -986,9 +956,9 @@ public class PurchaseService {
     private Product findOrCreateProduct(PurchaseRq purchaseRq) {
         Optional<Product> match = purchaseRq.getFuelTypeId() != null
                 ? productRepository.findByBrandIdAndModelIdAndVarientIdAndFuelTypeId(
-                    purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId(), purchaseRq.getFuelTypeId())
+                purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId(), purchaseRq.getFuelTypeId())
                 : productRepository.findByBrandIdAndModelIdAndVarientId(
-                    purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId());
+                purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId());
         return match.orElseGet(() -> productService.createProduct(this.convertToProductRq(purchaseRq)));
     }
 
@@ -1017,7 +987,6 @@ public class PurchaseService {
         inventory.setMakeYear(purchaseRq.getMakeYear());
         inventory.setWarehouseId(purchaseRq.getWarehouseId());
         inventory.setStatus(status);
-        // receivedDate is only set when the vehicle is physically received
         if (StatusEnum.AVAILABLE.equals(status)) {
             inventory.setReceivedDate(purchaseRq.getDeliveredDate() != null
                     ? purchaseRq.getDeliveredDate().atStartOfDay()

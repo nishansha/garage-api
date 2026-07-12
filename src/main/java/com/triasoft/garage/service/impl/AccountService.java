@@ -74,7 +74,7 @@ public class AccountService {
         chartOfAccount.setName(StringUtils.hasLength(accountDTO.getName()) ? accountDTO.getName() : (accountDTO.getType().charAt(0) + " - " + nextCode));
         chartOfAccount.setLabel(accountDTO.getLabel().trim());
         chartOfAccount.setCode(nextCode.toString());
-        chartOfAccount.setDescription(accountDTO.getDescription().trim());
+        chartOfAccount.setDescription(StringUtils.hasLength(accountDTO.getDescription()) ? accountDTO.getDescription().trim() : null);
         chartOfAccount.setControlEnabled(false);
         chartOfAccount.setDirectPostable(accountDTO.isDirectPostable());
         return chatOfAccountRepository.save(chartOfAccount);
@@ -118,6 +118,9 @@ public class AccountService {
     public AccountRs update(Long id, AccountRq accountRq, UserDTO user) {
         validateType(accountRq.getType());
         ChartOfAccount chartOfAccount = chatOfAccountRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));
+        // Reject renaming this account to a (type, label) already used by another account
+        chatOfAccountRepository.findByTypeAndLabelIgnoreCaseAndIdNot(accountRq.getType(), accountRq.getLabel(), id)
+                .ifPresent(existing -> { throw new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_EXIST); });
         chartOfAccount.setLabel(accountRq.getLabel());
         chartOfAccount.setDescription(accountRq.getDescription());
         if (!chartOfAccount.getType().equalsIgnoreCase(accountRq.getType())) {
@@ -125,6 +128,7 @@ public class AccountService {
                     .map(c -> Long.parseLong(c.getCode()))
                     .orElseGet(() -> getDefaultCodes(accountRq.getType()));
             Long nextCode = ++lastInsertedCode;
+            chartOfAccount.setType(accountRq.getType());
             chartOfAccount.setName(StringUtils.hasLength(accountRq.getName()) ? accountRq.getName() : (accountRq.getType().charAt(0) + " - " + nextCode));
             chartOfAccount.setCode(nextCode.toString());
         }
