@@ -2,6 +2,7 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.Purchase;
 import com.triasoft.garage.projection.PayableRow;
+import com.triasoft.garage.projection.PurchaseLineRow;
 import com.triasoft.garage.projection.PurchaseListProjection;
 import com.triasoft.garage.projection.PurchaseMetrics;
 import com.triasoft.garage.projection.SummaryMetrics;
@@ -244,5 +245,50 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             ORDER BY po.order_date DESC
             """, nativeQuery = true)
     List<PayableRow> findPayables();
+
+    @Query(value = """
+            SELECT
+                po.id           as purchaseId,
+                po.reference_no as referenceNo,
+                po.order_date   as purchaseDate,
+                inv.product_no  as vehicleNo,
+                ven.name        as vendorName,
+                pod.unit_cost   as purchaseRate,
+                (COALESCE(inv.landed_cost, 0) - COALESCE(pod.unit_cost, 0)) as purchaseExpenses,
+                inv.landed_cost as landedCost,
+                (pr.id IS NOT NULL) as returned,
+                pr.return_amount as returnAmount,
+                GREATEST(0, COALESCE(po.total_amount, 0)
+                    - COALESCE((SELECT SUM(e.amount) FROM app_expense e
+                                WHERE e.purchase_order_id = po.id AND e.deleted = false), 0)
+                    - COALESCE((SELECT SUM(pp.amount) FROM app_purchase_payment pp
+                                WHERE pp.purchase_order_id = po.id AND pp.deleted = false
+                                  AND pp.payment_date <= :endDate), 0)
+                    - COALESCE((SELECT SUM(prr.return_amount) FROM app_purchase_return prr
+                                WHERE prr.purchase_id = po.id AND prr.deleted = false
+                                  AND prr.return_date <= :endDate), 0)
+                ) as pendingAmount,
+                GREATEST(0, COALESCE(po.total_amount, 0)
+                    - COALESCE((SELECT SUM(e.amount) FROM app_expense e
+                                WHERE e.purchase_order_id = po.id AND e.deleted = false), 0)
+                    - COALESCE((SELECT SUM(pp.amount) FROM app_purchase_payment pp
+                                WHERE pp.purchase_order_id = po.id AND pp.deleted = false), 0)
+                    - COALESCE((SELECT SUM(prr.return_amount) FROM app_purchase_return prr
+                                WHERE prr.purchase_id = po.id AND prr.deleted = false), 0)
+                ) as pendingTillDate
+            FROM app_purchase_order po
+            JOIN app_purchase_order_detail pod ON pod.purchase_order_id = po.id
+            JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+            JOIN app_vendor ven ON ven.id = po.vendor_id
+            LEFT JOIN app_purchase_return pr ON pr.inventory_id = inv.id AND pr.deleted = false
+                                            AND pr.return_date <= :endDate
+            WHERE po.deleted = false
+              AND inv.deleted = false
+              AND inv.source_sale_id IS NULL
+              AND po.buyback_recorded_at IS NULL
+              AND po.order_date BETWEEN :startDate AND :endDate
+            ORDER BY po.order_date, po.id
+            """, nativeQuery = true)
+    List<PurchaseLineRow> getPurchaseLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

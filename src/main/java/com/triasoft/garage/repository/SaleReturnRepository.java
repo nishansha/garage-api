@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -57,4 +58,14 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
             ORDER BY sr.return_date DESC
             """, nativeQuery = true)
     List<SaleReturnPayableRow> findPayables();
+
+    @Query(value = """
+            SELECT COALESCE(SUM(
+                     COALESCE(sr.sold_vehicle_deduction_amount, 0)
+                   + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0)
+            FROM app_sale_return sr
+            WHERE sr.deleted = false
+              AND sr.return_date BETWEEN :startDate AND :endDate
+            """, nativeQuery = true)
+    BigDecimal sumDeductionIncomeByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

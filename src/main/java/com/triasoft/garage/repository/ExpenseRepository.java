@@ -1,6 +1,7 @@
 package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.Expense;
+import com.triasoft.garage.projection.ExpenseLineRow;
 import com.triasoft.garage.projection.ExpenseMetrics;
 import com.triasoft.garage.projection.PLExpenseMetrics;
 import com.triasoft.garage.projection.PurchaseExpenseSumProjection;
@@ -45,4 +46,22 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
               AND e.date BETWEEN :startDate AND :endDate
             """, nativeQuery = true)
     PLExpenseMetrics getExpensesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query(value = """
+            SELECT
+                e.date                                            as date,
+                COALESCE(NULLIF(TRIM(e.description), ''),
+                         NULLIF(TRIM(e.other_expense), ''),
+                         coa.name)                                as expenseName,
+                e.amount                                          as amount,
+                pa.name                                           as accountName
+            FROM app_expense e
+            JOIN fnd_chart_of_accounts coa ON coa.id = e.expense_account_id
+            LEFT JOIN app_payment_account pa ON pa.id = e.payment_account_id
+            WHERE e.deleted = false
+              AND e.purchase_order_id IS NULL
+              AND e.date BETWEEN :startDate AND :endDate
+            ORDER BY e.date, e.id
+            """, nativeQuery = true)
+    List<ExpenseLineRow> getExpenseLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }
