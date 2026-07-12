@@ -6,6 +6,7 @@ import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.model.entry.DirectEntryRs;
 import com.triasoft.garage.service.impl.DirectEntryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -38,14 +39,14 @@ public class DirectEntryController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<DirectEntryRs>> create(@RequestBody DirectEntryRq rq) {
+    ResponseEntity<ApiResponse<DirectEntryRs>> create(@Valid @RequestBody DirectEntryRq rq) {
         return ResponseEntity.ok(ApiResponse.success(directEntryService.create(rq)));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<DirectEntryRs>> update(
             @PathVariable("id") Long id,
-            @RequestBody DirectEntryRq rq) {
+            @Valid @RequestBody DirectEntryRq rq) {
         return ResponseEntity.ok(ApiResponse.success(directEntryService.update(id, rq)));
     }
 

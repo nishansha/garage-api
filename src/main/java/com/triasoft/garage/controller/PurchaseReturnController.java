@@ -7,6 +7,7 @@ import com.triasoft.garage.model.report.PurchaseReturnReceivablesSummaryRs;
 import com.triasoft.garage.service.impl.PurchaseReturnService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -34,7 +35,7 @@ public class PurchaseReturnController {
 
     @PostMapping(value = "/inventory/{inventoryId}/return", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<PurchaseReturnDTO>> create(@PathVariable("inventoryId") Long inventoryId,
-                                                                             @RequestBody PurchaseReturnRq rq,
+                                                                             @Valid @RequestBody PurchaseReturnRq rq,
                                                                              HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.create(inventoryId, rq, UserUtil.getUser(request))));
     }
@@ -60,7 +61,7 @@ public class PurchaseReturnController {
 
     @PostMapping(value = "/purchase-returns/{id}/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ReceiptCreateRs>> recordReceipt(@PathVariable("id") Long id,
-                                                                                           @RequestBody PurchaseReturnReceiptRq rq,
+                                                                                           @Valid @RequestBody PurchaseReturnReceiptRq rq,
                                                                                            HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.recordReceipt(id, rq, UserUtil.getUser(request))));
     }
@@ -68,7 +69,7 @@ public class PurchaseReturnController {
     @PutMapping(value = "/purchase-returns/{id}/receipts/{receiptId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ReceiptCreateRs>> updateReceipt(@PathVariable("id") Long id,
                                                                                            @PathVariable("receiptId") Long receiptId,
-                                                                                           @RequestBody PurchaseReturnReceiptRq rq,
+                                                                                           @Valid @RequestBody PurchaseReturnReceiptRq rq,
                                                                                            HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.updateReceipt(id, receiptId, rq, UserUtil.getUser(request))));
     }

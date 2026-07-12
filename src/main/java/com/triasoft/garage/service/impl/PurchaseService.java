@@ -492,21 +492,6 @@ public class PurchaseService {
         rs.setId(savedPurchase.getId());
         savedPurchase.getPurchaseExpenses().forEach(e -> createExpenseTransaction(e, savedPurchase.getReferenceNo()));
 
-        // TODO [JOURNAL ENTRY] - Purchase Created
-        // Trigger  : after every new purchase is saved.
-        // Entry 1 – Vehicle acquired into inventory:
-        //   Dr  Vehicle Inventory        (Asset   – Current Assets)  purchaseRate + totalExpenseAmt (landed cost)
-        //   Cr  Accounts Payable–Vendor  (Liability)                 purchaseRate + totalExpenseAmt
-        // Entry 2 – Per purchase expense (if any expenses exist):
-        //   Dr  <ExpenseAccount.name>    (Expense)                   expenseAmount  (per expense line)
-        //   Cr  Accounts Payable–Vendor  (Liability)                 expenseAmount
-        // Note: Entries should be posted only once the purchase is RECEIVED (deliveredDate set).
-        //       If status is PENDING_DELIVERY, consider posting a "Goods in Transit" entry instead,
-        //       then reversing it and posting the inventory entry when delivered.
-        // Future call: JournalEntryService.postPurchase(savedPurchase, totalExpenseAmt)
-        // CoA required: "Vehicle Inventory" (Asset), "Accounts Payable" (Liability),
-        //               per-expense CoA accounts (already on ChartOfAccount entity).
-
         StatusEnum inventoryStatus = purchaseRq.getDeliveredDate() != null ? StatusEnum.AVAILABLE : StatusEnum.PENDING_DELIVERY;
         createInventoryRecord(savedPurchase, detail, product, purchaseRq, totalExpenseAmt, inventoryStatus);
         if (purchaseRq.getSourceSaleId() == null) {

@@ -15,6 +15,7 @@ import com.triasoft.garage.service.impl.SaleReturnService;
 import com.triasoft.garage.service.impl.SalesService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -51,7 +52,7 @@ public class SalesController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SalesRs>> create(@RequestBody SalesRq salesRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> create(@Valid @RequestBody SalesRq salesRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.create(salesRq, UserUtil.getUser(request))));
     }
 
@@ -61,7 +62,7 @@ public class SalesController {
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SalesRs>> update(@RequestBody SalesRq salesRq, @PathVariable("id") Long id, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> update(@Valid @RequestBody SalesRq salesRq, @PathVariable("id") Long id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.update(id, salesRq, UserUtil.getUser(request))));
     }
 
@@ -71,12 +72,12 @@ public class SalesController {
     }
 
     @PostMapping(value = "/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SalesRs>> recordPayment(@PathVariable("id") Long id, @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> recordPayment(@PathVariable("id") Long id, @Valid @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.recordPayment(id, paymentRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SalesRs>> updatePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SalesRs>> updatePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, @Valid @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(salesService.updatePayment(id, paymentId, paymentRq, UserUtil.getUser(request))));
     }
 
@@ -99,7 +100,7 @@ public class SalesController {
 
     @PostMapping(value = "/{id}/return", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SaleReturnDTO>> createReturn(@PathVariable("id") Long id,
-                                                            @RequestBody SaleReturnRq rq,
+                                                            @Valid @RequestBody SaleReturnRq rq,
                                                             HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.create(id, rq, UserUtil.getUser(request))));
     }
