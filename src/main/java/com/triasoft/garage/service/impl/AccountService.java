@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.ChatOfAccountDTO;
 import com.triasoft.garage.dto.ExpenseDTO;
@@ -112,6 +114,7 @@ public class AccountService {
         return toAccountDTO(chartOfAccount);
     }
 
+    @VersionCheck(entity = ChartOfAccount.class)
     public AccountRs update(Long id, AccountRq accountRq, UserDTO user) {
         validateType(accountRq.getType());
         ChartOfAccount chartOfAccount = chatOfAccountRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));

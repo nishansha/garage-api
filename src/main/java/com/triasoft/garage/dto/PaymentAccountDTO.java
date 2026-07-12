@@ -16,6 +16,7 @@ public class PaymentAccountDTO implements Serializable {
     private static final long serialVersionUID = 3920184756123049182L;
 
     private Long id;
+    private Long version;
     private String name;
     private String bankName;
     private String accountNo;

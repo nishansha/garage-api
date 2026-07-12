@@ -18,6 +18,7 @@ public class ExpenseDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = -6624797252960867490L;
     private Long id;
+    private Long version;
     private LocalDate date;
     private Long typeId;
     private String title;

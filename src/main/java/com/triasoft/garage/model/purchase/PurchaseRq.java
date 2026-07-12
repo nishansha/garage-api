@@ -1,5 +1,6 @@
 package com.triasoft.garage.model.purchase;
 
+import com.triasoft.garage.concurrency.Versioned;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.model.common.GenericRq;
 import lombok.AllArgsConstructor;
@@ -17,11 +18,13 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class PurchaseRq extends GenericRq {
-    
+public class PurchaseRq extends GenericRq implements Versioned {
+
     @Serial
     private static final long serialVersionUID = 5738931391416021178L;
 
+    /** Optimistic-lock version the client last read (required on update). */
+    private Long version;
     private Long id;
     private LocalDate date;
     private LocalDate deliveredDate;

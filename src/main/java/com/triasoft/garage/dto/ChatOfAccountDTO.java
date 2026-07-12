@@ -16,6 +16,7 @@ public class ChatOfAccountDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = -5413015889738105503L;
     private Long id;
+    private Long version;
     private String type;
     private String name;
     private String code;

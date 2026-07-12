@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.ExpenseLockWindow;
 import com.triasoft.garage.constants.StatusEnum;
@@ -159,6 +161,7 @@ public class ExpenseService {
     }
 
     @Transactional
+    @VersionCheck(entity = Expense.class)
     public ExpenseRs update(Long id, ExpenseRq expenseRq, UserDTO user) {
         if (expenseRq.getPaymentAccountId() == null) {
             throw new BusinessException(ErrorCode.Business.EXPENSE_PAYMENT_ACCOUNT_REQUIRED);
@@ -333,6 +336,7 @@ public class ExpenseService {
     private ExpenseDTO convertToDTO(Expense expense) {
         return ExpenseDTO.builder()
                 .id(expense.getId())
+                .version(expense.getVersion())
                 .date(expense.getDate())
                 .description(expense.getDescription())
                 .amount(expense.getAmount())

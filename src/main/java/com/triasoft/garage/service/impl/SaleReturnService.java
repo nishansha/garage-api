@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.DeductionDTO;
 import com.triasoft.garage.dto.RefundPaymentDTO;
@@ -391,6 +393,7 @@ public class SaleReturnService {
     private RefundPaymentDTO toRefundDTO(SaleRefundPayment r) {
         return RefundPaymentDTO.builder()
                 .id(r.getId())
+                .version(r.getVersion())
                 .amount(r.getAmount())
                 .paymentDate(r.getPaymentDate())
                 .paymentMethod(r.getPaymentMethod())
@@ -450,6 +453,7 @@ public class SaleReturnService {
     }
 
     @Transactional
+    @VersionCheck(entity = SaleRefundPayment.class, idIndex = 1)
     public RefundCreateResponse updateRefund(Long returnId, Long refundId, RefundPaymentRq rq, UserDTO user) {
         SaleReturn sr = saleReturnRepository.findById(returnId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_RETURN_NOT_FOUND));

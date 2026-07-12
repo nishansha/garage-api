@@ -16,6 +16,7 @@ public class PurchaseDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = -5333887634226778331L;
     private Long id;
+    private Long version;
     private LocalDate date;
     private LocalDate deliveredDate;
     private String code;

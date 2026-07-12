@@ -16,6 +16,7 @@ public class SaleDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = 3200483156091203742L;
     private Long id;
+    private Long version;
     private String invoiceNo;
     private LocalDate date;
     private Long stockId;

@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.model.report.PayableInfo;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
@@ -122,6 +124,7 @@ public class PurchaseService {
         LookupMaster color = inventory != null ? inventory.getColor() : null;
         return PurchaseDTO.builder()
                 .id(purchase.getId())
+                .version(purchase.getVersion())
                 .date(purchase.getOrderDate())
                 .deliveredDate(purchase.getDeliveredDate())
                 .code(purchaseDetail.getUuid())
@@ -513,6 +516,7 @@ public class PurchaseService {
     }
 
     @Transactional
+    @VersionCheck(entity = Purchase.class)
     public PurchaseRs update(Long purchaseId, PurchaseRq purchaseRq, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
         boolean isExchange = isExchangePurchase(purchaseId);
@@ -769,6 +773,7 @@ public class PurchaseService {
     }
 
     @Transactional
+    @VersionCheck(entity = PurchasePayment.class, idIndex = 1)
     public PurchaseRs updatePayment(Long purchaseId, Long paymentId, PurchasePaymentRq rq, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
@@ -969,6 +974,7 @@ public class PurchaseService {
     private PurchasePaymentDTO toPaymentDTO(PurchasePayment p) {
         return PurchasePaymentDTO.builder()
                 .id(p.getId())
+                .version(p.getVersion())
                 .amount(p.getAmount())
                 .paymentDate(p.getPaymentDate())
                 .paymentMethod(p.getPaymentMethod())
@@ -982,6 +988,7 @@ public class PurchaseService {
     private ExpenseDTO convertToExpenseDTO(Expense expense) {
         return ExpenseDTO.builder()
                 .id(expense.getId())
+                .version(expense.getVersion())
                 .date(expense.getDate())
                 .typeId(expense.getExpenseAccount().getId())
                 .title(expense.getExpenseAccount().getName())

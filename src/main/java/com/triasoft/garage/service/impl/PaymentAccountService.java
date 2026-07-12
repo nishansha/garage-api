@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.AccountTypeEnum;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
@@ -93,6 +95,7 @@ public class PaymentAccountService {
     }
 
     @Transactional
+    @VersionCheck(entity = PaymentAccount.class)
     public PaymentAccountRs update(Long id, PaymentAccountRq rq, UserDTO user) {
         PaymentAccount account = findById(id);
         if (!account.getName().equalsIgnoreCase(rq.getName()) && paymentAccountRepository.existsByNameIgnoreCase(rq.getName())) {
@@ -238,6 +241,7 @@ public class PaymentAccountService {
     private PaymentAccountDTO toDTO(PaymentAccount account, BigDecimal balance) {
         return PaymentAccountDTO.builder()
                 .id(account.getId())
+                .version(account.getVersion())
                 .name(account.getName())
                 .bankName(account.getBankName())
                 .accountNo(account.getAccountNo())

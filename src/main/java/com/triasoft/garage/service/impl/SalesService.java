@@ -1,5 +1,7 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.concurrency.VersionCheck;
+
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.SaleAmountSplitDTO;
@@ -94,7 +96,7 @@ public class SalesService {
     }
 
     private SaleDTO convertToDTO(Sale sale) {
-        return SaleDTO.builder().id(sale.getId()).date(sale.getSaleDate())
+        return SaleDTO.builder().id(sale.getId()).version(sale.getVersion()).date(sale.getSaleDate())
                 .customerName(sale.getCustomer().getName())
                 .customerMobileNo(sale.getCustomer().getMobile())
                 .vehicleNo(sale.getInventory().getProductNo())
@@ -282,6 +284,7 @@ public class SalesService {
     }
 
     @Transactional
+    @VersionCheck(entity = Sale.class)
     public SalesRs update(Long id, SalesRq salesRq, UserDTO user) {
         Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
         journalService.reverse(JournalService.REF_SALE, id);
@@ -454,6 +457,7 @@ public class SalesService {
     }
 
     @Transactional
+    @VersionCheck(entity = SalePayment.class, idIndex = 1)
     public SalesRs updatePayment(Long saleId, Long paymentId, SalePaymentRq rq, UserDTO user) {
         Sale sale = saleRepository.findById(saleId)
                 .orElseThrow(() -> new EntityNotFoundException("Sale not found"));
@@ -692,6 +696,7 @@ public class SalesService {
     private SalePaymentDTO toPaymentDTO(SalePayment p) {
         return SalePaymentDTO.builder()
                 .id(p.getId())
+                .version(p.getVersion())
                 .amount(p.getAmount())
                 .paymentDate(p.getPaymentDate())
                 .paymentMethod(p.getPaymentMethod())

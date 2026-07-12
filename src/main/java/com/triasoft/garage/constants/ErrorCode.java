@@ -49,7 +49,8 @@ public class ErrorCode {
 
     @Getter
     public enum Concurrency implements Errors {
-        CONCURRENT_MODIFICATION("CON_100", "This record was changed by another operation. Please reload and try again.");
+        CONCURRENT_MODIFICATION("CON_100", "This record was changed by another operation. Please reload and try again."),
+        VERSION_REQUIRED("CON_101", "A version is required to update this record. Please reload and try again.");
         private final String code;
         private final String message;
 
