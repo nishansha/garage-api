@@ -52,6 +52,44 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
 
     @Query(value = """
             SELECT
+                s.id            as saleId,
+                s.invoice_no    as invoiceNo,
+                s.sale_date     as saleDate,
+                inv.product_no  as vehicleNo,
+                c.name          as customerName,
+                pod.unit_cost   as purchaseRate,
+                (COALESCE(s.landed_cost_at_sale, 0) - COALESCE(pod.unit_cost, 0)) as purchaseExpenses,
+                s.sale_rate     as saleRate,
+                CASE WHEN sr.id IS NOT NULL
+                     THEN COALESCE(sr.sold_vehicle_deduction_amount, 0)
+                     ELSE s.profit_amount END as profit,
+                (sr.id IS NOT NULL) as returned,
+                CASE WHEN sr.id IS NOT NULL THEN 0
+                     ELSE GREATEST(0, COALESCE(s.net_sale_amount, 0)
+                          - COALESCE((SELECT SUM(sp.amount) FROM app_sale_payment sp
+                                      WHERE sp.sale_id = s.id AND sp.deleted = false
+                                        AND sp.payment_date <= :endDate), 0))
+                END as pendingAmount,
+                CASE WHEN sr_all.id IS NOT NULL THEN 0
+                     ELSE GREATEST(0, COALESCE(s.net_sale_amount, 0)
+                          - COALESCE((SELECT SUM(sp.amount) FROM app_sale_payment sp
+                                      WHERE sp.sale_id = s.id AND sp.deleted = false), 0))
+                END as pendingTillDate
+            FROM app_sale s
+            JOIN app_inventory inv ON inv.id = s.inventory_id
+            JOIN app_purchase_order_detail pod ON pod.id = inv.purchase_order_detail_id
+            JOIN app_customer c ON c.id = s.customer_id
+            LEFT JOIN app_sale_return sr ON sr.sale_id = s.id AND sr.deleted = false
+                                        AND sr.return_date <= :endDate
+            LEFT JOIN app_sale_return sr_all ON sr_all.sale_id = s.id AND sr_all.deleted = false
+            WHERE s.deleted = false
+              AND s.sale_date BETWEEN :startDate AND :endDate
+            ORDER BY s.sale_date, s.id
+            """, nativeQuery = true)
+    List<SaleLineRow> getSaleLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query(value = """
+            SELECT
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
                         WHERE s.sale_date >= :startOfMonth AND s.deleted = false), 0)
               -

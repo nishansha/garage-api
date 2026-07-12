@@ -17,35 +17,45 @@ public class PLReportRs implements Serializable {
 
     private String month;
     private String period;
-    private long unitsSold;
 
-    // ── Revenue ──────────────────────────────────
-    private BigDecimal vehicleSalesRevenue;
-    private BigDecimal otherIncome;
+    // ── Revenue & Bottom Line ─────────────────────
     private BigDecimal totalRevenue;
-
-    // ── Cost of Goods Sold ────────────────────────
-    private BigDecimal costOfGoodsSold;
     private BigDecimal grossProfit;
     private double grossMarginPct;
-
-    // ── Operating Expenses ────────────────────────
-    private BigDecimal purchaseExpenses;
-    private BigDecimal generalExpenses;
-    private BigDecimal directAdjustments;
+    private BigDecimal returnDeductionIncome; // retained deductions on sale returns (income)
+    private BigDecimal exchangeGain;          // GAIN_ON_EXCHANGE_ADJ (income)
+    private BigDecimal exchangeReturnLoss;    // LOSS_RETURNED_EXCHANGE (expense/loss)
+    private BigDecimal purchaseReturnLoss;    // LOSS_PURCHASE_RETURN (expense/loss)
     private BigDecimal totalOperatingExpenses;
-
-    // ── Bottom Line ───────────────────────────────
     private BigDecimal netProfit;
     private double netMarginPct;
+
+    // ── Section totals (align with the detail lists below) ─
+    private SalesTotals salesTotals;
+    private PurchaseTotals purchaseTotals;
+    private ExpenseTotals expenseTotals;
+    private DirectEntryTotals directEntryTotals;
+
+    // ── Receivables / Payables (from this period's deals) ─
+    private BigDecimal totalReceivables;         // outstanding at month-end
+    private BigDecimal totalReceivablesTillDate; // still outstanding today
+    private BigDecimal totalPayables;            // outstanding at month-end
+    private BigDecimal totalPayablesTillDate;    // still outstanding today
 
     // ── Cash & Bank Position (current) ───────────
     private List<AccountBalanceInfo> cashPosition;
     private BigDecimal totalCashPosition;
 
-    // ── Pending Collections (for period) ─────────
-    private long pendingCount;
-    private BigDecimal pendingAmount;
-    private BigDecimal financePendingAmount;
+    // ── Sales in this period (per-vehicle breakdown) ─
+    private List<SaleLineInfo> sales;
+
+    // ── Purchases in this period (per-vehicle breakdown) ─
+    private List<PurchaseLineInfo> purchases;
+
+    // ── General expenses in this period (excludes purchase expenses) ─
+    private List<ExpenseLineInfo> expenses;
+
+    // ── Direct entries in this period (income / expense / other) ─
+    private List<DirectEntryLineInfo> directEntries;
 
 }

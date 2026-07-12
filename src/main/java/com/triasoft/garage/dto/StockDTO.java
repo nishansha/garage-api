@@ -32,6 +32,8 @@ public class StockDTO implements Serializable {
     private Long odometer;
     private BigDecimal landedCost;
     private BigDecimal soldAmount;
+    private BigDecimal saleRate;
+    private BigDecimal profit;
     private LocalDate soldDate;
     private String customerName;
     private String customerMobileNo;

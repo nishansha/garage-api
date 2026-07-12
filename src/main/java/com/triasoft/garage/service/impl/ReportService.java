@@ -1,22 +1,32 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.model.report.AccountBalanceInfo;
+import com.triasoft.garage.model.report.DirectEntryLineInfo;
+import com.triasoft.garage.model.report.ExpenseLineInfo;
 import com.triasoft.garage.model.report.MonthlyTrendInfo;
 import com.triasoft.garage.model.report.MonthlyTrendRs;
 import com.triasoft.garage.model.report.PLReportRs;
+import com.triasoft.garage.model.report.DirectEntryTotals;
+import com.triasoft.garage.model.report.ExpenseTotals;
 import com.triasoft.garage.model.report.PayableInfo;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.PurchaseLineInfo;
+import com.triasoft.garage.model.report.PurchaseTotals;
+import com.triasoft.garage.model.report.SalesTotals;
 import com.triasoft.garage.model.report.ReceivableInfo;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
+import com.triasoft.garage.model.report.SaleLineInfo;
 import com.triasoft.garage.projection.MonthlyTrendMetrics;
 import com.triasoft.garage.projection.PLDirectEntryMetrics;
 import com.triasoft.garage.projection.PLExpenseMetrics;
-import com.triasoft.garage.projection.PLPendingMetrics;
 import com.triasoft.garage.projection.PayableRow;
 import com.triasoft.garage.projection.ProfitMetrics;
+import com.triasoft.garage.projection.PurchaseLineRow;
 import com.triasoft.garage.projection.ReceivableRow;
+import com.triasoft.garage.projection.SaleLineRow;
 import com.triasoft.garage.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +35,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +47,8 @@ public class ReportService {
     private static final DateTimeFormatter PERIOD_DISPLAY = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
     private final SaleRepository saleRepository;
+    private final SaleReturnRepository saleReturnRepository;
+    private final JournalDetailRepository journalDetailRepository;
     private final JournalRepository journalRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
@@ -49,70 +63,213 @@ public class ReportService {
         // ── 1. Sales ─────────────────────────────────────────────────────────
         ProfitMetrics sales = saleRepository.getProfitReport(startDate, endDate);
         BigDecimal vehicleSalesRevenue = safe(sales.getTotalSales());
-        BigDecimal cogs              = safe(sales.getTotalCost());
         BigDecimal grossProfit       = safe(sales.getNetProfit());
-        long unitsSold               = sales.getUnitsSold() != null ? sales.getUnitsSold() : 0L;
 
         // ── 2. Direct Entries ─────────────────────────────────────────────────
         PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(startDate, endDate);
         BigDecimal otherIncome      = safe(de.getTotalIn());
         BigDecimal directAdjustments = safe(de.getTotalOut());
 
+        // Retained deductions on sale returns are real income (RETURN_DEDUCTION_INCOME
+        // in the ledger) but are netted out of the sales figures above, so add them back.
+        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(startDate, endDate));
+
+        // Exchange/return gains & losses live only in the ledger (no operational entity),
+        // so pull them from their system-role journal accounts for the period. This closes
+        // the remaining entity-vs-journal P&L gap (only manual journals remain uncaptured).
+        BigDecimal exchangeGain       = ledgerRevenue(SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
+        BigDecimal exchangeReturnLoss = ledgerExpense(SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
+        BigDecimal purchaseReturnLoss = ledgerExpense(SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+
         // ── 3. Revenue totals ─────────────────────────────────────────────────
-        BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome);
+        BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome)
+                .add(returnDeductionIncome).add(exchangeGain);
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
         PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(startDate, endDate);
         BigDecimal generalExpenses  = safe(exp.getGeneralExpenses());
-        BigDecimal purchaseExpenses = safe(exp.getPurchaseExpenses());
-        BigDecimal totalOpEx = generalExpenses.add(directAdjustments);
+        BigDecimal totalOpEx = generalExpenses.add(directAdjustments)
+                .add(exchangeReturnLoss).add(purchaseReturnLoss);
 
         // ── 5. Net profit ─────────────────────────────────────────────────────
-        BigDecimal netProfit = grossProfit.add(otherIncome).subtract(totalOpEx);
+        BigDecimal netProfit = grossProfit.add(otherIncome).add(returnDeductionIncome)
+                .add(exchangeGain).subtract(totalOpEx);
 
         // ── 6. Margin percentages ─────────────────────────────────────────────
         double grossMarginPct = pct(grossProfit, vehicleSalesRevenue);
         double netMarginPct   = pct(netProfit, totalRevenue);
 
-        // ── 7. Cash & bank position (current, not period-bound) ───────────────
+        // ── 7. Cash & bank position (as of month-end) ─────────────────────────
         List<AccountBalanceInfo> cashPosition = paymentAccountRepository.findAllByIsActiveTrue()
                 .stream()
-                .map(this::toAccountBalance)
+                .map(account -> toAccountBalance(account, endDate))
                 .toList();
         BigDecimal totalCash = cashPosition.stream()
                 .map(AccountBalanceInfo::getBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // ── 8. Pending collections (for the period's sales) ───────────────────
-        PLPendingMetrics pending = saleRepository.getPendingByPeriod(startDate, endDate);
+        // ── 9. Per-vehicle sales breakdown for the period ─────────────────────
+        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(startDate, endDate);
+        List<SaleLineInfo> saleLines = saleRows.stream()
+                .map(r -> SaleLineInfo.builder()
+                        .saleId(r.getSaleId())
+                        .invoiceNo(r.getInvoiceNo())
+                        .saleDate(r.getSaleDate())
+                        .vehicleNo(r.getVehicleNo())
+                        .customerName(r.getCustomerName())
+                        .purchaseRate(safe(r.getPurchaseRate()))
+                        .purchaseExpenses(safe(r.getPurchaseExpenses()))
+                        .saleRate(safe(r.getSaleRate()))
+                        .profit(safe(r.getProfit()))
+                        .returned(Boolean.TRUE.equals(r.getReturned()))
+                        .pendingAmount(safe(r.getPendingAmount()))
+                        .build())
+                .toList();
+
+        // ── 10. Per-vehicle purchases breakdown for the period ────────────────
+        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(startDate, endDate);
+        List<PurchaseLineInfo> purchaseLines = purchaseRows.stream()
+                .map(r -> PurchaseLineInfo.builder()
+                        .purchaseId(r.getPurchaseId())
+                        .referenceNo(r.getReferenceNo())
+                        .purchaseDate(r.getPurchaseDate())
+                        .vehicleNo(r.getVehicleNo())
+                        .vendorName(r.getVendorName())
+                        .purchaseRate(safe(r.getPurchaseRate()))
+                        .purchaseExpenses(safe(r.getPurchaseExpenses()))
+                        .landedCost(safe(r.getLandedCost()))
+                        .returned(Boolean.TRUE.equals(r.getReturned()))
+                        .returnAmount(r.getReturnAmount())
+                        .pendingAmount(safe(r.getPendingAmount()))
+                        .build())
+                .toList();
+
+        // ── 11. General expenses breakdown (excludes purchase expenses) ────────
+        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(startDate, endDate)
+                .stream()
+                .map(r -> ExpenseLineInfo.builder()
+                        .date(r.getDate())
+                        .expenseName(r.getExpenseName())
+                        .amount(safe(r.getAmount()))
+                        .accountName(r.getAccountName())
+                        .build())
+                .toList();
+
+        // ── 12. Direct entries breakdown (income / expense / other) ────────────
+        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(startDate, endDate)
+                .stream()
+                .map(r -> DirectEntryLineInfo.builder()
+                        .date(r.getDate())
+                        .name(r.getName())
+                        .amount(safe(r.getAmount()))
+                        .category(r.getCategory())
+                        .accountName(r.getAccountName())
+                        .direction(r.getDirection())
+                        .classification(r.getClassification())
+                        .build())
+                .toList();
+
+        // ── 13. Section totals (aligned with the detail lists) ────────────────
+        // Totals reflect net realized activity — returned rows are excluded; returnCount
+        // reports the returned rows so that count + returnCount = list length.
+        List<SaleLineInfo> soldRows = saleLines.stream().filter(s -> !s.isReturned()).toList();
+        SalesTotals salesTotals = SalesTotals.builder()
+                .count(soldRows.size())
+                .returnCount(saleLines.size() - soldRows.size())
+                .saleRate(sumBd(soldRows, SaleLineInfo::getSaleRate))
+                .cost(soldRows.stream()
+                        .map(s -> safe(s.getPurchaseRate()).add(safe(s.getPurchaseExpenses())))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .purchaseExpenses(sumBd(soldRows, SaleLineInfo::getPurchaseExpenses))
+                .profit(sumBd(soldRows, SaleLineInfo::getProfit))
+                .build();
+
+        List<PurchaseLineInfo> activePurchases = purchaseLines.stream().filter(p -> !p.isReturned()).toList();
+        PurchaseTotals purchaseTotals = PurchaseTotals.builder()
+                .count(activePurchases.size())
+                .returnCount(purchaseLines.size() - activePurchases.size())
+                .purchaseRate(sumBd(activePurchases, PurchaseLineInfo::getPurchaseRate))
+                .purchaseExpenses(sumBd(activePurchases, PurchaseLineInfo::getPurchaseExpenses))
+                .landedCost(sumBd(activePurchases, PurchaseLineInfo::getLandedCost))
+                .returnAmount(sumBd(purchaseLines, PurchaseLineInfo::getReturnAmount))
+                .build();
+
+        ExpenseTotals expenseTotals = ExpenseTotals.builder()
+                .count(expenseLines.size())
+                .amount(sumBd(expenseLines, ExpenseLineInfo::getAmount))
+                .build();
+
+        List<DirectEntryLineInfo> inRows = directEntryLines.stream()
+                .filter(d -> "IN".equalsIgnoreCase(d.getDirection())).toList();
+        List<DirectEntryLineInfo> outRows = directEntryLines.stream()
+                .filter(d -> "OUT".equalsIgnoreCase(d.getDirection())).toList();
+        List<DirectEntryLineInfo> incomeRows = directEntryLines.stream()
+                .filter(d -> "INCOME".equalsIgnoreCase(d.getClassification())).toList();
+        List<DirectEntryLineInfo> deExpenseRows = directEntryLines.stream()
+                .filter(d -> "EXPENSE".equalsIgnoreCase(d.getClassification())).toList();
+        List<DirectEntryLineInfo> otherRows = directEntryLines.stream()
+                .filter(d -> "OTHER".equalsIgnoreCase(d.getClassification())).toList();
+        DirectEntryTotals directEntryTotals = DirectEntryTotals.builder()
+                .inCount(inRows.size())
+                .inAmount(sumBd(inRows, DirectEntryLineInfo::getAmount))
+                .outCount(outRows.size())
+                .outAmount(sumBd(outRows, DirectEntryLineInfo::getAmount))
+                .incomeCount(incomeRows.size())
+                .incomeAmount(sumBd(incomeRows, DirectEntryLineInfo::getAmount))
+                .expenseCount(deExpenseRows.size())
+                .expenseAmount(sumBd(deExpenseRows, DirectEntryLineInfo::getAmount))
+                .otherCount(otherRows.size())
+                .otherAmount(sumBd(otherRows, DirectEntryLineInfo::getAmount))
+                .build();
+
+        // ── 14. Receivables / Payables arising from this period's deals ───────
+        BigDecimal totalReceivables = sumBd(saleRows, SaleLineRow::getPendingAmount);
+        BigDecimal totalReceivablesTillDate = sumBd(saleRows, SaleLineRow::getPendingTillDate);
+
+        // Purchase pending is a PO-level figure repeated across a PO's vehicle rows;
+        // dedupe by purchaseId so multi-vehicle POs are not counted more than once.
+        Map<Long, BigDecimal> payableByPo = new LinkedHashMap<>();
+        Map<Long, BigDecimal> payableTillDateByPo = new LinkedHashMap<>();
+        for (PurchaseLineRow r : purchaseRows) {
+            payableByPo.putIfAbsent(r.getPurchaseId(), safe(r.getPendingAmount()));
+            payableTillDateByPo.putIfAbsent(r.getPurchaseId(), safe(r.getPendingTillDate()));
+        }
+        BigDecimal totalPayables = payableByPo.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPayablesTillDate = payableTillDateByPo.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return PLReportRs.builder()
                 .month(yearMonth.format(MONTH_DISPLAY))
                 .period(startDate.format(PERIOD_DISPLAY) + " – " + endDate.format(PERIOD_DISPLAY))
-                .unitsSold(unitsSold)
-                .vehicleSalesRevenue(vehicleSalesRevenue)
-                .otherIncome(otherIncome)
                 .totalRevenue(totalRevenue)
-                .costOfGoodsSold(cogs)
                 .grossProfit(grossProfit)
                 .grossMarginPct(grossMarginPct)
-                .purchaseExpenses(purchaseExpenses)
-                .generalExpenses(generalExpenses)
-                .directAdjustments(directAdjustments)
+                .returnDeductionIncome(returnDeductionIncome)
+                .exchangeGain(exchangeGain)
+                .exchangeReturnLoss(exchangeReturnLoss)
+                .purchaseReturnLoss(purchaseReturnLoss)
                 .totalOperatingExpenses(totalOpEx)
                 .netProfit(netProfit)
                 .netMarginPct(netMarginPct)
+                .salesTotals(salesTotals)
+                .purchaseTotals(purchaseTotals)
+                .expenseTotals(expenseTotals)
+                .directEntryTotals(directEntryTotals)
+                .totalReceivables(totalReceivables)
+                .totalReceivablesTillDate(totalReceivablesTillDate)
+                .totalPayables(totalPayables)
+                .totalPayablesTillDate(totalPayablesTillDate)
                 .cashPosition(cashPosition)
                 .totalCashPosition(totalCash)
-                .pendingCount(pending.getPendingCount() != null ? pending.getPendingCount() : 0L)
-                .pendingAmount(safe(pending.getPendingAmount()))
-                .financePendingAmount(safe(pending.getFinancePendingAmount()))
+                .sales(saleLines)
+                .purchases(purchaseLines)
+                .expenses(expenseLines)
+                .directEntries(directEntryLines)
                 .build();
     }
 
-    private AccountBalanceInfo toAccountBalance(PaymentAccount account) {
-        BigDecimal in  = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.IN);
-        BigDecimal out = transactionRepository.sumAmountByAccountAndDirection(account.getId(), TransactionDirectionEnum.OUT);
+    private AccountBalanceInfo toAccountBalance(PaymentAccount account, java.time.LocalDate asOfDate) {
+        BigDecimal in  = transactionRepository.sumAmountByAccountAndDirectionUpTo(account.getId(), TransactionDirectionEnum.IN, asOfDate);
+        BigDecimal out = transactionRepository.sumAmountByAccountAndDirectionUpTo(account.getId(), TransactionDirectionEnum.OUT, asOfDate);
         BigDecimal balance = account.getOpeningBalance().add(in).subtract(out);
         return AccountBalanceInfo.builder()
                 .id(account.getId())
@@ -197,6 +354,24 @@ public class ReportService {
 
     private BigDecimal safe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
+    }
+
+    // Revenue accounts carry a normal credit balance → gain = credit − debit.
+    private BigDecimal ledgerRevenue(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+        return r == null ? BigDecimal.ZERO : safe(r.getCredit()).subtract(safe(r.getDebit()));
+    }
+
+    // Expense/loss accounts carry a normal debit balance → loss = debit − credit.
+    private BigDecimal ledgerExpense(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+        return r == null ? BigDecimal.ZERO : safe(r.getDebit()).subtract(safe(r.getCredit()));
+    }
+
+    private <T> BigDecimal sumBd(List<T> rows, java.util.function.Function<T, BigDecimal> extractor) {
+        return rows.stream()
+                .map(t -> safe(extractor.apply(t)))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private double pct(BigDecimal numerator, BigDecimal denominator) {

@@ -20,6 +20,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.paymentAccount.id = :accountId AND t.direction = :direction")
     BigDecimal sumAmountByAccountAndDirection(@Param("accountId") Long accountId, @Param("direction") TransactionDirectionEnum direction);
 
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.paymentAccount.id = :accountId AND t.direction = :direction AND t.transactionDate <= :asOfDate")
+    BigDecimal sumAmountByAccountAndDirectionUpTo(@Param("accountId") Long accountId, @Param("direction") TransactionDirectionEnum direction, @Param("asOfDate") java.time.LocalDate asOfDate);
+
     Optional<Transaction> findByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 
     @Query("""
