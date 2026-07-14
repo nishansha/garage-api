@@ -8,6 +8,10 @@ spring:
     jdbc-url: jdbc:postgresql://localhost:5432/garage_dev
     username: postgres
     password: garage123
+#    url: jdbc:postgresql://127.0.0.1:5433/garage
+#    jdbc-url: jdbc:postgresql://127.0.0.1:5433/garage
+#    username: garage
+#    password: 6zYXMgjNATwi5gzuOVuMV3Jw4JbtQD
     hikari:
       pool-name: appdbpool
       minimum-idle: 10
