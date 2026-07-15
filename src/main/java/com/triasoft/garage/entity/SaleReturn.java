@@ -5,6 +5,10 @@ import com.triasoft.garage.constants.ReturnStatusEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SoftDelete;
 
@@ -20,6 +24,8 @@ import java.util.List;
 @DynamicUpdate
 @Table(name = "app_sale_return")
 @SoftDelete(columnName = "deleted")
+@Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
+@AuditOverride(forClass = AuditGenericEntity.class)
 public class SaleReturn extends AuditGenericEntity {
 
     @Serial
@@ -62,8 +68,10 @@ public class SaleReturn extends AuditGenericEntity {
     private ReturnStatusEnum status = ReturnStatusEnum.PENDING;
 
     @OneToMany(mappedBy = "saleReturn", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<SaleReturnDeduction> deductions = new ArrayList<>();
 
     @OneToMany(mappedBy = "saleReturn", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<SaleRefundPayment> refunds = new ArrayList<>();
 }

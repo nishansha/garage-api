@@ -176,8 +176,9 @@ public class SaleReturnService {
             }
             Long exchPurchaseId = exchInv.getPurchaseOrderDetail().getPurchase().getId();
             // Reverse all PURCHASE-side journals/transactions for the trade-in (expenses, payments, purchase),
-            // soft-delete it, remove inventory.
-            purchaseService.delete(exchPurchaseId, user);
+            // soft-delete it, remove inventory. Uses deleteInternal() to bypass the direct-delete guard,
+            // since this is a legitimate sale-return unwind of the exchange purchase.
+            purchaseService.deleteInternal(exchPurchaseId, user);
         }
 
         // Sale status → RETURNED, payment status → REFUND

@@ -4,6 +4,10 @@ import com.triasoft.garage.constants.StatusEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.annotations.SoftDelete;
 
 import java.io.Serial;
@@ -17,6 +21,8 @@ import java.util.List;
 @Entity
 @Table(name = "app_sale")
 @SoftDelete(columnName = "deleted")
+@Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
+@AuditOverride(forClass = AuditGenericEntity.class)
 public class Sale extends AuditGenericEntity {
 
     @Serial
@@ -75,8 +81,10 @@ public class Sale extends AuditGenericEntity {
     private StatusEnum paymentStatus;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<SalePayment> payments = new ArrayList<>();
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<SaleAmountSplit> amountSplits = new ArrayList<>();
 }

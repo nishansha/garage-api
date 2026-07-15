@@ -23,8 +23,8 @@ public interface PurchaseReturnRepository extends JpaRepository<PurchaseReturn, 
     List<PurchaseReturn> findByPurchaseId(Long purchaseId);
 
     @Query("SELECT pr FROM PurchaseReturn pr WHERE " +
-            "(:fromDate IS NULL OR pr.returnDate >= :fromDate) AND " +
-            "(:toDate IS NULL OR pr.returnDate <= :toDate) " +
+            "(CAST(:fromDate AS date) IS NULL OR pr.returnDate >= :fromDate) AND " +
+            "(CAST(:toDate AS date) IS NULL OR pr.returnDate <= :toDate) " +
             "ORDER BY pr.returnDate DESC")
     Page<PurchaseReturn> findByDateRange(@Param("fromDate") LocalDate fromDate,
                                          @Param("toDate") LocalDate toDate,

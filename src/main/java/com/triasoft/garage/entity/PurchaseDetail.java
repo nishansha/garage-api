@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.SoftDelete;
 
 import java.io.Serial;
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
 @Entity
 @DynamicUpdate
 @Table(name = "app_purchase_order_detail")
+@SoftDelete(columnName = "deleted")
 public class PurchaseDetail extends GenericEntity {
 
     @Serial

@@ -3,6 +3,9 @@ package com.triasoft.garage.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SoftDelete;
 
@@ -16,6 +19,8 @@ import java.time.LocalDate;
 @DynamicUpdate
 @Table(name = "app_expense")
 @SoftDelete(columnName = "deleted")
+@Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
+@AuditOverride(forClass = AuditGenericEntity.class)
 public class Expense extends AuditGenericEntity {
 
     @Serial
