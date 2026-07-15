@@ -121,7 +121,8 @@ public class ErrorCode {
         EXPENSE_PAYMENT_ACCOUNT_REQUIRED("BUS_169", "Payment account is required to record an expense"),
         PURCHASE_DUPLICATE_VEHICLE_NO("BUS_170", "A vehicle with this number is already in stock"),
         PAYMENT_ACCOUNT_NO_EXISTS("BUS_171", "A payment account with this account number already exists"),
-        DATA_RESET_DISABLED("BUS_180", "Data reset is disabled in this environment");
+        DATA_RESET_DISABLED("BUS_180", "Data reset is disabled in this environment"),
+        AUDIT_ENTITY_TYPE_INVALID("BUS_190", "Unknown or non-audited entity type");
 
         private final String code;
         private final String message;

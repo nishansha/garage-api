@@ -3,6 +3,10 @@ package com.triasoft.garage.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SoftDelete;
 
@@ -18,6 +22,8 @@ import java.util.List;
 @DynamicUpdate
 @Table(name = "app_purchase_order")
 @SoftDelete(columnName = "deleted")
+@Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
+@AuditOverride(forClass = AuditGenericEntity.class)
 public class Purchase extends AuditGenericEntity {
 
     @Serial
@@ -62,12 +68,15 @@ public class Purchase extends AuditGenericEntity {
     private LocalDate buybackRecordedAt;
 
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<PurchaseDetail> purchaseDetails = new ArrayList<>();
 
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<Expense> purchaseExpenses = new ArrayList<>();
 
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotAudited
     private List<PurchasePayment> payments = new ArrayList<>();
 
 }

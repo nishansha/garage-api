@@ -28,7 +28,7 @@ public class ExpenseDTO implements Serializable {
     private Long typeId;
 
     @Size(max = 100, message = "MAX_LENGTH")
-    @Pattern(regexp = "^[A-Za-z0-9 ]+$", message = "INVALID_CHARS")
+    @Pattern(regexp = "^[A-Za-z0-9- ]+$", message = "INVALID_CHARS")
     @NullOrNotBlank
     private String title;
 

@@ -22,8 +22,8 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
     boolean existsBySaleId(Long saleId);
 
     @Query("SELECT sr FROM SaleReturn sr WHERE " +
-            "(:fromDate IS NULL OR sr.returnDate >= :fromDate) AND " +
-            "(:toDate IS NULL OR sr.returnDate <= :toDate) " +
+            "(CAST(:fromDate AS date) IS NULL OR sr.returnDate >= :fromDate) AND " +
+            "(CAST(:toDate AS date) IS NULL OR sr.returnDate <= :toDate) " +
             "ORDER BY sr.returnDate DESC")
     Page<SaleReturn> findByDateRange(@Param("fromDate") LocalDate fromDate,
                                      @Param("toDate") LocalDate toDate,

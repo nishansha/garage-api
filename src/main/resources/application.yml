@@ -35,6 +35,13 @@ spring:
         cache:
           use_second_level_cache: false
           use_query_cache: false
+      org:
+        hibernate:
+          envers:
+            audit_table_suffix: _aud
+            revision_field_name: rev
+            revision_type_field_name: revtype
+            store_data_at_delete: true
     hibernate:
       ddl-auto: none
       default_schema:

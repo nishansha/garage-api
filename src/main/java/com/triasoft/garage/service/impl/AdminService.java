@@ -58,6 +58,26 @@ public class AdminService {
             "user_refresh_token"
     );
 
+    /**
+     * Envers audit tables + the shared revinfo revision table. Wiped alongside the transactional
+     * data so no audit rows are left pointing at ids that no longer exist. Truncated together
+     * because every _aud table has a foreign key into revinfo.
+     */
+    static final List<String> AUDIT_TABLES = List.of(
+            "app_sale_aud",
+            "app_sale_payment_aud",
+            "app_sale_return_aud",
+            "app_sale_return_deduction_aud",
+            "app_sale_refund_payment_aud",
+            "app_purchase_order_aud",
+            "app_purchase_payment_aud",
+            "app_purchase_return_aud",
+            "app_purchase_return_receipt_aud",
+            "app_direct_entry_aud",
+            "app_expense_aud",
+            "revinfo"
+    );
+
     private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.data-reset.enabled:false}")
@@ -84,6 +104,10 @@ public class AdminService {
         // into fnd_chart_of_accounts before we delete the orphaned payment-account CoA rows below.
         String truncateSql = "TRUNCATE TABLE " + String.join(", ", CLEARED_TABLES) + " RESTART IDENTITY";
         jdbcTemplate.execute(truncateSql);
+
+        // Clear the Envers audit trail for the wiped data and reset the revision sequence.
+        jdbcTemplate.execute("TRUNCATE TABLE " + String.join(", ", AUDIT_TABLES) + " RESTART IDENTITY");
+        jdbcTemplate.execute("ALTER SEQUENCE revinfo_seq RESTART");
 
         // Payment accounts auto-create CoA rows named A-BNK-<id>/A-CSH-<id> (see PaymentAccountService).
         // With the payment accounts gone these are orphans; delete them while leaving seed CoA intact.

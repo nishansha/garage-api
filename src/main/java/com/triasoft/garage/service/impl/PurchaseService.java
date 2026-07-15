@@ -107,6 +107,7 @@ public class PurchaseService {
         LookupMaster color = inventory != null ? inventory.getColor() : null;
         return PurchaseDTO.builder()
                 .id(purchase.getId())
+                .inventoryId(Objects.nonNull(inventory) ? inventory.getId() : null)
                 .version(purchase.getVersion())
                 .date(purchase.getOrderDate())
                 .deliveredDate(purchase.getDeliveredDate())

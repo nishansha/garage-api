@@ -21,6 +21,7 @@ public class PurchaseDTO implements Serializable {
     private LocalDate deliveredDate;
     private String code;
     private String vehicleNo;
+    private Long inventoryId;
     private Long warehouseId; //new
     private Long segmentId; //new
     private Long brandId;

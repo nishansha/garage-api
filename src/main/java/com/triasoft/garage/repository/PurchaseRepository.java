@@ -56,14 +56,14 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
             JOIN p.vendor vendor
-            WHERE (:fromDate IS NULL OR p.orderDate >= :fromDate)
-              AND (:toDate IS NULL OR p.orderDate <= :toDate)
-              AND (:brandId IS NULL OR brand.id = :brandId)
-              AND (:modelId IS NULL OR model.id = :modelId)
-              AND (:variantId IS NULL OR variant.id = :variantId)
-              AND (:fuelTypeId IS NULL OR fuel.id = :fuelTypeId)
-              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
-              AND (:searchText IS NULL OR (
+            WHERE (CAST(:fromDate AS date) IS NULL OR p.orderDate >= :fromDate)
+              AND (CAST(:toDate AS date) IS NULL OR p.orderDate <= :toDate)
+              AND (CAST(:brandId AS long) IS NULL OR brand.id = :brandId)
+              AND (CAST(:modelId AS long) IS NULL OR model.id = :modelId)
+              AND (CAST(:variantId AS long) IS NULL OR variant.id = :variantId)
+              AND (CAST(:fuelTypeId AS long) IS NULL OR fuel.id = :fuelTypeId)
+              AND (CAST(:vehicleNo AS string) IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
+              AND (CAST(:searchText AS string) IS NULL OR (
                    LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
@@ -78,14 +78,14 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
             JOIN p.vendor vendor
-            WHERE (:fromDate IS NULL OR p.orderDate >= :fromDate)
-              AND (:toDate IS NULL OR p.orderDate <= :toDate)
-              AND (:brandId IS NULL OR brand.id = :brandId)
-              AND (:modelId IS NULL OR model.id = :modelId)
-              AND (:variantId IS NULL OR variant.id = :variantId)
-              AND (:fuelTypeId IS NULL OR fuel.id = :fuelTypeId)
-              AND (:vehicleNo IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
-              AND (:searchText IS NULL OR (
+            WHERE (CAST(:fromDate AS date) IS NULL OR p.orderDate >= :fromDate)
+              AND (CAST(:toDate AS date) IS NULL OR p.orderDate <= :toDate)
+              AND (CAST(:brandId AS long) IS NULL OR brand.id = :brandId)
+              AND (CAST(:modelId AS long) IS NULL OR model.id = :modelId)
+              AND (CAST(:variantId AS long) IS NULL OR variant.id = :variantId)
+              AND (CAST(:fuelTypeId AS long) IS NULL OR fuel.id = :fuelTypeId)
+              AND (CAST(:vehicleNo AS string) IS NULL OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:vehicleNo AS string), '%')))
+              AND (CAST(:searchText AS string) IS NULL OR (
                    LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
