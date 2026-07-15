@@ -391,7 +391,7 @@ public class SalesService {
         if (StatusEnum.SOLD.equals(exchangeInv.getStatus())) {
             throw new BusinessException("Cannot edit exchange details: the trade-in vehicle has already been sold!");
         }
-        purchaseService.delete(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), user);
+        purchaseService.deleteInternal(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), user);
     }
 
     @Transactional
@@ -405,7 +405,7 @@ public class SalesService {
                 if (StatusEnum.SOLD.equals(exchangeInv.getStatus())) {
                     throw new BusinessException("Cannot delete sale: The exchange vehicle has already been sold to another customer!");
                 }
-                purchaseService.delete(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), user);
+                purchaseService.deleteInternal(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), user);
             });
         }
         salePaymentRepository.findBySaleIdOrderByPaymentDateDesc(id)

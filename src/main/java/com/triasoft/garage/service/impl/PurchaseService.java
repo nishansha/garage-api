@@ -673,6 +673,25 @@ public class PurchaseService {
 
     @Transactional
     public PurchaseRs delete(Long id, UserDTO user) {
+        // An exchange trade-in purchase is owned by its originating sale (inventory.source_sale_id).
+        // Deleting it directly would orphan that sale (still marked exchanged, journal not reversed).
+        // It must be unwound by deleting the sale instead, which routes through deleteInternal().
+        // KEEP_AND_BUYBACK-promoted purchases have buyback_recorded_at set, so isExchangePurchase()
+        // returns false and they stay deletable via this public endpoint.
+        if (isExchangePurchase(id)) {
+            throw new BusinessException(ErrorCode.Business.PURCHASE_EXCHANGE_DELETE_BLOCKED);
+        }
+        return deleteInternal(id, user);
+    }
+
+    /**
+     * Core purchase deletion without the exchange guard. Called directly by SalesService when a
+     * sale is deleted so the linked exchange trade-in purchase is unwound as part of that flow.
+     * Do NOT expose this to a controller — direct deletion of an exchange purchase must go through
+     * {@link #delete(Long, UserDTO)}.
+     */
+    @Transactional
+    public PurchaseRs deleteInternal(Long id, UserDTO user) {
         Purchase purchase = purchaseRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(id);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
@@ -683,8 +702,18 @@ public class PurchaseService {
         if (!isExchangePurchase(id)) {
             journalService.reverse(JournalService.REF_PURCHASE, id);
         }
+        // Soft-delete the inventory and FLUSH it while its PurchaseDetail row still exists, then
+        // DETACH it. Both Inventory and PurchaseDetail are @SoftDelete, but the detail is still
+        // orphan-removed from Purchase.purchaseDetails on delete — and Hibernate nulls out inbound
+        // references (the inventory's NOT NULL purchase_order_detail_id) to a being-removed entity.
+        // Detaching the inventory first keeps it out of that flush so its FK is never nulled; the
+        // detail row is retained (soft delete) so the FK stays valid.
+        inventoryOpt.ifPresent(inv -> {
+            inventoryRepository.delete(inv);
+            entityManager.flush();
+            entityManager.detach(inv);
+        });
         purchaseRepository.delete(purchase);
-        inventoryOpt.ifPresent(inventoryRepository::delete);
         return PurchaseRs.builder().build();
     }
 

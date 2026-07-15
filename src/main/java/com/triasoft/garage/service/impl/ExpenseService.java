@@ -342,6 +342,7 @@ public class ExpenseService {
                 .amount(expense.getAmount())
                 .title(Objects.nonNull(expense.getExpenseAccount()) ? expense.getExpenseAccount().getName() : null)
                 .typeId(Objects.nonNull(expense.getExpenseAccount()) ? expense.getExpenseAccount().getId() : null)
+                .typeDesc(Objects.nonNull(expense.getExpenseAccount()) ? expense.getExpenseAccount().getLabel() : null)
                 .paymentAccountId(expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null)
                 .purchaseId(expense.getPurchase() != null ? expense.getPurchase().getId() : null)
                 .build();
