@@ -123,7 +123,8 @@ public class ErrorCode {
         PAYMENT_ACCOUNT_NO_EXISTS("BUS_171", "A payment account with this account number already exists"),
         PURCHASE_EXCHANGE_DELETE_BLOCKED("BUS_172", "This is an exchange trade-in vehicle. Delete the originating sale instead."),
         DATA_RESET_DISABLED("BUS_180", "Data reset is disabled in this environment"),
-        AUDIT_ENTITY_TYPE_INVALID("BUS_190", "Unknown or non-audited entity type");
+        AUDIT_ENTITY_TYPE_INVALID("BUS_190", "Unknown or non-audited entity type"),
+        LOOKUP_NOT_EXISTS("BUS_117", "Type does not exists");
 
         private final String code;
         private final String message;

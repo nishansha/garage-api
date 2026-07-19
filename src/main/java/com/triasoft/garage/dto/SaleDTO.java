@@ -26,6 +26,8 @@ public class SaleDTO implements Serializable {
     private String brandName;
     private String modelName;
     private String variantName;
+    private Long segmentId;
+    private String segmentName;
     private BigDecimal saleRate;
     private BigDecimal netSaleAmount;
     private BigDecimal profit;

@@ -29,4 +29,9 @@ public class LookupController {
     ResponseEntity<ApiResponse<LookupRs>> create(@RequestBody LookupRq lookupRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(lookupService.create(lookupRq, UserUtil.getUser(request))));
     }
+
+    @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<LookupRs>> update(@PathVariable("id") Long lookupId, @RequestBody LookupRq lookupRq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(lookupService.update(lookupId, lookupRq, UserUtil.getUser(request))));
+    }
 }

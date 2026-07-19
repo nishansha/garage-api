@@ -76,11 +76,11 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                             THEN jd.debit_amount - jd.credit_amount ELSE 0 END), 0) as purchasesBeforeMonth,
 
               COALESCE(SUM(CASE WHEN coa.type = 'EXPENSE'
-                                 AND coa.system_role <> 'COGS'
+                                 AND coa.system_role IS DISTINCT FROM 'COGS'
                                  AND j.journal_date >= :startOfMonth
                             THEN jd.debit_amount - jd.credit_amount ELSE 0 END), 0) as totalExpenses,
               COALESCE(SUM(CASE WHEN coa.type = 'EXPENSE'
-                                 AND coa.system_role <> 'COGS'
+                                 AND coa.system_role IS DISTINCT FROM 'COGS'
                                  AND j.journal_date >= :startOfLastMonth
                                  AND j.journal_date <  :startOfMonth
                             THEN jd.debit_amount - jd.credit_amount ELSE 0 END), 0) as expensesBeforeMonth,
@@ -136,7 +136,7 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'EXPENSE' AND coa.system_role <> 'COGS'
+                          WHERE coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as expenses,
                 COALESCE((SELECT SUM(jd.credit_amount - jd.debit_amount)
                           FROM app_journal_detail jd
@@ -260,7 +260,7 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'EXPENSE' AND coa.system_role <> 'COGS'
+                          WHERE coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as totalExpenses
 
             FROM months m

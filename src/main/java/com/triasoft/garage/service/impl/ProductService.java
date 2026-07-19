@@ -148,6 +148,12 @@ public class ProductService {
             skuBuilder.append("-").append(fuelType.getCode());
             productName.append(" / ").append(fuelType.getDescription());
         }
+        LookupMaster transmissionType = null;
+        if (Objects.nonNull(productRq.getTransmissionTypeId())) {
+            transmissionType = lookupHelper.get(productRq.getTransmissionTypeId());
+            skuBuilder.append("-").append(transmissionType.getCode());
+            productName.append(" / ").append(transmissionType.getDescription());
+        }
         Product newProduct = new Product();
         newProduct.setSku(skuBuilder.toString());
         newProduct.setName(StringUtils.hasLength(productRq.getName()) ? productRq.getName() : productName.toString());
@@ -155,6 +161,7 @@ public class ProductService {
         newProduct.setModel(productBrandModel);
         newProduct.setVarient(productModelVarient);
         newProduct.setFuelType(fuelType);
+        newProduct.setTransmissionType(transmissionType);
         newProduct.setCategory(productBrand.getProductCategory());
         if (Objects.nonNull(productRq.getSegmentId())) {
             newProduct.setSegment(productSegmentRepository.findById(productRq.getSegmentId()).orElse(null));

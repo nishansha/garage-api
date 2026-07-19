@@ -121,6 +121,8 @@ public class PurchaseService {
                 .variantId(product.getVarient() != null ? product.getVarient().getId() : null)
                 .fuelTypeId(product.getFuelType() != null ? product.getFuelType().getId() : null)
                 .fuelType(product.getFuelType() != null ? product.getFuelType().getDescription() : null)
+                .transmissionTypeId(product.getTransmissionType() != null ? product.getTransmissionType().getId() : null)
+                .transmissionType(product.getTransmissionType() != null ? product.getTransmissionType().getDescription() : null)
                 .segmentId(product.getSegment() != null ? product.getSegment().getId() : null)
                 .segmentName(product.getSegment() != null ? product.getSegment().getDescription() : null)
                 .purchaseRate(purchaseDetail.getUnitCost())
@@ -252,6 +254,8 @@ public class PurchaseService {
                 .variantName(p.getVariantName())
                 .fuelTypeId(p.getFuelTypeId())
                 .fuelType(p.getFuelType())
+                .transmissionTypeId(p.getTransmissionTypeId())
+                .transmissionType(p.getTransmissionType())
                 .purchaseRate(total)
                 .paidAmount(effectivePaid)
                 .pendingAmount(pending)
@@ -285,6 +289,8 @@ public class PurchaseService {
                 .variantName(p.getVariantName())
                 .fuelTypeId(p.getFuelTypeId())
                 .fuelType(p.getFuelType())
+                .transmissionTypeId(p.getTransmissionTypeId())
+                .transmissionType(p.getTransmissionType())
                 .purchaseRate(total)
                 .totalExpenses(totalExpenses)
                 .paidAmount(effectivePaid)
@@ -984,16 +990,14 @@ public class PurchaseService {
     }
 
     private Product findOrCreateProduct(PurchaseRq purchaseRq) {
-        Optional<Product> match = purchaseRq.getFuelTypeId() != null
-                ? productRepository.findByBrandIdAndModelIdAndVarientIdAndFuelTypeId(
-                purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId(), purchaseRq.getFuelTypeId())
-                : productRepository.findByBrandIdAndModelIdAndVarientId(
-                purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId());
-        return match.orElseGet(() -> productService.createProduct(this.convertToProductRq(purchaseRq)));
+        return productRepository.findForReuse(
+                        purchaseRq.getBrandId(), purchaseRq.getModelId(), purchaseRq.getVariantId(),
+                        purchaseRq.getFuelTypeId(), purchaseRq.getTransmissionTypeId())
+                .orElseGet(() -> productService.createProduct(this.convertToProductRq(purchaseRq)));
     }
 
     private ProductRq convertToProductRq(PurchaseRq purchaseRq) {
-        return ProductRq.builder().brandId(purchaseRq.getBrandId()).modelId(purchaseRq.getModelId()).varientId(purchaseRq.getVariantId()).segmentId(purchaseRq.getSegmentId()).fuelTypeId(purchaseRq.getFuelTypeId()).build();
+        return ProductRq.builder().brandId(purchaseRq.getBrandId()).modelId(purchaseRq.getModelId()).varientId(purchaseRq.getVariantId()).segmentId(purchaseRq.getSegmentId()).fuelTypeId(purchaseRq.getFuelTypeId()).transmissionTypeId(purchaseRq.getTransmissionTypeId()).build();
     }
 
     private Long parseOdometer(String odometer) {

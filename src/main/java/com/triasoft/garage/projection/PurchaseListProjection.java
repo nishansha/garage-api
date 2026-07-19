@@ -13,5 +13,7 @@ public interface PurchaseListProjection {
     String getVariantName();
     Long getFuelTypeId();
     String getFuelType();
+    Long getTransmissionTypeId();
+    String getTransmissionType();
     BigDecimal getPurchaseRate();
 }
