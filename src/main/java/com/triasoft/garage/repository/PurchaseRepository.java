@@ -27,6 +27,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
                    fuel.id as fuelTypeId, fuel.description as fuelType,
+                   transmission.id as transmissionTypeId, transmission.description as transmissionType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -35,6 +36,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
+            LEFT JOIN prod.transmissionType transmission
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
@@ -47,6 +49,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
                    fuel.id as fuelTypeId, fuel.description as fuelType,
+                   transmission.id as transmissionTypeId, transmission.description as transmissionType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -55,6 +58,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
+            LEFT JOIN prod.transmissionType transmission
             JOIN p.vendor vendor
             WHERE (CAST(:fromDate AS date) IS NULL OR p.orderDate >= :fromDate)
               AND (CAST(:toDate AS date) IS NULL OR p.orderDate <= :toDate)
@@ -77,6 +81,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
+            LEFT JOIN prod.transmissionType transmission
             JOIN p.vendor vendor
             WHERE (CAST(:fromDate AS date) IS NULL OR p.orderDate >= :fromDate)
               AND (CAST(:toDate AS date) IS NULL OR p.orderDate <= :toDate)
@@ -106,6 +111,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             SELECT p.id as id, p.orderDate as date, pd.uuid as code, pd.productNo as vehicleNo,
                    brand.description as brandName, model.description as modelName, variant.description as variantName,
                    fuel.id as fuelTypeId, fuel.description as fuelType,
+                   transmission.id as transmissionTypeId, transmission.description as transmissionType,
                    pd.unitCost as purchaseRate
             FROM Purchase p
             JOIN p.purchaseDetails pd
@@ -114,6 +120,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
+            LEFT JOIN prod.transmissionType transmission
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p

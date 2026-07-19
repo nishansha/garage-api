@@ -61,6 +61,8 @@ public class PurchaseRq extends GenericRq implements Versioned {
 
     private Long fuelTypeId;
 
+    private Long transmissionTypeId;
+
     @Pattern(regexp = "^[0-9]{4}$", message = "INVALID_FORMAT")
     private String makeYear;
 

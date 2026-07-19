@@ -14,6 +14,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +47,16 @@ public class LookupService {
         newLookup.setDescription(lookupRq.getDescription());
         newLookup.setEnabled(true);
         lookupMasterRepository.save(newLookup);
+        return LookupRs.builder().build();
+    }
+
+    public LookupRs update(Long id, LookupRq lookupRq, UserDTO user) {
+        Optional<LookupMaster> lookupMaster = lookupMasterRepository.findById(id);
+        if (lookupMaster.isEmpty())
+            throw new BusinessException(ErrorCode.Business.LOOKUP_NOT_EXISTS);
+        lookupMaster.get().setCode(lookupRq.getCode());
+        lookupMaster.get().setDescription(lookupRq.getDescription());
+        lookupMasterRepository.save(lookupMaster.get());
         return LookupRs.builder().build();
     }
 }

@@ -32,6 +32,8 @@ public class PurchaseDTO implements Serializable {
     private String variantName;
     private Long fuelTypeId;
     private String fuelType;
+    private Long transmissionTypeId;
+    private String transmissionType;
     private String makeYear;
     private String odometer;
     private Long colorId;

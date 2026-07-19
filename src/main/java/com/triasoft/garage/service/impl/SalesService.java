@@ -103,6 +103,8 @@ public class SalesService {
                 .brandName(sale.getInventory().getProduct().getBrand().getDescription())
                 .modelName(sale.getInventory().getProduct().getModel().getDescription())
                 .variantName(sale.getInventory().getProduct().getVarient().getDescription())
+                .segmentId(sale.getInventory().getProduct().getSegment() != null ? sale.getInventory().getProduct().getSegment().getId() : null)
+                .segmentName(sale.getInventory().getProduct().getSegment() != null ? sale.getInventory().getProduct().getSegment().getDescription() : null)
                 .saleRate(sale.getSaleRate())
                 .profit(sale.getProfitAmount())
                 .isExchange(sale.isExchanged())
@@ -149,33 +151,6 @@ public class SalesService {
             sale.setPaymentStatus(StatusEnum.PENDING);
         }
         sale = saleRepository.save(sale);
-
-        // TODO [JOURNAL ENTRY] - Sale Created  (two separate journal entries required)
-        //
-        // Entry 1 – Revenue recognition:
-        //   Dr  Accounts Receivable   (Asset – Current Assets)    sale.getSaleRate()
-        //   Cr  Sales Revenue         (Income)                    sale.getSaleRate()
-        //   Note: If customer pays immediately (paymentStatus == PAID), debit Bank/Cash instead of AR.
-        //
-        // Entry 2 – Cost of Goods Sold (COGS) — removes vehicle from inventory at landed cost:
-        //   Dr  Cost of Goods Sold    (Expense)                   sale.getLandedCostAtSale()
-        //   Cr  Vehicle Inventory     (Asset – Current Assets)    sale.getLandedCostAtSale()
-        //
-        // If financed (sale.isFinanced() == true):
-        //   Dr  Finance Receivable    (Asset)                     sale.getFinanceAmount()
-        //   Cr  Accounts Receivable   (Asset)                     sale.getFinanceAmount()
-        //   (Reduces AR by the portion the finance company will settle directly.)
-        //
-        // If exchanged (sale.isExchanged() == true):
-        //   The exchange vehicle purchase is handled inside handleExchangeVehicle() → PurchaseService.create(),
-        //   which will post its own journal entry (Dr Vehicle Inventory / Cr Accounts Payable).
-        //   Net sale amount (saleRate – exchangeAmount) is already set on the Sale entity.
-        //
-        // Future call: JournalEntryService.postSale(sale.getId())
-        // CoA required: "Accounts Receivable" (Asset), "Sales Revenue" (Income),
-        //               "Cost of Goods Sold" (Expense), "Vehicle Inventory" (Asset),
-        //               "Finance Receivable" (Asset, only if financing is used).
-
         if (saleRq.isExchanged()) {
             handleExchangeVehicle(saleRq, sale, user);
         }
@@ -200,6 +175,9 @@ public class SalesService {
         exchangePurchaseRq.setBrandId(details.getBrandId());
         exchangePurchaseRq.setModelId(details.getModelId());
         exchangePurchaseRq.setVariantId(details.getVariantId());
+        exchangePurchaseRq.setSegmentId(details.getSegmentId());
+        exchangePurchaseRq.setFuelTypeId(details.getFuelTypeId());
+        exchangePurchaseRq.setTransmissionTypeId(details.getTransmissionTypeId());
         exchangePurchaseRq.setMakeYear(details.getMakeYear());
         exchangePurchaseRq.setOdometer(details.getOdometer());
         exchangePurchaseRq.setPurchaseRate(saleRq.getExchangeAmount());
@@ -221,6 +199,7 @@ public class SalesService {
 
         PurchaseDTO details = saleRq.getExchangeVehicleDetails();
         PurchaseRq exchangePurchaseRq = new PurchaseRq();
+        exchangePurchaseRq.setVersion(details.getVersion());
         exchangePurchaseRq.setCode(details.getCode());
         exchangePurchaseRq.setOwnerName(saleRq.getCustomerName());
         exchangePurchaseRq.setOwnerMobileNo(saleRq.getCustomerMobileNo());
@@ -229,6 +208,9 @@ public class SalesService {
         exchangePurchaseRq.setBrandId(details.getBrandId());
         exchangePurchaseRq.setModelId(details.getModelId());
         exchangePurchaseRq.setVariantId(details.getVariantId());
+        exchangePurchaseRq.setSegmentId(details.getSegmentId());
+        exchangePurchaseRq.setFuelTypeId(details.getFuelTypeId());
+        exchangePurchaseRq.setTransmissionTypeId(details.getTransmissionTypeId());
         exchangePurchaseRq.setMakeYear(details.getMakeYear());
         exchangePurchaseRq.setOdometer(details.getOdometer());
         exchangePurchaseRq.setPurchaseRate(saleRq.getExchangeAmount());
