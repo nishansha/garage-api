@@ -588,9 +588,9 @@ public class PurchaseService {
         detail.setUnitCost(purchaseRq.getPurchaseRate());
         detail.setProductNo(purchaseRq.getVehicleNo());
         detail.setOdometer(purchaseRq.getOdometer());
-        detail.setDiscount(0D);
+        detail.setDiscount(BigDecimal.ZERO);
         detail.setDiscountAmount(BigDecimal.ZERO);
-        detail.setTax(0D);
+        detail.setTax(BigDecimal.ZERO);
         detail.setTaxAmount(BigDecimal.ZERO);
         detail.setOwnershipSerialNo(purchaseRq.getOwnerShipSerialNo());
         return detail;
