@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: garage-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-garage}
       POSTGRES_USER: ${POSTGRES_USER:-garage}
@@ -24,6 +31,7 @@ services:
       dockerfile: Dockerfile
     container_name: garage-app
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,6 +52,7 @@ services:
     image: nginx:alpine
     container_name: garage-web
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - app
     volumes:
