@@ -13,7 +13,8 @@ RUN mvn -B -q -DskipTests package \
 FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
-RUN useradd --system --create-home --shell /usr/sbin/nologin garage \
+RUN groupadd --system --gid 10001 garage \
+    && useradd --system --uid 10001 --gid garage --create-home --shell /usr/sbin/nologin garage \
     && mkdir -p /app/logs \
     && chown -R garage:garage /app
 USER garage
