@@ -61,9 +61,30 @@ services:
       - ./web/dist:/usr/share/nginx/html:ro
       - ./web/vite/dist:/usr/share/nginx/vite:ro
       - ./web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # No published port: only reached internally by caddy (web:80 on the
+    # default compose network). TLS termination happens in caddy now.
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: garage-caddy
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - web
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. garage.yourdomain.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     ports:
       - "80:80"
+      - "443:443"
 
 volumes:
   pgdata:
     name: garage_pgdata
+  caddy_data:
+    name: garage_caddy_data
+  caddy_config:
+    name: garage_caddy_config
