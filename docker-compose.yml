@@ -47,6 +47,8 @@ services:
     # network (app:8080); the port is published just for ad-hoc host access.
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ./logs:/app/logs
 
   web:
     image: nginx:alpine
