@@ -13,7 +13,9 @@ RUN mvn -B -q -DskipTests package \
 FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
-RUN useradd --system --create-home --shell /usr/sbin/nologin garage
+RUN useradd --system --create-home --shell /usr/sbin/nologin garage \
+    && mkdir -p /app/logs \
+    && chown -R garage:garage /app
 USER garage
 
 COPY --from=build /workspace/app.jar app.jar

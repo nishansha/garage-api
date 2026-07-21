@@ -41,13 +41,13 @@ public class PurchaseDetail extends GenericEntity {
     private BigDecimal unitCost;
 
     @Column(name = "discount")
-    private Double discount;
+    private BigDecimal discount;
 
     @Column(name = "discount_amount")
     private BigDecimal discountAmount;
 
     @Column(name = "tax")
-    private Double tax;
+    private BigDecimal tax;
 
     @Column(name = "tax_amount")
     private BigDecimal taxAmount;
