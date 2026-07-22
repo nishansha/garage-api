@@ -32,8 +32,10 @@ public class UserService {
     }
 
     public UserRs getStaffs(UserDTO user) {
-        List<UserProfile> staffs = userProfileRepository.findByRoleCode("STAFF");
-        List<UserDTO> users = staffs.stream().map(staff -> UserDTO.builder().id(staff.getId()).userName(staff.getName()).build()).toList();
+        List<UserProfile> staffs = userProfileRepository.findAll();
+        List<UserDTO> users = staffs.stream()
+                .filter(usr -> !"SUPERADMIN".equalsIgnoreCase(user.getRole()))
+                .map(staff -> UserDTO.builder().id(staff.getId()).userName(staff.getName()).build()).toList();
         return UserRs.builder().users(users).build();
     }
 
@@ -77,7 +79,10 @@ public class UserService {
 
     public UserRs getAll(UserDTO user) {
         List<UserProfile> userProfiles = userProfileRepository.findAll();
-        return UserRs.builder().users(userProfiles.stream().map(this::toDTO).toList()).build();
+        return UserRs.builder().users(userProfiles.stream()
+                .filter(usr -> !"SUPERADMIN".equalsIgnoreCase(usr.getRole()))
+                .map(this::toDTO).toList())
+                .build();
     }
 
     private UserDTO toDTO(UserProfile userProfile) {
@@ -91,10 +96,6 @@ public class UserService {
                 .build();
     }
 
-    /**
-     * user_role is the source of truth once seeded; falls back to the legacy user_profile.role
-     * column so users created before the RBAC migration ran aren't locked out of every privilege check.
-     */
     private List<String> resolveRoles(UserProfile userProfile) {
         List<String> roles = userRoleRepository.findRoleCodesByUserId(userProfile.getId());
         if (roles.isEmpty() && StringUtils.hasLength(userProfile.getRole())) {
