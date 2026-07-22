@@ -1,4 +1,4 @@
-package com.triasoft.garage.rbac;
+package com.triasoft.garage.security.rbac;
 
 import com.triasoft.garage.constants.Privilege;
 
@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface RequiresPrivilege {
+public @interface HasPrivilege {
 
     /**
      * Code of the fnd_resource row being guarded, e.g. "PURCHASE_ORDER".

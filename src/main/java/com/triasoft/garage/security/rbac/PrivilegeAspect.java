@@ -1,8 +1,9 @@
-package com.triasoft.garage.rbac;
+package com.triasoft.garage.security.rbac;
 
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.exception.SecurityException;
+import com.triasoft.garage.rbac.PrivilegeCache;
 import com.triasoft.garage.util.UserUtil;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.annotation.Aspect;
