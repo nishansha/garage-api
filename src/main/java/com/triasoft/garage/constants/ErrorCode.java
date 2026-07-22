@@ -37,7 +37,8 @@ public class ErrorCode {
         INVALID_TOKEN("SEC_102", "Invalid Token"),
         TOKEN_EXPIRED("SEC_103", "Token Expired"),
         REFRESH_TOKEN_REUSED("SEC_104", "Refresh token reuse detected; session revoked"),
-        SESSION_TERMINATED("SEC_105", "Session ended; signed in on another device");
+        SESSION_TERMINATED("SEC_105", "Session ended; signed in on another device"),
+        FORBIDDEN("SEC_106", "You do not have permission to perform this action");
         private final String code;
         private final String message;
 
@@ -124,7 +125,12 @@ public class ErrorCode {
         PURCHASE_EXCHANGE_DELETE_BLOCKED("BUS_172", "This is an exchange trade-in vehicle. Delete the originating sale instead."),
         DATA_RESET_DISABLED("BUS_180", "Data reset is disabled in this environment"),
         AUDIT_ENTITY_TYPE_INVALID("BUS_190", "Unknown or non-audited entity type"),
-        LOOKUP_NOT_EXISTS("BUS_117", "Type does not exists");
+        LOOKUP_NOT_EXISTS("BUS_117", "Type does not exists"),
+        ROLE_NOT_FOUND("BUS_200", "Role not found"),
+        ROLE_CODE_EXISTS("BUS_201", "A role with this code already exists"),
+        ROLE_SYSTEM_PROTECTED("BUS_202", "System roles cannot be modified or deleted"),
+        RESOURCE_NOT_FOUND("BUS_203", "Resource not found"),
+        ROLE_REQUIRED("BUS_204", "At least one role must be assigned to the user");
 
         private final String code;
         private final String message;

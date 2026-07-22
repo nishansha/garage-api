@@ -111,6 +111,7 @@ public class AuthService {
         rs.setRefreshToken(refreshToken);
         rs.setFullName(user.getName());
         rs.setRole(user.getRole());
+        rs.setRoles(user.getRoles());
         return rs;
     }
 

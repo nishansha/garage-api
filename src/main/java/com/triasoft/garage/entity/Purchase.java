@@ -42,7 +42,7 @@ public class Purchase extends AuditGenericEntity {
     @Column(name = "delivered_date")
     private LocalDate deliveredDate;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "status_id", nullable = false)
     private LookupMaster status;
 

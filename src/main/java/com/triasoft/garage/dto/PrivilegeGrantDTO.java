@@ -1,5 +1,6 @@
 package com.triasoft.garage.dto;
 
+import com.triasoft.garage.constants.Privilege;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,13 +14,10 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserDTO implements Serializable {
+public class PrivilegeGrantDTO implements Serializable {
     @Serial
-    private static final long serialVersionUID = -7231119854171226540L;
-    private Long id;
-    private String name;
-    private String userName;
-    private String role;
-    private String designation;
-    private List<String> roles;
+    private static final long serialVersionUID = 1L;
+    private Long resourceId;
+    private String resourceCode;
+    private List<Privilege> privileges;
 }

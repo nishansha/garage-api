@@ -20,7 +20,7 @@ public class SaleAmountSplit extends AuditGenericEntity {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
 

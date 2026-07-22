@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 public class LoginRs implements Serializable {
@@ -13,5 +14,10 @@ public class LoginRs implements Serializable {
     private String token;
     private String refreshToken;
     private String fullName;
+    /**
+     * @deprecated single-role legacy field; use {@link #roles} instead.
+     */
+    @Deprecated
     private String role;
+    private List<String> roles;
 }

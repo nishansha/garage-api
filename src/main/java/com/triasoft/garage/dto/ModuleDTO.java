@@ -13,13 +13,11 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserDTO implements Serializable {
+public class ModuleDTO implements Serializable {
     @Serial
-    private static final long serialVersionUID = -7231119854171226540L;
+    private static final long serialVersionUID = 1L;
     private Long id;
-    private String name;
-    private String userName;
-    private String role;
-    private String designation;
-    private List<String> roles;
+    private String code;
+    private String description;
+    private List<ResourceDTO> resources;
 }
