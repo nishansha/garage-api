@@ -1,4 +1,4 @@
-package com.triasoft.garage.concurrency;
+package com.triasoft.garage.locking;
 
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.exception.BusinessException;

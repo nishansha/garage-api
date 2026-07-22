@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.purchase;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.model.common.GenericRq;
 import com.triasoft.garage.validation.NullOrNotBlank;

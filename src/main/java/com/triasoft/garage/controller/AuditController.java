@@ -4,7 +4,7 @@ import com.triasoft.garage.constants.Privilege;
 import com.triasoft.garage.model.audit.AuditRevisionRs;
 import com.triasoft.garage.model.audit.DeletedRecordRs;
 import com.triasoft.garage.model.common.ApiResponse;
-import com.triasoft.garage.rbac.HasPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

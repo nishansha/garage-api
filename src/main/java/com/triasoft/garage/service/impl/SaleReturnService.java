@@ -1,6 +1,6 @@
 package com.triasoft.garage.service.impl;
 
-import com.triasoft.garage.concurrency.VersionCheck;
+import com.triasoft.garage.locking.VersionCheck;
 
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.DeductionDTO;

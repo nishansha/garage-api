@@ -1,4 +1,4 @@
-package com.triasoft.garage.rbac;
+package com.triasoft.garage.security.rbac;
 
 import com.triasoft.garage.constants.Privilege;
 import com.triasoft.garage.entity.Resource;

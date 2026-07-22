@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.expense;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.model.common.GenericRq;
 import com.triasoft.garage.validation.ExpenseTypeRequired;
 import com.triasoft.garage.validation.NullOrNotBlank;

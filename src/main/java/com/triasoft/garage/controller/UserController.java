@@ -7,7 +7,7 @@ import com.triasoft.garage.model.user.UserRoleRq;
 import com.triasoft.garage.model.user.UserRoleRs;
 import com.triasoft.garage.model.user.UserRq;
 import com.triasoft.garage.model.user.UserRs;
-import com.triasoft.garage.rbac.HasPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.RoleService;
 import com.triasoft.garage.service.impl.UserService;
 import com.triasoft.garage.util.UserUtil;

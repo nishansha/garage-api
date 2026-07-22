@@ -1,6 +1,6 @@
 package com.triasoft.garage.service.impl;
 
-import com.triasoft.garage.concurrency.VersionCheck;
+import com.triasoft.garage.locking.VersionCheck;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.ModuleDTO;
 import com.triasoft.garage.dto.PrivilegeGrantDTO;
@@ -25,7 +25,7 @@ import com.triasoft.garage.model.role.RoleRs;
 import com.triasoft.garage.model.role.RolesRs;
 import com.triasoft.garage.model.user.UserRoleRq;
 import com.triasoft.garage.model.user.UserRoleRs;
-import com.triasoft.garage.rbac.PrivilegeCache;
+import com.triasoft.garage.security.rbac.PrivilegeCache;
 import com.triasoft.garage.repository.FndModuleRepository;
 import com.triasoft.garage.repository.ResourceRepository;
 import com.triasoft.garage.repository.RolePrivilegeRepository;

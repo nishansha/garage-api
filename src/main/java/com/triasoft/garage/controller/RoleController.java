@@ -9,7 +9,7 @@ import com.triasoft.garage.model.role.RolePrivilegeRs;
 import com.triasoft.garage.model.role.RoleRq;
 import com.triasoft.garage.model.role.RoleRs;
 import com.triasoft.garage.model.role.RolesRs;
-import com.triasoft.garage.rbac.HasPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.RoleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

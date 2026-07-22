@@ -3,7 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.constants.Privilege;
 import com.triasoft.garage.model.admin.DataResetRs;
 import com.triasoft.garage.model.common.ApiResponse;
-import com.triasoft.garage.rbac.HasPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.AdminService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

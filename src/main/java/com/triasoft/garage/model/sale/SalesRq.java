@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.sale;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.SaleAmountSplitDTO;
 import com.triasoft.garage.validation.NullOrNotBlank;
