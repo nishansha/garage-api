@@ -1,4 +1,4 @@
-package com.triasoft.garage.rbac;
+package com.triasoft.garage.security.rbac;
 
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.UserDTO;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Enforces {@link RequiresPrivilege} on annotated methods. Runs before the
+ * Enforces {@link HasPrivilege} on annotated methods. Runs before the
  * target method: reads the caller's roles off the current UserDTO (resolved
  * from JWT claims by UserUtil) and checks them against {@link PrivilegeCache}.
  * SUPERADMIN bypasses the check entirely.
@@ -26,14 +26,14 @@ public class PrivilegeAspect {
 
     private final PrivilegeCache privilegeCache;
 
-    @Before("@annotation(requiresPrivilege)")
-    public void check(RequiresPrivilege requiresPrivilege) {
+    @Before("@annotation(hasPrivilege)")
+    public void check(HasPrivilege hasPrivilege) {
         UserDTO user = UserUtil.getUser();
         List<String> roles = user != null && user.getRoles() != null ? user.getRoles() : List.of();
         if (roles.contains(SUPERADMIN)) {
             return;
         }
-        if (!privilegeCache.isGranted(roles, requiresPrivilege.resource(), requiresPrivilege.privilege())) {
+        if (!privilegeCache.isGranted(roles, hasPrivilege.resource(), hasPrivilege.privilege())) {
             throw new SecurityException(ErrorCode.Security.FORBIDDEN);
         }
     }

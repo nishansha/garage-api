@@ -7,7 +7,7 @@ import com.triasoft.garage.model.user.UserRoleRq;
 import com.triasoft.garage.model.user.UserRoleRs;
 import com.triasoft.garage.model.user.UserRq;
 import com.triasoft.garage.model.user.UserRs;
-import com.triasoft.garage.rbac.RequiresPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.RoleService;
 import com.triasoft.garage.service.impl.UserService;
 import com.triasoft.garage.util.UserUtil;
@@ -52,13 +52,13 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(userService.update(id, userRq, UserUtil.getUser(request))));
     }
 
-    @RequiresPrivilege(resource = "USER", privilege = Privilege.VIEW)
+    @HasPrivilege(resource = "USER", privilege = Privilege.VIEW)
     @GetMapping(value = "/{id}/roles", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<UserRoleRs>> getRoles(@PathVariable("id") Long id) {
         return ResponseEntity.ok(ApiResponse.success(roleService.getUserRoles(id)));
     }
 
-    @RequiresPrivilege(resource = "USER", privilege = Privilege.UPDATE)
+    @HasPrivilege(resource = "USER", privilege = Privilege.UPDATE)
     @PutMapping(value = "/{id}/roles", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<UserRoleRs>> assignRoles(@PathVariable("id") Long id, @RequestBody UserRoleRq rq) {
         return ResponseEntity.ok(ApiResponse.success(roleService.assignUserRoles(id, rq)));

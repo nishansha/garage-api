@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.role;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Data;

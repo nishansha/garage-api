@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.account;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.validation.NullOrNotBlank;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

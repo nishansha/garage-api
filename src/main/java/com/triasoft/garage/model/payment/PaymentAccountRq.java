@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.payment;
 
-import com.triasoft.garage.concurrency.Versioned;
+import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.constants.AccountTypeEnum;
 import com.triasoft.garage.validation.NullOrNotBlank;
 import jakarta.validation.constraints.NotBlank;

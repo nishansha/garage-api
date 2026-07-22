@@ -1,4 +1,4 @@
-package com.triasoft.garage.concurrency;
+package com.triasoft.garage.locking;
 
 /**
  * Implemented by update-request DTOs that carry the optimistic-lock version the

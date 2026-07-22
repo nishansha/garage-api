@@ -9,7 +9,7 @@ import com.triasoft.garage.model.role.RolePrivilegeRs;
 import com.triasoft.garage.model.role.RoleRq;
 import com.triasoft.garage.model.role.RoleRs;
 import com.triasoft.garage.model.role.RolesRs;
-import com.triasoft.garage.rbac.RequiresPrivilege;
+import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.RoleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,54 +25,49 @@ public class RoleController {
 
     private final RoleService roleService;
 
-    /**
-     * Resolved permissions for the current user, meant to be called right after login so the
-     * FE can gate menus/buttons. No @RequiresPrivilege here — every authenticated user needs
-     * their own permissions regardless of whether they can manage the ROLE resource itself.
-     */
     @GetMapping(value = "/me/permissions", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<MyPermissionsRs>> getMyPermissions() {
         return ResponseEntity.ok(ApiResponse.success(roleService.getMyPermissions()));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RolesRs>> getAll() {
         return ResponseEntity.ok(ApiResponse.success(roleService.getAll()));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
     @GetMapping(value = "/resources", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ResourceTreeRs>> getResourceTree() {
         return ResponseEntity.ok(ApiResponse.success(roleService.getResourceTree()));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.CREATE)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.CREATE)
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RoleRs>> create(@RequestBody RoleRq rq) {
         return ResponseEntity.ok(ApiResponse.success(roleService.create(rq)));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.UPDATE)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.UPDATE)
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RoleRs>> update(@PathVariable("id") Long id, @RequestBody RoleRq rq) {
         return ResponseEntity.ok(ApiResponse.success(roleService.update(id, rq)));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.DELETE)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.DELETE)
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<Void>> delete(@PathVariable("id") Long id) {
         roleService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.VIEW)
     @GetMapping(value = "/{id}/privileges", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RolePrivilegeRs>> getPrivileges(@PathVariable("id") Long id) {
         return ResponseEntity.ok(ApiResponse.success(roleService.getPrivileges(id)));
     }
 
-    @RequiresPrivilege(resource = "ROLE", privilege = Privilege.UPDATE)
+    @HasPrivilege(resource = "ROLE", privilege = Privilege.UPDATE)
     @PutMapping(value = "/{id}/privileges", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<RolePrivilegeRs>> updatePrivileges(@PathVariable("id") Long id, @RequestBody RolePrivilegeRq rq) {
         return ResponseEntity.ok(ApiResponse.success(roleService.updatePrivileges(id, rq)));
