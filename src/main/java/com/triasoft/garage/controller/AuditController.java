@@ -1,8 +1,10 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.constants.Privilege;
 import com.triasoft.garage.model.audit.AuditRevisionRs;
 import com.triasoft.garage.model.audit.DeletedRecordRs;
 import com.triasoft.garage.model.common.ApiResponse;
+import com.triasoft.garage.rbac.RequiresPrivilege;
 import com.triasoft.garage.service.impl.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +20,9 @@ import java.util.List;
 /**
  * Exposes the Envers audit trail for the financing entities.
  * {@code entityType} is a whitelisted key (e.g. {@code sale}, {@code purchase}, {@code expense});
- * see {@link AuditService} for the full mapping.
+ * see {@link AuditService} for the full mapping. Gated by a single cross-cutting AUDIT/RECYCLE_BIN
+ * privilege rather than per-entity-type, since "can see change history" is one permission
+ * regardless of which record it's for.
  */
 @Slf4j
 @RestController
@@ -29,6 +33,7 @@ public class AuditController {
     private final AuditService auditService;
 
     /** Full change history (oldest first, including deletions) for one audited record. */
+    @RequiresPrivilege(resource = "AUDIT", privilege = Privilege.VIEW)
     @GetMapping(value = "/{entityType}/{id}/history", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<List<AuditRevisionRs>>> history(@PathVariable String entityType,
                                                                @PathVariable Long id) {
@@ -36,12 +41,14 @@ public class AuditController {
     }
 
     /** Recycle bin: soft-deleted records of this type, most recently deleted first. */
+    @RequiresPrivilege(resource = "RECYCLE_BIN", privilege = Privilege.VIEW)
     @GetMapping(value = "/{entityType}/deleted", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<List<DeletedRecordRs>>> deleted(@PathVariable String entityType) {
         return ResponseEntity.ok(ApiResponse.success(auditService.getDeleted(entityType)));
     }
 
     /** Snapshot of an audited record as it existed at a specific revision. */
+    @RequiresPrivilege(resource = "AUDIT", privilege = Privilege.VIEW)
     @GetMapping(value = "/{entityType}/{id}/revisions/{revision}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<Object>> atRevision(@PathVariable String entityType,
                                                    @PathVariable Long id,

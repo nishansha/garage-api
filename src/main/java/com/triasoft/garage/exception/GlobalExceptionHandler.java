@@ -33,7 +33,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = {SecurityException.class})
     public ResponseEntity<ApiResponse<?>> handleSecurityException(ServletWebRequest request, SecurityException exception) {
         log.error("handleSecurityException - Exception", exception);
-        return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), HttpStatus.UNAUTHORIZED);
+        HttpStatus status = exception.getError() == ErrorCode.Security.FORBIDDEN ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED;
+        return buildErrorRs(exception.getCode(), exception.getMessage(), request.getRequest().getRequestURI(), status);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -13,6 +13,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 public class UserUtil {
 
     public static UserDTO getUser(HttpServletRequest request)  {
+        return getUser();
+    }
+
+    public static UserDTO getUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Claims claims) {
             String userJson = claims.get("user", String.class);

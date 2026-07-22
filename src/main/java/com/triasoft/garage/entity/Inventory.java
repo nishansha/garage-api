@@ -26,7 +26,7 @@ public class Inventory extends AuditGenericEntity {
     @JoinColumn(name = "purchase_order_detail_id", nullable = false)
     private PurchaseDetail purchaseOrderDetail;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 

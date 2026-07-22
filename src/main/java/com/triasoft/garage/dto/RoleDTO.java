@@ -7,19 +7,18 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.List;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserDTO implements Serializable {
+public class RoleDTO implements Serializable {
     @Serial
-    private static final long serialVersionUID = -7231119854171226540L;
+    private static final long serialVersionUID = 1L;
     private Long id;
+    private String code;
     private String name;
-    private String userName;
-    private String role;
-    private String designation;
-    private List<String> roles;
+    private String description;
+    private boolean system;
+    private Long version;
 }
