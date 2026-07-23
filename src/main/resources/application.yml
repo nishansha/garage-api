@@ -52,7 +52,14 @@ spring:
       jdbc.batch_size: 100
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+      # generate_statistics: true   # pair with logging.level.org.hibernate.stat: DEBUG above
 
+
+#logging:
+#  level:
+#    org.hibernate.SQL: DEBUG
+    # Uncomment for per-request "N queries executed" summary lines from Hibernate statistics.
+    # org.hibernate.stat: DEBUG
 
 app:
   data-reset:
