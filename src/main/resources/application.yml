@@ -58,7 +58,7 @@ app:
   data-reset:
     enabled: true
   cors:
-    allowed-origins: "http:localhost:8081"
+    allowed-origins: "http://localhost:8081,http://localhost:5173,https://triasoft-garage.duckdns.org"
   jwt:
     secret: "4WadB8IxnpkmgqLdmWChE4+4b3AUNzXpOHosjGzHCNI="
     expiration-ms: 3600000
