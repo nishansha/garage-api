@@ -52,7 +52,6 @@ public class Inventory extends AuditGenericEntity {
     @Column(name = "odometer")
     private Long odometer;
 
-    // Can't be LAZY: LookupMaster is @SoftDelete-annotated (see purchaseOrderDetail above).
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "color_id", nullable = false)
     private LookupMaster color;

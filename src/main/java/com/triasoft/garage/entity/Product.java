@@ -33,19 +33,19 @@ public class Product extends AuditGenericEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private ProductCategory category;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "brand_id", nullable = false)
     private ProductBrand brand;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "model_id", nullable = false)
     private ProductBrandModel model;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "varient_id", nullable = false)
     private ProductModelVarient varient;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "segment_id")
     private ProductSegment segment;
 

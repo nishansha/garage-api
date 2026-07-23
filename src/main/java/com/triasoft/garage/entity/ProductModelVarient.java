@@ -17,7 +17,7 @@ public class ProductModelVarient extends GenericEntity{
     @Serial
     private static final long serialVersionUID = -2035932545060973788L;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "model_id", nullable = false)
     private ProductBrandModel productBrandModel;
 
