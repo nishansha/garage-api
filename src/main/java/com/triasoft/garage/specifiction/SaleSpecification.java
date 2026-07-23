@@ -24,8 +24,30 @@ public class SaleSpecification {
             if (filter.getToDate() != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("saleDate"), filter.getToDate()));
             }
-            Join<Sale, Inventory> inventory = root.join("inventory", JoinType.INNER);
-            Join<Inventory, Product> product = inventory.join("product", JoinType.INNER);
+            boolean isCountQuery = Long.class.equals(query.getResultType()) || long.class.equals(query.getResultType());
+            Join<Sale, Inventory> inventory;
+            Join<Inventory, Product> product;
+            Join<Sale, Customer> customer;
+            if (isCountQuery) {
+                inventory = root.join("inventory", JoinType.INNER);
+                product = inventory.join("product", JoinType.INNER);
+                customer = root.join("customer", JoinType.INNER);
+            } else {
+                // Fetch (not just join) so the listing avoids per-row lazy/eager N+1 selects on these associations.
+                // Hibernate's Fetch implementation also implements Join for *ToOne attributes; javac doesn't know
+                // that, so the cast has to go through Object.
+                inventory = (Join<Sale, Inventory>) (Object) root.fetch("inventory", JoinType.INNER);
+                inventory.fetch("color", JoinType.LEFT);
+                product = (Join<Inventory, Product>) (Object) inventory.fetch("product", JoinType.INNER);
+                product.fetch("brand", JoinType.LEFT);
+                product.fetch("model", JoinType.LEFT);
+                product.fetch("varient", JoinType.LEFT);
+                product.fetch("segment", JoinType.LEFT);
+                product.fetch("fuelType", JoinType.LEFT);
+                product.fetch("transmissionType", JoinType.LEFT);
+                root.fetch("status", JoinType.INNER);
+                customer = (Join<Sale, Customer>) (Object) root.fetch("customer", JoinType.INNER);
+            }
 
             if (filter.getBrandId() != null) {
                 predicates.add(cb.equal(product.get("brand").get("id"), filter.getBrandId()));
@@ -42,8 +64,6 @@ public class SaleSpecification {
 
             if (filter.getSearchText() != null && !filter.getSearchText().isBlank()) {
                 String pattern = "%" + filter.getSearchText().toLowerCase() + "%";
-                Join<Sale, Customer> customer = root.join("customer", JoinType.INNER);
-
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("invoiceNo")), pattern),
                         cb.like(cb.lower(customer.get("name")), pattern),

@@ -29,7 +29,7 @@ public class Product extends AuditGenericEntity {
     @Column(name = "description")
     private String description;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private ProductCategory category;
 
@@ -49,11 +49,11 @@ public class Product extends AuditGenericEntity {
     @JoinColumn(name = "segment_id")
     private ProductSegment segment;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "fuel_type_id")
     private LookupMaster fuelType;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "transmission_type_id")
     private LookupMaster transmissionType;
 

@@ -4,6 +4,8 @@ import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.projection.*;
 import com.triasoft.garage.projection.MonthlyTrendMetrics;
 import com.triasoft.garage.projection.PLPendingMetrics;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +18,23 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
 
     @Query("SELECT s FROM Sale s WHERE s.inventory.id = :id AND s.status.code <> 'RETURNED'")
     Sale findByInventoryId(@Param("id") Long id);
+
+    @Query(value = """
+            SELECT s FROM Sale s
+            LEFT JOIN FETCH s.customer
+            LEFT JOIN FETCH s.inventory i
+            LEFT JOIN FETCH i.color
+            LEFT JOIN FETCH i.product p
+            LEFT JOIN FETCH p.brand
+            LEFT JOIN FETCH p.model
+            LEFT JOIN FETCH p.varient
+            LEFT JOIN FETCH p.segment
+            LEFT JOIN FETCH p.fuelType
+            LEFT JOIN FETCH p.transmissionType
+            LEFT JOIN FETCH s.status
+            """,
+            countQuery = "SELECT COUNT(s) FROM Sale s")
+    Page<Sale> findAllWithDetails(Pageable pageable);
 
     @Query(value = "SELECT nextval('so_ref_no_seq')", nativeQuery = true)
     Long getNextReferenceNumber();

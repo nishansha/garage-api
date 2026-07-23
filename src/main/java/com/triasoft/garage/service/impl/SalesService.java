@@ -59,7 +59,7 @@ public class SalesService {
     private final JournalService journalService;
 
     public SalesRs getAll(Pageable pageable, UserDTO user) {
-        Page<Sale> salePage = saleRepository.findAll(pageable);
+        Page<Sale> salePage = saleRepository.findAllWithDetails(pageable);
         List<SaleDTO> sales = salePage.getContent().stream().map(this::convertToDTO).toList();
         SalesRs salesRs = SalesRs.builder().sales(sales).build();
         salesRs.setTotalPages(salePage.getTotalPages());
