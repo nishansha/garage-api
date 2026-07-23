@@ -17,7 +17,7 @@ public class ProductBrandModel extends GenericEntity {
     @Serial
     private static final long serialVersionUID = -2338857843855397396L;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "brand_id", nullable = false)
     private ProductBrand productBrand;
 

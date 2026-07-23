@@ -16,7 +16,7 @@ public class ProductSegment extends GenericEntity {
     @Serial
     private static final long serialVersionUID = 493615713953458593L;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private ProductCategory productCategory;
 
