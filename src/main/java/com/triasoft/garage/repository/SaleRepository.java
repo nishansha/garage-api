@@ -32,6 +32,16 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             LEFT JOIN FETCH p.fuelType
             LEFT JOIN FETCH p.transmissionType
             LEFT JOIN FETCH s.status
+            LEFT JOIN FETCH i.purchaseOrderDetail pd
+            LEFT JOIN FETCH pd.product pp
+            LEFT JOIN FETCH pp.brand
+            LEFT JOIN FETCH pp.model
+            LEFT JOIN FETCH pp.varient
+            LEFT JOIN FETCH pp.segment
+            LEFT JOIN FETCH pp.fuelType
+            LEFT JOIN FETCH pp.transmissionType
+            LEFT JOIN FETCH pd.purchase pur
+            LEFT JOIN FETCH pur.status
             """,
             countQuery = "SELECT COUNT(s) FROM Sale s")
     Page<Sale> findAllWithDetails(Pageable pageable);
