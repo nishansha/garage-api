@@ -4,3 +4,5 @@ mvnw.cmd
 HELP.md
 .idea
 /target
+CLAUDE.md
+/logs
