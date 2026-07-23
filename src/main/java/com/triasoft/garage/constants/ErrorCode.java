@@ -6,7 +6,8 @@ public class ErrorCode {
 
     @Getter
     public enum General implements Errors {
-        GENERAL_ERROR("GEN_100", "Internal Server Error");
+        GENERAL_ERROR("GEN_100", "Internal Server Error"),
+        DATA_CONFLICT("GEN_101", "This operation conflicts with existing data");
 
         private final String code;
         private final String message;
@@ -130,7 +131,10 @@ public class ErrorCode {
         ROLE_CODE_EXISTS("BUS_201", "A role with this code already exists"),
         ROLE_SYSTEM_PROTECTED("BUS_202", "System roles cannot be modified or deleted"),
         RESOURCE_NOT_FOUND("BUS_203", "Resource not found"),
-        ROLE_REQUIRED("BUS_204", "At least one role must be assigned to the user");
+        ROLE_REQUIRED("BUS_204", "At least one role must be assigned to the user"),
+        SALE_NOT_FOUND("BUS_205", "Sale not found"),
+        INVENTORY_NOT_FOUND("BUS_206", "Inventory item not found"),
+        EXCHANGE_INVENTORY_NOT_FOUND("BUS_207", "Exchange inventory record not found for this sale");
 
         private final String code;
         private final String message;

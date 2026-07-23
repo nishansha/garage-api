@@ -24,7 +24,6 @@ import com.triasoft.garage.projection.SaleMetrics;
 import com.triasoft.garage.repository.*;
 import com.triasoft.garage.specifiction.SaleSpecification;
 import com.triasoft.garage.util.CommonUtil;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -118,7 +117,7 @@ public class SalesService {
     @Transactional
     public SalesRs create(SalesRq saleRq, UserDTO user) {
         Customer customer = customerRepository.findByMobile(saleRq.getCustomerMobileNo()).orElseGet(() -> createCustomer(saleRq, user));
-        Inventory stock = inventoryRepository.findById(saleRq.getStockId()).orElseThrow(() -> new EntityNotFoundException("Vehicle not found in stock"));
+        Inventory stock = inventoryRepository.findById(saleRq.getStockId()).orElseThrow(() -> new BusinessException(ErrorCode.Business.INVENTORY_NOT_FOUND));
         if (!StatusEnum.AVAILABLE.equals(stock.getStatus())) {
             throw new BusinessException(ErrorCode.Business.ALREADY_SOLD);
         }
@@ -195,7 +194,7 @@ public class SalesService {
             throw new BusinessException(new ErrorCode.CustomError("SAL_400", "Exchange vehicle details are required when isExchanged is true"));
         }
         Inventory exchangeInv = inventoryRepository.findBySourceSaleId(sale.getId())
-                .orElseThrow(() -> new EntityNotFoundException("Exchange inventory record not found for this sale"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.EXCHANGE_INVENTORY_NOT_FOUND));
 
         PurchaseDTO details = saleRq.getExchangeVehicleDetails();
         PurchaseRq exchangePurchaseRq = new PurchaseRq();
@@ -228,7 +227,7 @@ public class SalesService {
     }
 
     public SaleDTO get(Long id, UserDTO user) {
-        Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+        Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         BigDecimal paidAmount = salePaymentRepository.sumAmountBySaleId(id);
         BigDecimal pending = existingSale.getNetSaleAmount().subtract(paidAmount);
         BigDecimal financePaid = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.FINANCE);
@@ -268,10 +267,10 @@ public class SalesService {
     @Transactional
     @VersionCheck(entity = Sale.class)
     public SalesRs update(Long id, SalesRq salesRq, UserDTO user) {
-        Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+        Sale existingSale = saleRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         journalService.reverse(JournalService.REF_SALE, id);
         if (!existingSale.getInventory().getId().equals(salesRq.getStockId())) {
-            Inventory newStock = inventoryRepository.findById(salesRq.getStockId()).orElseThrow(() -> new EntityNotFoundException("New stock item not found"));
+            Inventory newStock = inventoryRepository.findById(salesRq.getStockId()).orElseThrow(() -> new BusinessException(ErrorCode.Business.INVENTORY_NOT_FOUND));
             if (!StatusEnum.AVAILABLE.equals(newStock.getStatus())) {
                 throw new BusinessException(ErrorCode.Business.ALREADY_SOLD);
             }
@@ -369,7 +368,7 @@ public class SalesService {
 
     private void removeOldExchangeVehicle(Sale sale, UserDTO user) {
         Inventory exchangeInv = inventoryRepository.findBySourceSaleId(sale.getId())
-                .orElseThrow(() -> new EntityNotFoundException("Exchange inventory record not found for this sale"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.EXCHANGE_INVENTORY_NOT_FOUND));
         if (StatusEnum.SOLD.equals(exchangeInv.getStatus())) {
             throw new BusinessException("Cannot edit exchange details: the trade-in vehicle has already been sold!");
         }
@@ -378,7 +377,7 @@ public class SalesService {
 
     @Transactional
     public SalesRs delete(Long id, UserDTO user) {
-        Sale sale = saleRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+        Sale sale = saleRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         Inventory soldVehicle = sale.getInventory();
         soldVehicle.setStatus(StatusEnum.AVAILABLE);
         inventoryRepository.save(soldVehicle);
@@ -411,7 +410,7 @@ public class SalesService {
     @Transactional
     public SalesRs recordPayment(Long saleId, SalePaymentRq rq, UserDTO user) {
         Sale sale = saleRepository.findById(saleId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         BigDecimal alreadyPaid = salePaymentRepository.sumAmountBySaleId(saleId);
         BigDecimal remaining = sale.getNetSaleAmount().subtract(alreadyPaid);
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
@@ -442,7 +441,7 @@ public class SalesService {
     @VersionCheck(entity = SalePayment.class, idIndex = 1)
     public SalesRs updatePayment(Long saleId, Long paymentId, SalePaymentRq rq, UserDTO user) {
         Sale sale = saleRepository.findById(saleId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         SalePayment payment = salePaymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(new ErrorCode.CustomError("SAL_404", "Payment record not found")));
         if (!payment.getSale().getId().equals(saleId)) {
@@ -489,7 +488,7 @@ public class SalesService {
         }
         reverseSalePaymentTransaction(payment);
         salePaymentRepository.delete(payment);
-        Sale sale = saleRepository.findById(saleId).orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+        Sale sale = saleRepository.findById(saleId).orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         BigDecimal newTotal = salePaymentRepository.sumAmountBySaleId(saleId);
         recalculatePaymentStatus(sale, newTotal);
         saleRepository.save(sale);

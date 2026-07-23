@@ -1,10 +1,11 @@
 package com.triasoft.garage.helper;
 
+import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.LookupTypeEnum;
 import com.triasoft.garage.constants.StatusEnum;
 import com.triasoft.garage.entity.LookupMaster;
+import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.repository.LookupMasterRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,7 @@ public class LookupHelper {
     }
 
     public LookupMaster get(Long id) {
-        return lookupMasterRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Color not found"));
+        return lookupMasterRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.LOOKUP_NOT_EXISTS));
     }
 
     public LookupMaster get(String code) {

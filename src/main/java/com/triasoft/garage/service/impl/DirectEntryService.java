@@ -17,7 +17,6 @@ import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
 import com.triasoft.garage.specifiction.DirectEntrySpecification;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -172,8 +171,7 @@ public class DirectEntryService {
 
     private DirectEntry find(Long id) {
         return directEntryRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        ErrorCode.Business.DIRECT_ENTRY_NOT_FOUND.getMessage()));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.DIRECT_ENTRY_NOT_FOUND));
     }
 
     private DirectEntryDTO toDTO(DirectEntry e) {
