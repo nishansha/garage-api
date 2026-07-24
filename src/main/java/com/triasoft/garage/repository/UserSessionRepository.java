@@ -3,8 +3,12 @@ package com.triasoft.garage.repository;
 import com.triasoft.garage.constants.SessionStatusEnum;
 import com.triasoft.garage.entity.UserSession;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,5 +20,10 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
     List<UserSession> findByUserIdAndStatus(Long userId, SessionStatusEnum status);
 
     boolean existsBySessionIdAndStatus(String sessionId, SessionStatusEnum status);
+
+    @Modifying
+    @Query("DELETE FROM UserSession s WHERE s.status <> com.triasoft.garage.constants.SessionStatusEnum.ACTIVE " +
+            "AND s.endedAt < :cutoff")
+    int deleteEndedSessionsBefore(@Param("cutoff") LocalDateTime cutoff);
 
 }
