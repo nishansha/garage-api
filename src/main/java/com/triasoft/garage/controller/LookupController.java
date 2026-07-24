@@ -6,6 +6,7 @@ import com.triasoft.garage.model.common.LookupRs;
 import com.triasoft.garage.service.impl.LookupService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -26,12 +27,12 @@ public class LookupController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<LookupRs>> create(@RequestBody LookupRq lookupRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<LookupRs>> create(@Valid @RequestBody LookupRq lookupRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(lookupService.create(lookupRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<LookupRs>> update(@PathVariable("id") Long lookupId, @RequestBody LookupRq lookupRq, HttpServletRequest request) {
+    ResponseEntity<ApiResponse<LookupRs>> update(@PathVariable("id") Long lookupId, @Valid @RequestBody LookupRq lookupRq, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(lookupService.update(lookupId, lookupRq, UserUtil.getUser(request))));
     }
 }

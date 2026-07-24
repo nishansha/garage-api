@@ -8,6 +8,7 @@ import com.triasoft.garage.model.login.LoginRs;
 import com.triasoft.garage.model.login.RefreshRq;
 import com.triasoft.garage.service.impl.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -23,18 +24,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<LoginRs>> authenticateUser(@RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
+    ResponseEntity<ApiResponse<LoginRs>> authenticateUser(@Valid @RequestBody LoginRq request, HttpServletRequest httpServletRequest) {
         ClientChannel channel = ClientChannel.fromHeader(httpServletRequest.getHeader(Constants.HEADER));
         return ResponseEntity.ok(ApiResponse.success(authService.login(request, channel)));
     }
 
     @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<LoginRs>> refresh(@RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
+    ResponseEntity<ApiResponse<LoginRs>> refresh(@Valid @RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
         return ResponseEntity.ok(ApiResponse.success(authService.refresh(request)));
     }
 
     @PostMapping(value = "/logout", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<Void>> logout(@RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
+    ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshRq request, HttpServletRequest httpServletRequest) {
         authService.logout(request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
