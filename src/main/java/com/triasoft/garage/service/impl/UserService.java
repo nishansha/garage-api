@@ -10,7 +10,7 @@ import com.triasoft.garage.model.user.UserRs;
 import com.triasoft.garage.repository.UserProfileRepository;
 import com.triasoft.garage.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -25,6 +25,7 @@ public class UserService {
     private final UserProfileRepository userProfileRepository;
     private final UserRoleRepository userRoleRepository;
     private final RoleService roleService;
+    private final PasswordEncoder passwordEncoder;
 
     public UserDTO loadUser(String userName) {
         UserProfile userProfile = userProfileRepository.findByUsername(userName);
@@ -51,7 +52,7 @@ public class UserService {
         UserProfile newUser = new UserProfile();
         newUser.setName(userRq.getName());
         newUser.setUsername(userRq.getUserName().trim());
-        newUser.setPassword(new BCryptPasswordEncoder().encode(userRq.getPassword().trim()));
+        newUser.setPassword(passwordEncoder.encode(userRq.getPassword().trim()));
         newUser.setDesignation(userRq.getDesignation());
         userProfileRepository.save(newUser);
         roleService.assignUserRoles(newUser.getId(), UserRoleRq.builder().roleIds(userRq.getRoleIds()).build());
@@ -62,7 +63,7 @@ public class UserService {
     public UserRs update(Long id, UserRq userRq, UserDTO user) {
         UserProfile userProfile = userProfileRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.USER_NOT_FOUND));
         if (StringUtils.hasLength(userRq.getPassword()))
-            userProfile.setPassword(new BCryptPasswordEncoder().encode(userRq.getPassword().trim()));
+            userProfile.setPassword(passwordEncoder.encode(userRq.getPassword().trim()));
         userProfile.setName(userRq.getName());
         userProfile.setDesignation(userRq.getDesignation());
         userProfileRepository.save(userProfile);

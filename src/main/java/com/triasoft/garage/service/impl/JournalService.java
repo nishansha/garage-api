@@ -7,7 +7,6 @@ import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.repository.*;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -182,7 +181,7 @@ public class JournalService {
 
     private void handleSale(Long saleId) {
         Sale sale = saleRepository.findById(saleId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale not found: " + saleId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
 
         BigDecimal saleRate = safe(sale.getSaleRate());
         BigDecimal exchange = safe(sale.getExchangeAmount());
@@ -222,7 +221,7 @@ public class JournalService {
 
     private void handleSalePayment(Long paymentId) {
         SalePayment payment = salePaymentRepository.findById(paymentId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale payment not found: " + paymentId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(payment.getPaymentAccount());
         boolean fromFinance = payment.getPayerType() != null
@@ -243,7 +242,7 @@ public class JournalService {
 
     private void handlePurchase(Long purchaseId) {
         Purchase purchase = purchaseRepository.findById(purchaseId)
-                .orElseThrow(() -> new EntityNotFoundException("Purchase not found: " + purchaseId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
 
         // total_amount on Purchase includes both the base vehicle price AND linked expenses.
         // Purchase-linked expenses post their own EXPENSE journals (DR Inventory / CR cash),
@@ -267,7 +266,7 @@ public class JournalService {
 
     private void handlePurchasePayment(Long paymentId) {
         PurchasePayment payment = purchasePaymentRepository.findById(paymentId)
-                .orElseThrow(() -> new EntityNotFoundException("Purchase payment not found: " + paymentId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(payment.getPaymentAccount());
         boolean isExchange = inventoryRepository.findByPurchaseOrderDetailPurchaseId(payment.getPurchase().getId())
@@ -288,7 +287,7 @@ public class JournalService {
 
     private void handleExpense(Long expenseId) {
         Expense expense = expenseRepository.findById(expenseId)
-                .orElseThrow(() -> new EntityNotFoundException("Expense not found: " + expenseId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.EXP_NOT_FOUNT));
 
         if (expense.getPaymentAccount() == null) {
             throw new BusinessException("JNL_411", "Expense must have a payment account to post journal");
@@ -318,7 +317,7 @@ public class JournalService {
 
     private void handleDirectEntry(Long entryId) {
         DirectEntry entry = directEntryRepository.findById(entryId)
-                .orElseThrow(() -> new EntityNotFoundException("Direct entry not found: " + entryId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.DIRECT_ENTRY_NOT_FOUND));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(entry.getPaymentAccount());
         ChartOfAccount offsetCoa = entry.getChartOfAccount();
@@ -338,7 +337,7 @@ public class JournalService {
 
     private void handleSaleReturn(Long saleReturnId) {
         SaleReturn sr = saleReturnRepository.findById(saleReturnId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale return not found: " + saleReturnId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_RETURN_NOT_FOUND));
         Sale sale = sr.getSale();
 
         BigDecimal saleRate = safe(sale.getSaleRate());
@@ -418,7 +417,7 @@ public class JournalService {
 
     private void handleSaleReturnRefund(Long refundId) {
         SaleRefundPayment refund = saleRefundPaymentRepository.findById(refundId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale refund payment not found: " + refundId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.REFUND_PAYMENT_NOT_FOUND));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(refund.getPaymentAccount());
         Journal journal = createJournal(REF_SALE_RETURN_REFUND, refundId, refund.getPaymentDate(),
@@ -435,7 +434,7 @@ public class JournalService {
 
     private void handlePurchaseReturn(Long purchaseReturnId) {
         PurchaseReturn pr = purchaseReturnRepository.findById(purchaseReturnId)
-                .orElseThrow(() -> new EntityNotFoundException("Purchase return not found: " + purchaseReturnId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_RETURN_NOT_FOUND));
 
         // Stored `returnAmount` holds the unwind value (= outstandingAp + refundAmount).
         // Split it for proper presentation: A/P cancellation goes to A/P (liability),
@@ -487,7 +486,7 @@ public class JournalService {
 
     private void handlePurchaseReturnReceipt(Long receiptId) {
         PurchaseReturnReceipt receipt = purchaseReturnReceiptRepository.findById(receiptId)
-                .orElseThrow(() -> new EntityNotFoundException("Purchase return receipt not found: " + receiptId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_RETURN_RECEIPT_NOT_FOUND));
 
         ChartOfAccount paymentCoa = paymentAccountCoa(receipt.getPaymentAccount());
         Journal journal = createJournal(REF_PURCHASE_RETURN_RECEIPT, receiptId, receipt.getPaymentDate(),
@@ -504,7 +503,7 @@ public class JournalService {
 
     private void handleOpeningBalance(Long paymentAccountId) {
         PaymentAccount account = paymentAccountRepository.findById(paymentAccountId)
-                .orElseThrow(() -> new EntityNotFoundException("Payment account not found: " + paymentAccountId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
 
         BigDecimal amount = safe(account.getOpeningBalance());
         if (amount.signum() == 0) return; // nothing to post

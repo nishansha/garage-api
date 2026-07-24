@@ -3,7 +3,9 @@ package com.triasoft.garage.exception;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FieldError;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +56,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleOptimisticLockException(ServletWebRequest request, OptimisticLockingFailureException exception) {
         log.warn("handleOptimisticLockException - concurrent modification", exception);
         return buildErrorRs(ErrorCode.Concurrency.CONCURRENT_MODIFICATION.getCode(), ErrorCode.Concurrency.CONCURRENT_MODIFICATION.getMessage(), request.getRequest().getRequestURI(), HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<?>> handleEntityNotFoundException(ServletWebRequest request, EntityNotFoundException exception) {
+        log.warn("handleEntityNotFoundException - entity not found", exception);
+        return buildErrorRs(ErrorCode.Business.RESOURCE_NOT_FOUND.getCode(), ErrorCode.Business.RESOURCE_NOT_FOUND.getMessage(), request.getRequest().getRequestURI(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolationException(ServletWebRequest request, DataIntegrityViolationException exception) {
+        log.error("handleDataIntegrityViolationException - data integrity violation", exception);
+        return buildErrorRs(ErrorCode.General.DATA_CONFLICT.getCode(), ErrorCode.General.DATA_CONFLICT.getMessage(), request.getRequest().getRequestURI(), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(Exception.class)

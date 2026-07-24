@@ -71,7 +71,10 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                    LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
-                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
+                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(brand.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(model.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(variant.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
@@ -94,7 +97,10 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                    LOWER(p.referenceNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(p.notes) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
                    OR LOWER(pd.productNo) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
-                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
+                   OR LOWER(vendor.name) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(brand.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(model.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))
+                   OR LOWER(variant.description) LIKE LOWER(CONCAT('%', CAST(:searchText AS string), '%'))))
             """)
     Page<PurchaseListProjection> searchForList(
             @Param("fromDate") LocalDate fromDate,

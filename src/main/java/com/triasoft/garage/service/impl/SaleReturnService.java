@@ -15,7 +15,6 @@ import com.triasoft.garage.model.report.SaleReturnPayablesSummaryRs;
 import com.triasoft.garage.model.sale.*;
 import com.triasoft.garage.projection.SaleReturnPayableRow;
 import com.triasoft.garage.repository.*;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,7 +51,7 @@ public class SaleReturnService {
 
     public ReturnFormDataRs.Body getFormData(Long saleId, UserDTO user) {
         Sale sale = saleRepository.findById(saleId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
         if (saleReturnRepository.existsBySaleId(saleId)) {
             throw new BusinessException(ErrorCode.Business.SALE_ALREADY_RETURNED);
         }
@@ -121,7 +120,7 @@ public class SaleReturnService {
     @Transactional
     public SaleReturnDTO create(Long saleId, SaleReturnRq rq, UserDTO user) {
         Sale sale = saleRepository.findById(saleId)
-                .orElseThrow(() -> new EntityNotFoundException("Sale not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALE_NOT_FOUND));
 
         if (saleReturnRepository.existsBySaleId(saleId)) {
             throw new BusinessException(ErrorCode.Business.SALE_ALREADY_RETURNED);
@@ -170,7 +169,7 @@ public class SaleReturnService {
         // Exchange vehicle: only reverse if returned to buyer
         if (handling == ExchangeHandlingEnum.RETURN_TO_BUYER) {
             Inventory exchInv = inventoryRepository.findBySourceSaleId(saleId)
-                    .orElseThrow(() -> new EntityNotFoundException("Exchange inventory not found"));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.Business.EXCHANGE_INVENTORY_NOT_FOUND));
             if (StatusEnum.SOLD.equals(exchInv.getStatus())) {
                 throw new BusinessException(ErrorCode.Business.EXCHANGE_VEHICLE_ALREADY_SOLD);
             }

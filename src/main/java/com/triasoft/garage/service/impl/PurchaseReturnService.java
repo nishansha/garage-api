@@ -14,7 +14,6 @@ import com.triasoft.garage.model.report.PurchaseReturnReceivableInfo;
 import com.triasoft.garage.model.report.PurchaseReturnReceivablesSummaryRs;
 import com.triasoft.garage.projection.PurchaseReturnReceivableRow;
 import com.triasoft.garage.repository.*;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +45,7 @@ public class PurchaseReturnService {
 
     public PurchaseReturnFormDataRs getFormData(Long inventoryId, UserDTO user) {
         Inventory inv = inventoryRepository.findById(inventoryId)
-                .orElseThrow(() -> new EntityNotFoundException("Inventory not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.INVENTORY_NOT_FOUND));
         if (inv.getSourceSaleId() != null) {
             throw new BusinessException(ErrorCode.Business.CANNOT_RETURN_EXCHANGE_INVENTORY_DIRECTLY);
         }
@@ -107,7 +106,7 @@ public class PurchaseReturnService {
     @Transactional
     public PurchaseReturnDTO create(Long inventoryId, PurchaseReturnRq rq, UserDTO user) {
         Inventory inv = inventoryRepository.findById(inventoryId)
-                .orElseThrow(() -> new EntityNotFoundException("Inventory not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.INVENTORY_NOT_FOUND));
         if (inv.getSourceSaleId() != null) {
             throw new BusinessException(ErrorCode.Business.CANNOT_RETURN_EXCHANGE_INVENTORY_DIRECTLY);
         }

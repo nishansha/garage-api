@@ -67,7 +67,11 @@ public class SaleSpecification {
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("invoiceNo")), pattern),
                         cb.like(cb.lower(customer.get("name")), pattern),
-                        cb.like(cb.lower(customer.get("mobile")), pattern)
+                        cb.like(cb.lower(customer.get("mobile")), pattern),
+                        cb.like(cb.lower(inventory.get("productNo")), pattern),
+                        cb.like(cb.lower(product.get("brand").get("description")), pattern),
+                        cb.like(cb.lower(product.get("model").get("description")), pattern),
+                        cb.like(cb.lower(product.get("varient").get("description")), pattern)
                 ));
             }
 

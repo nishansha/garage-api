@@ -21,7 +21,6 @@ import com.triasoft.garage.projection.*;
 import com.triasoft.garage.repository.*;
 import com.triasoft.garage.util.CommonUtil;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -485,7 +484,7 @@ public class PurchaseService {
     @Transactional
     @VersionCheck(entity = Purchase.class)
     public PurchaseRs update(Long purchaseId, PurchaseRq purchaseRq, UserDTO user) {
-        Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
+        Purchase purchase = purchaseRepository.findById(purchaseId).orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
         validateUniqueActiveProductNo(purchaseRq.getVehicleNo(), purchaseId);
         boolean isExchange = isExchangePurchase(purchaseId);
         if (!isExchange) {
@@ -698,7 +697,7 @@ public class PurchaseService {
      */
     @Transactional
     public PurchaseRs deleteInternal(Long id, UserDTO user) {
-        Purchase purchase = purchaseRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Purchase not found"));
+        Purchase purchase = purchaseRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
         Optional<Inventory> inventoryOpt = inventoryRepository.findByPurchaseOrderDetailPurchaseId(id);
         if (inventoryOpt.isPresent() && StatusEnum.SOLD.equals(inventoryOpt.get().getStatus())) {
             throw new IllegalStateException("Vehicle already sold.");
