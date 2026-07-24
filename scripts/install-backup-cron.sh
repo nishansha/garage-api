@@ -33,7 +33,10 @@ CRON_LINE="$SCHEDULE ENV_FILE=$ENV_FILE $BACKUP_SCRIPT >> $LOG_FILE 2>&1 $MARKER
 
 # Keep everything already in the crontab; just replace our own previously
 # installed line (matched by MARKER) so re-running this doesn't duplicate it.
-( crontab -l 2>/dev/null | grep -vF "$MARKER"; echo "$CRON_LINE" ) | crontab -
+# `|| true` on the grep: no existing crontab (fresh VM) or no prior match are
+# both expected, non-error outcomes, but grep exits 1 for "zero lines matched" —
+# under `set -e` that would otherwise kill this subshell before the echo below runs.
+( crontab -l 2>/dev/null | grep -vF "$MARKER" || true; echo "$CRON_LINE" ) | crontab -
 
 echo "Installed cron job:"
 echo "  $CRON_LINE"
