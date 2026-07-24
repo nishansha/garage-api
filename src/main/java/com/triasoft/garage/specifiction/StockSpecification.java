@@ -46,7 +46,10 @@ public class StockSpecification {
                 String pattern = "%" + filter.getSearchText().toLowerCase() + "%";
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("productNo")), pattern),
-                        cb.like(cb.lower(root.get("uin")), pattern)
+                        cb.like(cb.lower(root.get("uin")), pattern),
+                        cb.like(cb.lower(product.get("brand").get("description")), pattern),
+                        cb.like(cb.lower(product.get("model").get("description")), pattern),
+                        cb.like(cb.lower(product.get("varient").get("description")), pattern)
                 ));
             }
             if (StringUtils.hasLength(filter.getStatus())) {
