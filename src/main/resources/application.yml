@@ -61,6 +61,15 @@ spring:
     # Uncomment for per-request "N queries executed" summary lines from Hibernate statistics.
     # org.hibernate.stat: DEBUG
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 app:
   data-reset:
     enabled: true
