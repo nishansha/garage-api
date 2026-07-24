@@ -23,6 +23,10 @@ fi
 DB_NAME="${POSTGRES_DB:-garage}"
 DB_USER="${POSTGRES_USER:-garage}"
 
+# Checked early (before the confirmation prompt) rather than inline in the pipeline
+# below — see backup.sh for why a `${VAR:?msg}` failure mid-pipeline is surprising.
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
+
 if [[ ! -s "$DUMP_FILE" ]]; then
   echo "ERROR: $DUMP_FILE does not exist or is empty" >&2
   exit 1
@@ -34,7 +38,7 @@ read -r -p "Type 'yes' to continue: " confirm
 
 gunzip -c "$DUMP_FILE" \
   | docker exec -i \
-      -e PGPASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}" \
+      -e PGPASSWORD="$POSTGRES_PASSWORD" \
       "$CONTAINER" \
       psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
 
