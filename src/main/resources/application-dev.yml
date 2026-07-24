@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/garage_dev
+    jdbc-url: jdbc:postgresql://localhost:5432/garage_dev
+    username: postgres
+    password: garage123
+#    url: jdbc:postgresql://127.0.0.1:5433/garage
+#    jdbc-url: jdbc:postgresql://127.0.0.1:5433/garage
+#    username: garage
+#    password: 6zYXMgjNATwi5gzuOVuMV3Jw4JbtQD
+
+#logging:
+#  level:
+#    org.hibernate.SQL: DEBUG
+#     org.hibernate.stat: DEBUG
+
+app:
+  data-reset:
+    enabled: true
+  cors:
+    allowed-origins: "http://localhost:8081,http://localhost:5173"
+  jwt:
+    secret: "4WadB8IxnpkmgqLdmWChE4+4b3AUNzXpOHosjGzHCNI="
