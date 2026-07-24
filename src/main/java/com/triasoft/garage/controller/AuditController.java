@@ -34,8 +34,7 @@ public class AuditController {
 
     @HasPrivilege(resource = "AUDIT", privilege = Privilege.VIEW)
     @GetMapping(value = "/{entityType}/{id}/history", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<List<AuditRevisionRs>>> history(@PathVariable String entityType,
-                                                               @PathVariable Long id) {
+    ResponseEntity<ApiResponse<List<AuditRevisionRs>>> history(@PathVariable String entityType, @PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(auditService.getHistory(entityType, id)));
     }
 
@@ -47,9 +46,7 @@ public class AuditController {
 
     @HasPrivilege(resource = "AUDIT", privilege = Privilege.VIEW)
     @GetMapping(value = "/{entityType}/{id}/revisions/{revision}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<Object>> atRevision(@PathVariable String entityType,
-                                                   @PathVariable Long id,
-                                                   @PathVariable Long revision) {
+    ResponseEntity<ApiResponse<Object>> atRevision(@PathVariable String entityType, @PathVariable Long id, @PathVariable Long revision) {
         return ResponseEntity.ok(ApiResponse.success(auditService.getAtRevision(entityType, id, revision)));
     }
 }

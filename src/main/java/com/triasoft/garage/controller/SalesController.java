@@ -53,6 +53,7 @@ public class SalesController {
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> create(@Valid @RequestBody SalesRq salesRq, HttpServletRequest request) {
+        log.info(":: SalesController - create() - {} ::", salesRq);
         return ResponseEntity.ok(ApiResponse.success(salesService.create(salesRq, UserUtil.getUser(request))));
     }
 
@@ -63,26 +64,31 @@ public class SalesController {
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> update(@Valid @RequestBody SalesRq salesRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        log.info(":: SalesController - update() - id - {}, {} ::", id, salesRq);
         return ResponseEntity.ok(ApiResponse.success(salesService.update(id, salesRq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> delete(@PathVariable("id") Long id, HttpServletRequest request) {
+        log.info(":: SalesController - delete() - id - {} ::", id);
         return ResponseEntity.ok(ApiResponse.success(salesService.delete(id, UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> recordPayment(@PathVariable("id") Long id, @Valid @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+        log.info(":: SalesController - recordPayment() - id - {}, {} ::", id, paymentRq);
         return ResponseEntity.ok(ApiResponse.success(salesService.recordPayment(id, paymentRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> updatePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, @Valid @RequestBody SalePaymentRq paymentRq, HttpServletRequest request) {
+        log.info(":: SalesController - updatePayment() - id - {},paymentId- {}, {} ::", id, paymentId, paymentRq);
         return ResponseEntity.ok(ApiResponse.success(salesService.updatePayment(id, paymentId, paymentRq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}/payments/{paymentId}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> deletePayment(@PathVariable("id") Long id, @PathVariable("paymentId") Long paymentId, HttpServletRequest request) {
+        log.info(":: SalesController - deletePayment() - id - {},paymentId- {} ::", id, paymentId);
         return ResponseEntity.ok(ApiResponse.success(salesService.deletePayment(id, paymentId, UserUtil.getUser(request))));
     }
 
@@ -91,17 +97,14 @@ public class SalesController {
         return ResponseEntity.ok(ApiResponse.success(salesService.getReceivablesSummary()));
     }
 
-    // ───────────────────────── Sale Returns ─────────────────────────
-
     @GetMapping(value = "/{id}/return/form-data", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ReturnFormDataRs.Body>> returnFormData(@PathVariable("id") Long id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.getFormData(id, UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/{id}/return", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SaleReturnDTO>> createReturn(@PathVariable("id") Long id,
-                                                            @Valid @RequestBody SaleReturnRq rq,
-                                                            HttpServletRequest request) {
+    ResponseEntity<ApiResponse<SaleReturnDTO>> createReturn(@PathVariable("id") Long id, @Valid @RequestBody SaleReturnRq rq, HttpServletRequest request) {
+        log.info(":: SalesController - createReturn() - id - {}, {} ::", id, rq);
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.create(id, rq, UserUtil.getUser(request))));
     }
 }

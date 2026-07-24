@@ -62,6 +62,7 @@ public class ProductController {
 
     @PostMapping(value = "/manage-types", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ProductRs>> manage(@RequestBody ProductRq productRq, HttpServletRequest request) {
+        log.info(":: ProductController - manage () -  {} ::", productRq);
         return ResponseEntity.ok(ApiResponse.success(productService.manageProductTypes(productRq, UserUtil.getUser(request))));
     }
 }

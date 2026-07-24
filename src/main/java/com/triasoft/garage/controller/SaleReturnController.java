@@ -30,10 +30,7 @@ public class SaleReturnController {
     private final SaleReturnService saleReturnService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<SaleReturnRs>> list(@RequestParam(value = "fromDate", required = false) LocalDate fromDate,
-                                                   @RequestParam(value = "toDate", required = false) LocalDate toDate,
-                                                   @RequestParam("page") int page,
-                                                   @RequestParam("size") int size) {
+    ResponseEntity<ApiResponse<SaleReturnRs>> list(@RequestParam(value = "fromDate", required = false) LocalDate fromDate, @RequestParam(value = "toDate", required = false) LocalDate toDate, @RequestParam("page") int page, @RequestParam("size") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("returnDate").descending());
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.list(fromDate, toDate, pageable)));
     }
@@ -49,24 +46,20 @@ public class SaleReturnController {
     }
 
     @PostMapping(value = "/{id}/refunds", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<RefundCreateResponse>> recordRefund(@PathVariable("id") Long id,
-                                                                   @Valid @RequestBody RefundPaymentRq rq,
-                                                                   HttpServletRequest request) {
+    ResponseEntity<ApiResponse<RefundCreateResponse>> recordRefund(@PathVariable("id") Long id, @Valid @RequestBody RefundPaymentRq rq, HttpServletRequest request) {
+        log.info(":: SaleReturnController - recordRefund () - id {}, {} ::", id, rq);
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.recordRefund(id, rq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}/refunds/{refundId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<RefundCreateResponse>> updateRefund(@PathVariable("id") Long id,
-                                                                                     @PathVariable("refundId") Long refundId,
-                                                                                     @Valid @RequestBody RefundPaymentRq rq,
-                                                                                     HttpServletRequest request) {
+    ResponseEntity<ApiResponse<RefundCreateResponse>> updateRefund(@PathVariable("id") Long id, @PathVariable("refundId") Long refundId, @Valid @RequestBody RefundPaymentRq rq, HttpServletRequest request) {
+        log.info(":: SaleReturnController - updateRefund () - id {}, refundId {}, {} ::", id, refundId, rq);
         return ResponseEntity.ok(ApiResponse.success(saleReturnService.updateRefund(id, refundId, rq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}/refunds/{refundId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<Void>> deleteRefund(@PathVariable("id") Long id,
-                                                   @PathVariable("refundId") Long refundId,
-                                                   HttpServletRequest request) {
+    ResponseEntity<ApiResponse<Void>> deleteRefund(@PathVariable("id") Long id, @PathVariable("refundId") Long refundId, HttpServletRequest request) {
+        log.info(":: SaleReturnController - updateRefund () - id {}, refundId {} ::", id, refundId);
         saleReturnService.deleteRefund(id, refundId, UserUtil.getUser(request));
         return ResponseEntity.ok(ApiResponse.success(null));
     }

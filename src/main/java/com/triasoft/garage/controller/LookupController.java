@@ -28,11 +28,13 @@ public class LookupController {
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<LookupRs>> create(@Valid @RequestBody LookupRq lookupRq, HttpServletRequest request) {
+        log.info(":: LookupController - create () - {} ::", lookupRq);
         return ResponseEntity.ok(ApiResponse.success(lookupService.create(lookupRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<LookupRs>> update(@PathVariable("id") Long lookupId, @Valid @RequestBody LookupRq lookupRq, HttpServletRequest request) {
+        log.info(":: LookupController - create () -id {}, {} ::", lookupId, lookupRq);
         return ResponseEntity.ok(ApiResponse.success(lookupService.update(lookupId, lookupRq, UserUtil.getUser(request))));
     }
 }

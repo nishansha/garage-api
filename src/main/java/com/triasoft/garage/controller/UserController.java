@@ -44,11 +44,13 @@ public class UserController {
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<UserRs>> create(@RequestBody UserRq userRq, HttpServletRequest request) {
+        log.info(":: UserController - create () -  {} ::", userRq);
         return ResponseEntity.ok(ApiResponse.success(userService.create(userRq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<UserRs>> update(@RequestBody UserRq userRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        log.info(":: UserController - update () - id {},  {} ::", id, userRq);
         return ResponseEntity.ok(ApiResponse.success(userService.update(id, userRq, UserUtil.getUser(request))));
     }
 

@@ -57,6 +57,7 @@ public class ExpenseController {
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ExpenseRs>> create(@Valid @RequestBody ExpenseRq expenseRq, HttpServletRequest request) {
+        log.info(":: ExpenseController - create () - {} ::", expenseRq);
         return ResponseEntity.ok(ApiResponse.success(expenseService.create(expenseRq, UserUtil.getUser(request))));
     }
 
@@ -67,11 +68,13 @@ public class ExpenseController {
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ExpenseRs>> update(@Valid @RequestBody ExpenseRq expenseRq, @PathVariable("id") Long id, HttpServletRequest request) {
+        log.info(":: ExpenseController - update () - id -{}, {} ::", id, expenseRq);
         return ResponseEntity.ok(ApiResponse.success(expenseService.update(id, expenseRq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ExpenseRs>> delete(@PathVariable("id") Long id, HttpServletRequest request) {
+        log.info(":: ExpenseController - delete () - id -{} ::", id);
         return ResponseEntity.ok(ApiResponse.success(expenseService.delete(id, UserUtil.getUser(request))));
     }
 }
