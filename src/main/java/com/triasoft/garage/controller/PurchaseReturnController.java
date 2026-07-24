@@ -28,23 +28,18 @@ public class PurchaseReturnController {
     private final PurchaseReturnService purchaseReturnService;
 
     @GetMapping(value = "/inventory/{inventoryId}/return/form-data", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PurchaseReturnFormDataRs>> formData(@PathVariable("inventoryId") Long inventoryId,
-                                                                   HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PurchaseReturnFormDataRs>> formData(@PathVariable("inventoryId") Long inventoryId, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.getFormData(inventoryId, UserUtil.getUser(request))));
     }
 
     @PostMapping(value = "/inventory/{inventoryId}/return", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PurchaseReturnDTO>> create(@PathVariable("inventoryId") Long inventoryId,
-                                                                             @Valid @RequestBody PurchaseReturnRq rq,
-                                                                             HttpServletRequest request) {
+    ResponseEntity<ApiResponse<PurchaseReturnDTO>> create(@PathVariable("inventoryId") Long inventoryId, @Valid @RequestBody PurchaseReturnRq rq, HttpServletRequest request) {
+        log.info(":: PurchaseReturnController - create () - inventoryId {}, {} ::", inventoryId, rq);
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.create(inventoryId, rq, UserUtil.getUser(request))));
     }
 
     @GetMapping(value = "/purchase-returns", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PurchaseReturnRs>> list(@RequestParam(value = "fromDate", required = false) LocalDate fromDate,
-                                                       @RequestParam(value = "toDate", required = false) LocalDate toDate,
-                                                       @RequestParam("page") int page,
-                                                       @RequestParam("size") int size) {
+    ResponseEntity<ApiResponse<PurchaseReturnRs>> list(@RequestParam(value = "fromDate", required = false) LocalDate fromDate, @RequestParam(value = "toDate", required = false) LocalDate toDate, @RequestParam("page") int page, @RequestParam("size") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("returnDate").descending());
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.list(fromDate, toDate, pageable)));
     }
@@ -60,24 +55,20 @@ public class PurchaseReturnController {
     }
 
     @PostMapping(value = "/purchase-returns/{id}/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ReceiptCreateRs>> recordReceipt(@PathVariable("id") Long id,
-                                                                                           @Valid @RequestBody PurchaseReturnReceiptRq rq,
-                                                                                           HttpServletRequest request) {
+    ResponseEntity<ApiResponse<ReceiptCreateRs>> recordReceipt(@PathVariable("id") Long id, @Valid @RequestBody PurchaseReturnReceiptRq rq, HttpServletRequest request) {
+        log.info(":: PurchaseReturnController - recordReceipt () - id {}, {} ::", id, rq);
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.recordReceipt(id, rq, UserUtil.getUser(request))));
     }
 
     @PutMapping(value = "/purchase-returns/{id}/receipts/{receiptId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ReceiptCreateRs>> updateReceipt(@PathVariable("id") Long id,
-                                                                                           @PathVariable("receiptId") Long receiptId,
-                                                                                           @Valid @RequestBody PurchaseReturnReceiptRq rq,
-                                                                                           HttpServletRequest request) {
+    ResponseEntity<ApiResponse<ReceiptCreateRs>> updateReceipt(@PathVariable("id") Long id, @PathVariable("receiptId") Long receiptId, @Valid @RequestBody PurchaseReturnReceiptRq rq, HttpServletRequest request) {
+        log.info(":: PurchaseReturnController - updateReceipt () - id {},receiptId-{}, {} ::", id, receiptId, rq);
         return ResponseEntity.ok(ApiResponse.success(purchaseReturnService.updateReceipt(id, receiptId, rq, UserUtil.getUser(request))));
     }
 
     @DeleteMapping(value = "/purchase-returns/{id}/receipts/{receiptId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<Void>> deleteReceipt(@PathVariable("id") Long id,
-                                                    @PathVariable("receiptId") Long receiptId,
-                                                    HttpServletRequest request) {
+    ResponseEntity<ApiResponse<Void>> deleteReceipt(@PathVariable("id") Long id, @PathVariable("receiptId") Long receiptId, HttpServletRequest request) {
+        log.info(":: PurchaseReturnController - deleteReceipt () - id {},receiptId-{} ::", id, receiptId);
         purchaseReturnService.deleteReceipt(id, receiptId, UserUtil.getUser(request));
         return ResponseEntity.ok(ApiResponse.success(null));
     }

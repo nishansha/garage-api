@@ -26,9 +26,7 @@ public class DirectEntryController {
     private final DirectEntryService directEntryService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<DirectEntryRs>> getAll(
-            @RequestParam("page") int page,
-            @RequestParam("size") int size) {
+    ResponseEntity<ApiResponse<DirectEntryRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("entryDate").descending());
         return ResponseEntity.ok(ApiResponse.success(directEntryService.getAll(pageable)));
     }
@@ -40,26 +38,24 @@ public class DirectEntryController {
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<DirectEntryRs>> create(@Valid @RequestBody DirectEntryRq rq) {
+        log.info(":: DirectEntryController - create () - {} ::", rq);
         return ResponseEntity.ok(ApiResponse.success(directEntryService.create(rq)));
     }
 
     @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<DirectEntryRs>> update(
-            @PathVariable("id") Long id,
-            @Valid @RequestBody DirectEntryRq rq) {
+    ResponseEntity<ApiResponse<DirectEntryRs>> update(@PathVariable("id") Long id, @Valid @RequestBody DirectEntryRq rq) {
+        log.info(":: DirectEntryController - update () - id-{}, {} ::", id, rq);
         return ResponseEntity.ok(ApiResponse.success(directEntryService.update(id, rq)));
     }
 
     @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<DirectEntryRs>> delete(@PathVariable("id") Long id) {
+        log.info(":: DirectEntryController - delete () - id - {} ::", id);
         return ResponseEntity.ok(ApiResponse.success(directEntryService.delete(id)));
     }
 
     @PostMapping(value = "/find", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<DirectEntryRs>> find(
-            @RequestBody FilterRq filter,
-            @RequestParam("page") int page,
-            @RequestParam("size") int size) {
+    ResponseEntity<ApiResponse<DirectEntryRs>> find(@RequestBody FilterRq filter, @RequestParam("page") int page, @RequestParam("size") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("entryDate").descending());
         return ResponseEntity.ok(ApiResponse.success(directEntryService.search(filter, pageable)));
     }

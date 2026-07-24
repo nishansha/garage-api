@@ -41,23 +41,20 @@ public class ReportController {
     private final JournalReportCsvWriter journalReportCsvWriter;
 
     @GetMapping(value = "/pl", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(
-            @RequestParam(value = "month", required = false) String month) {
+    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(@RequestParam(value = "month", required = false) String month) {
         YearMonth yearMonth = parseMonth(month);
         return ResponseEntity.ok(ApiResponse.success(reportService.getProfitAndLoss(yearMonth)));
     }
 
     @GetMapping(value = "/pl/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadProfitAndLossCsv(
-            @RequestParam(value = "month", required = false) String month) {
+    ResponseEntity<byte[]> downloadProfitAndLossCsv(@RequestParam(value = "month", required = false) String month) {
         YearMonth yearMonth = parseMonth(month);
         String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth));
         return csvResponse(csv, "business-summary-" + yearMonth + ".csv");
     }
 
     @GetMapping(value = "/trend", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<MonthlyTrendRs>> getMonthlyTrend(
-            @RequestParam(value = "months", defaultValue = "6") int months) {
+    ResponseEntity<ApiResponse<MonthlyTrendRs>> getMonthlyTrend(@RequestParam(value = "months", defaultValue = "6") int months) {
         if (months < 1 || months > 12) {
             throw new BusinessException("RPT_401", "months must be between 1 and 12");
         }
@@ -65,29 +62,23 @@ public class ReportController {
     }
 
     @GetMapping(value = "/trial-balance", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<TrialBalanceRs>> getTrialBalance(
-            @RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
-            @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
+    ResponseEntity<ApiResponse<TrialBalanceRs>> getTrialBalance(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
         return ResponseEntity.ok(ApiResponse.success(journalQueryService.getTrialBalance(asOfDate, includeZeroBalance)));
     }
 
     @GetMapping(value = "/trial-balance/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadTrialBalanceCsv(
-            @RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
-            @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
+    ResponseEntity<byte[]> downloadTrialBalanceCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
         var rs = journalQueryService.getTrialBalance(asOfDate, includeZeroBalance);
         return csvResponse(journalReportCsvWriter.trialBalanceCsv(rs), "trial-balance-" + rs.getAsOfDate() + ".csv");
     }
 
     @GetMapping(value = "/balance-sheet", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<BalanceSheetRs>> getBalanceSheet(
-            @RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
+    ResponseEntity<ApiResponse<BalanceSheetRs>> getBalanceSheet(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         return ResponseEntity.ok(ApiResponse.success(journalQueryService.getBalanceSheet(asOfDate)));
     }
 
     @GetMapping(value = "/balance-sheet/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadBalanceSheetCsv(
-            @RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
+    ResponseEntity<byte[]> downloadBalanceSheetCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
         var rs = journalQueryService.getBalanceSheet(asOfDate);
         return csvResponse(journalReportCsvWriter.balanceSheetCsv(rs), "balance-sheet-" + rs.getAsOfDate() + ".csv");
     }
@@ -103,27 +94,19 @@ public class ReportController {
     }
 
     @GetMapping(value = "/pl-from-journal", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PLFromJournalRs>> getPLFromJournal(
-            @RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+    ResponseEntity<ApiResponse<PLFromJournalRs>> getPLFromJournal(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         return ResponseEntity.ok(ApiResponse.success(journalQueryService.getPLFromJournal(fromDate, toDate)));
     }
 
     @GetMapping(value = "/pl-from-journal/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadPLFromJournalCsv(
-            @RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+    ResponseEntity<byte[]> downloadPLFromJournalCsv(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         var rs = journalQueryService.getPLFromJournal(fromDate, toDate);
         return csvResponse(journalReportCsvWriter.plFromJournalCsv(rs), "pl-from-journal-" + rs.getFromDate() + "_" + rs.getToDate() + ".csv");
     }
 
     private ResponseEntity<byte[]> csvResponse(String csv, String filename) {
-        // UTF-8 BOM so Excel renders non-ASCII names correctly.
         byte[] body = ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(body);
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"").contentType(MediaType.parseMediaType("text/csv")).body(body);
     }
 
     private YearMonth parseMonth(String month) {
