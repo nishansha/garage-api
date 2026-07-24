@@ -56,7 +56,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     volumes:
       - ./web/dist:/usr/share/nginx/html:ro
       - ./web/vite/dist:/usr/share/nginx/vite:ro

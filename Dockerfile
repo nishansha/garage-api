@@ -13,6 +13,10 @@ RUN mvn -B -q -DskipTests package \
 FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 10001 garage \
     && useradd --system --uid 10001 --gid garage --create-home --shell /usr/sbin/nologin garage \
     && mkdir -p /app/logs \
@@ -23,4 +27,6 @@ COPY --from=build /workspace/app.jar app.jar
 
 EXPOSE 8080
 ENV JAVA_OPTS=""
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
