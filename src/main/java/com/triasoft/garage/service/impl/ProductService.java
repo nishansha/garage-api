@@ -11,6 +11,9 @@ import com.triasoft.garage.model.product.ProductRs;
 import com.triasoft.garage.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -58,6 +61,7 @@ public class ProductService {
         return productDTO;
     }
 
+    @Cacheable(value = "productCategories", key = "'all'")
     public ProductRs getCategories(ProductRq productRq) {
         List<ProductCategory> categories = productCategoryRepository.findByActiveTrue();
         if (CollectionUtils.isEmpty(categories))
@@ -65,6 +69,7 @@ public class ProductService {
         return ProductRs.builder().categories(categories.stream().map(this::toCategoryDTO).toList()).build();
     }
 
+    @Cacheable(value = "productSegments", key = "#productRq.categoryId")
     public ProductRs getSegments(ProductRq productRq) {
         List<ProductSegment> segments = productSegmentRepository.findByProductCategoryIdAndActiveTrue(productRq.getCategoryId());
         if (CollectionUtils.isEmpty(segments))
@@ -72,6 +77,7 @@ public class ProductService {
         return ProductRs.builder().segments(segments.stream().map(this::toSegmentDTO).toList()).build();
     }
 
+    @Cacheable(value = "productBrands", key = "#productRq.categoryId")
     public ProductRs getBrands(ProductRq productRq) {
         List<ProductBrand> brands = productBrandRepository.findByProductCategoryIdAndActiveTrue(productRq.getCategoryId());
         if (CollectionUtils.isEmpty(brands))
@@ -79,6 +85,7 @@ public class ProductService {
         return ProductRs.builder().brands(brands.stream().map(this::toBrandDTO).toList()).build();
     }
 
+    @Cacheable(value = "productModels", key = "#productRq.brandId")
     public ProductRs getModels(ProductRq productRq) {
         List<ProductBrandModel> models = productBrandModelRepository.findByProductBrandIdAndActiveTrue(productRq.getBrandId());
         if (CollectionUtils.isEmpty(models))
@@ -86,6 +93,7 @@ public class ProductService {
         return ProductRs.builder().models(models.stream().map(this::toModelDTO).toList()).build();
     }
 
+    @Cacheable(value = "productVarients", key = "#productRq.modelId")
     public ProductRs getVarients(ProductRq productRq) {
         List<ProductModelVarient> varients = productModelVarientRepository.findByProductBrandModelIdAndActiveTrue(productRq.getModelId());
         if (CollectionUtils.isEmpty(varients))
@@ -170,6 +178,13 @@ public class ProductService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "productCategories", allEntries = true),
+            @CacheEvict(value = "productSegments", allEntries = true),
+            @CacheEvict(value = "productBrands", allEntries = true),
+            @CacheEvict(value = "productModels", allEntries = true),
+            @CacheEvict(value = "productVarients", allEntries = true)
+    })
     public ProductRs manageProductTypes(ProductRq productRq, UserDTO user) {
         switch (productRq.getType()) {
             case CATEGORY:

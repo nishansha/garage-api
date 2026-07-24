@@ -27,6 +27,11 @@ spring:
         prepStmtCacheSize: 250
         prepStmtCacheSqlLimit: 2048
         useServerPrepStmts: true
+  cache:
+    type: caffeine
+    cache-names: productCategories,productSegments,productBrands,productModels,productVarients
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=30m
   jpa:
 #    database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: false
