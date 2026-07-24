@@ -20,7 +20,7 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 60000
       validation-timeout: 30000
-      leak-detection-threshold: 0
+      leak-detection-threshold: 30000
       initialization-fail-timeout: 1
       data-source-properties:
         cachePrepStmts: true
