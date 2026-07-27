@@ -534,6 +534,9 @@ public class PurchaseService {
         }
         PurchaseDetail detail = purchase.getPurchaseDetails().get(0);
         detail.setProduct(product);
+        detail.setProductNo(purchaseRq.getVehicleNo());
+        detail.setUuid(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
+        detail.setOdometer(purchaseRq.getOdometer());
         detail.setUnitCost(purchaseRq.getPurchaseRate());
         detail.setOwnershipSerialNo(purchaseRq.getOwnerShipSerialNo());
         Purchase savedPurchase = purchaseRepository.save(purchase);
@@ -609,14 +612,15 @@ public class PurchaseService {
         Vendor newVendor = new Vendor();
         newVendor.setName(purchaseRq.getOwnerName());
         newVendor.setMobile(purchaseRq.getOwnerMobileNo());
+        newVendor.setAddress(purchaseRq.getOwnerAddress());
         return vendorRepository.save(newVendor);
     }
 
     private void updateVendor(Purchase purchase, PurchaseRq purchaseRq, UserDTO user) {
         Vendor vendor = vendorRepository.findByMobile(purchaseRq.getOwnerMobileNo()).orElseGet(() -> createVendor(purchaseRq, user));
-
         if (!vendor.getName().equalsIgnoreCase(purchaseRq.getOwnerName())) {
             vendor.setName(purchaseRq.getOwnerName());
+            vendor.setAddress(purchaseRq.getOwnerAddress());
             vendorRepository.save(vendor);
         }
         purchase.setVendor(vendor);
