@@ -22,7 +22,7 @@ public class VendorService {
     private final VendorRepository vendorRepository;
 
     public VendorRs getVendors(Pageable pageable, UserDTO user) {
-        Page<VendorBalanceRow> vendorPage = vendorRepository.findVendorsWithOutstandingBalance(pageable);
+        Page<VendorBalanceRow> vendorPage = vendorRepository.findVendorsWithOutstandingBalance(user.getTenantId(), pageable);
         List<VendorSummaryDTO> vendors = vendorPage.getContent().stream()
                 .map(this::convertToDTO)
                 .toList();

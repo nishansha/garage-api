@@ -15,7 +15,7 @@ import java.io.Serial;
 @DynamicUpdate
 @Table(name = "app_product")
 @SoftDelete(columnName = "deleted")
-public class Product extends AuditGenericEntity {
+public class Product extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = -5166801877656166200L;

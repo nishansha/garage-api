@@ -16,7 +16,7 @@ import java.io.Serial;
 @DynamicUpdate
 @Table(name = "user_profile")
 @SoftDelete(columnName = "deleted")
-public class UserProfile extends GenericEntity {
+public class UserProfile extends TenantScopedEntity {
 
     @Serial
     private static final long serialVersionUID = -7124710920831301261L;

@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @Entity
 @DynamicUpdate
 @Table(name = "app_journal_detail")
-public class JournalDetail extends AuditGenericEntity {
+public class JournalDetail extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

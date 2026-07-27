@@ -14,7 +14,7 @@ import java.io.Serial;
 @Entity
 @DynamicUpdate
 @Table(name = "fnd_chart_of_accounts")
-public class ChartOfAccount extends AuditGenericEntity {
+public class ChartOfAccount extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 83123994249939691L;

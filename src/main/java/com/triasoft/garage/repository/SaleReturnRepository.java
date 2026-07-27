@@ -54,10 +54,11 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
                 GROUP BY sale_return_id
             ) ref_sum ON ref_sum.sale_return_id = sr.id
             WHERE sr.deleted = false
+              AND sr.tenant_id = :tenantId
               AND (sr.refund_amount - COALESCE(ref_sum.refunded, 0)) > 0
             ORDER BY sr.return_date DESC
             """, nativeQuery = true)
-    List<SaleReturnPayableRow> findPayables();
+    List<SaleReturnPayableRow> findPayables(@Param("tenantId") Long tenantId);
 
     @Query(value = """
             SELECT COALESCE(SUM(
@@ -65,7 +66,8 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
                    + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0)
             FROM app_sale_return sr
             WHERE sr.deleted = false
+              AND sr.tenant_id = :tenantId
               AND sr.return_date BETWEEN :startDate AND :endDate
             """, nativeQuery = true)
-    BigDecimal sumDeductionIncomeByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    BigDecimal sumDeductionIncomeByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

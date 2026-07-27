@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 @Table(name = "app_sale_return_deduction")
 @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
 @AuditOverride(forClass = AuditGenericEntity.class)
-public class SaleReturnDeduction extends AuditGenericEntity {
+public class SaleReturnDeduction extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

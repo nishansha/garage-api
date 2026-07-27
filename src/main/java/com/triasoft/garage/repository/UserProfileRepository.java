@@ -13,6 +13,8 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, Long> 
 
     UserProfile findByUsername(String username);
 
+    List<UserProfile> findAllByTenantId(Long tenantId);
+
     @Query("select distinct up from UserProfile up join UserRole ur on ur.userId = up.id join Role r on r.id = ur.roleId where r.code = :code")
     List<UserProfile> findByRoleCode(@Param("code") String code);
 

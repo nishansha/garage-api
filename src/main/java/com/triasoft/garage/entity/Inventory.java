@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @DynamicUpdate
 @Table(name = "app_inventory")
 @SoftDelete(columnName = "deleted")
-public class Inventory extends AuditGenericEntity {
+public class Inventory extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = -4111029880972400132L;

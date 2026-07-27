@@ -79,7 +79,7 @@ public class ExpenseService {
 
     public ExpenseSummaryRs summary(UserDTO user) {
         LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
-        ExpenseMetrics metrics = expenseRepository.getExpenseMetrics(startOfMonth);
+        ExpenseMetrics metrics = expenseRepository.getExpenseMetrics(user.getTenantId(), startOfMonth);
         return ExpenseSummaryRs.builder()
                 .companyExpenses((metrics.getTotalGeneralExpense() != null ? metrics.getTotalGeneralExpense() : BigDecimal.ZERO).toString())
                 .purchaseExpenses((metrics.getTotalPurchaseExpense() != null ? metrics.getTotalPurchaseExpense() : BigDecimal.ZERO).toString())

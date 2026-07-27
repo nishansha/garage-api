@@ -13,15 +13,18 @@ import java.io.Serial;
 @Setter
 @Entity
 @DynamicUpdate
-@Table(name = "user_role")
-public class UserRole extends TenantScopedEntity {
+@Table(name = "fnd_tenant")
+public class Tenant extends AuditGenericEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "code", nullable = false, unique = true)
+    private String code;
 
-    @Column(name = "role_id", nullable = false)
-    private Long roleId;
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "status", nullable = false)
+    private String status;
 }

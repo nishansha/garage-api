@@ -8,7 +8,7 @@ import com.triasoft.garage.model.user.UserRoleRq;
 import com.triasoft.garage.model.user.UserRq;
 import com.triasoft.garage.model.user.UserRs;
 import com.triasoft.garage.repository.UserProfileRepository;
-import com.triasoft.garage.repository.UserRoleRepository;
+import com.triasoft.garage.security.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,6 @@ import java.util.Objects;
 public class UserService {
 
     private final UserProfileRepository userProfileRepository;
-    private final UserRoleRepository userRoleRepository;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
 
@@ -33,7 +32,7 @@ public class UserService {
     }
 
     public UserRs getStaffs(UserDTO user) {
-        List<UserProfile> staffs = userProfileRepository.findAll();
+        List<UserProfile> staffs = userProfileRepository.findAllByTenantId(user.getTenantId());
         List<UserDTO> users = staffs.stream()
                 .filter(usr -> !"SUPERADMIN".equalsIgnoreCase(user.getRole()))
                 .map(staff -> UserDTO.builder().id(staff.getId()).userName(staff.getName()).build()).toList();
@@ -54,6 +53,7 @@ public class UserService {
         newUser.setUsername(userRq.getUserName().trim());
         newUser.setPassword(passwordEncoder.encode(userRq.getPassword().trim()));
         newUser.setDesignation(userRq.getDesignation());
+        newUser.setTenantId(user.getTenantId());
         userProfileRepository.save(newUser);
         roleService.assignUserRoles(newUser.getId(), UserRoleRq.builder().roleIds(userRq.getRoleIds()).build());
         return UserRs.builder().build();
@@ -79,7 +79,7 @@ public class UserService {
     }
 
     public UserRs getAll(UserDTO user) {
-        List<UserProfile> userProfiles = userProfileRepository.findAll();
+        List<UserProfile> userProfiles = userProfileRepository.findAllByTenantId(user.getTenantId());
         return UserRs.builder().users(userProfiles.stream()
                 .filter(usr -> !"SUPERADMIN".equalsIgnoreCase(usr.getRole()))
                 .map(this::toDTO).toList())
@@ -89,6 +89,7 @@ public class UserService {
     private UserDTO toDTO(UserProfile userProfile) {
         return UserDTO.builder()
                 .id(userProfile.getId())
+                .tenantId(userProfile.getTenantId())
                 .userName(userProfile.getUsername())
                 .name(userProfile.getName())
                 .role(userProfile.getRole())
@@ -98,7 +99,11 @@ public class UserService {
     }
 
     private List<String> resolveRoles(UserProfile userProfile) {
-        List<String> roles = userRoleRepository.findRoleCodesByUserId(userProfile.getId());
+        // Role carries Hibernate's @TenantId, and this method is on the identity-resolution
+        // path used by login/refresh - before this call, nothing has set the tenant for this
+        // request yet. Establish it here from the identity we just resolved.
+        TenantContext.set(userProfile.getTenantId());
+        List<String> roles = roleService.resolveRoleCodesForUser(userProfile.getId());
         if (roles.isEmpty() && StringUtils.hasLength(userProfile.getRole())) {
             return List.of(userProfile.getRole().toUpperCase());
         }

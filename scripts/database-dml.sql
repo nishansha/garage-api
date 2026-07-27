@@ -6,6 +6,142 @@ INSERT INTO public.app_product_segment VALUES (2, 1, 'HATCH', 'Hatchback', true,
 INSERT INTO public.app_product_segment VALUES (3, 1, 'SUV', 'SUV', true, 1);
 INSERT INTO public.app_product_segment VALUES (4, 1, 'COMPACT_SUV', 'Compact SUV', true, 4);
 
+
+
+
+INSERT INTO public.fnd_chart_of_accounts VALUES (80, '6102', 'E - 6102', 'Mechanical', 'EXPENSE', false, '2026-06-16 00:02:06.522324', 1, '2026-06-16 00:02:06.522324', 1, 'Mechanical', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (81, '6103', 'E - 6103', 'Painting', 'EXPENSE', false, '2026-06-16 00:02:25.669958', 1, '2026-06-16 00:02:25.669958', 1, 'Painting', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (87, '3000', 'E-OE', 'Owner''s capital contributions to the business.', 'EQUITY', false, NULL, NULL, NULL, NULL, 'Owner''s Equity', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (88, '3100', 'E-OD', 'Withdrawals by the owner from the business.', 'EQUITY', false, NULL, NULL, NULL, NULL, 'Owner''s Drawing', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (2, '1100', 'A-ACR', 'Money owed to the company by customers. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Accounts Receivable (A/R)', false, false, 'AR', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (34, '1150', 'A-FR', 'Amount due from finance companies for financed vehicle sales.', 'ASSET', false, '2026-06-13 00:13:04.445205', 1, NULL, NULL, 'Finance Receivable', false, false, 'FINANCE_RECEIVABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (96, '1170', 'VND-REF-REC', 'Vendor Refund Receivable', 'ASSET', true, NULL, NULL, NULL, NULL, 'Money owed to us by vendors for returned purchases', false, false, 'VENDOR_REFUND_RECEIVABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (3, '1200', 'A-INV', 'Total cost of all vehicles in stock. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Inventory - Vehicles', false, false, 'INVENTORY', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (9, '2000', 'L-ACP', 'Money owed by the company to vendors/suppliers. (Control Account)', 'LIABILITY', true, NULL, NULL, NULL, NULL, 'Accounts Payable (A/P)', false, false, 'AP', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (89, '2400', 'L-CSP', 'Amounts owed to customers from trade-in exchanges where exchange value exceeds sale value.', 'LIABILITY', false, NULL, NULL, NULL, NULL, 'Customer Settlement Payable', false, false, 'CUSTOMER_SETTLEMENT_PAYABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (38, '3900', 'E-OBE', 'Temporary clearing account for opening balances during initial setup.', 'EQUITY', false, '2026-06-13 00:13:04.445205', 1, NULL, NULL, 'Opening Balance Equity', false, false, 'OPENING_BALANCE_EQUITY', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (16, '4000', 'R-IN', 'Gross revenue from the sale of new and used vehicles.', 'REVENUE', false, NULL, NULL, NULL, NULL, 'Sales Revenue - Vehicles', false, false, 'SALES_REVENUE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (20, '5000', 'CGOS-IN', 'The landed_cost of vehicles that have been sold.', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'COGS - Vehicles', false, false, 'COGS', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (22, '6000', 'E-RENT', 'Rent for the dealership lot and offices.', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'Rent Expense', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (24, '6100', 'E-SLRY', 'Gross pay for all employees (sales, admin, service).', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'Salaries & Wages Expense', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (79, '6101', 'E - 6101', 'Fuel', 'EXPENSE', false, '2026-06-15 23:54:18.905554', 1, '2026-06-15 23:54:18.905554', 1, 'Fuel', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (82, '4001', 'R - 4001', 'Commission Income', 'REVENUE', false, '2026-06-16 00:04:53.248193', 1, '2026-06-16 00:04:53.248193', 1, 'Commission Income', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (83, '6104', 'E - 6104', 'Internet Or Wifi', 'EXPENSE', false, '2026-06-16 00:05:45.999346', 1, '2026-06-16 00:05:45.999346', 1, 'Internet Or Wifi', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (84, '6105', 'E - 6105', 'Rent', 'EXPENSE', false, '2026-06-16 00:05:58.061935', 1, '2026-06-16 00:05:58.061935', 1, 'Rent', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (99, '2410', 'CUST-REF-PAY', 'Customer Refund Payable', 'LIABILITY', true, NULL, NULL, NULL, NULL, 'Money owed to customers for returned sales, pending refund', false, false, 'CUSTOMER_REFUND_PAYABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (92, '4520', 'RTN-INC-DED', 'Return Deduction Income', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Return Deduction Income', false, false, 'RETURN_DEDUCTION_INCOME', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (93, '4530', 'RTN-INC-EXGAIN', 'Gain on Exchange Adjustment', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Gain on Exchange Adjustment', false, false, 'GAIN_ON_EXCHANGE_ADJ', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (94, '5510', 'RTN-EXP-EXCH', 'Loss on Returned Exchange Vehicle', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Returned Exchange Vehicle', false, false, 'LOSS_RETURNED_EXCHANGE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (95, '5520', 'RTN-EXP-PUR', 'Loss on Purchase Return', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Purchase Return', false, false, 'LOSS_PURCHASE_RETURN', 0);
+
+
+--
+-- TOC entry 4396 (class 0 OID 16908)
+-- Dependencies: 216
+-- Data for Name: fnd_lookup_master; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO public.fnd_lookup_master VALUES (5, 'PENDING', 'Pending', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (6, 'RECIEVED', 'Completed', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (7, 'CANCELLED', 'Cancelled', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (8, 'PENDING', 'Pending', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (9, 'COMPLETED', 'Completed', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (10, 'BLACK', 'Black', 0, true, NULL, NULL, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (11, 'WHITE', 'White', 0, true, NULL, NULL, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (45, 'RETURNED', 'Returned', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (46, 'RETURNED', 'Returned', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (47, 'PETROL', 'Petrol', 1, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (48, 'DIESEL', 'Diesel', 2, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (49, 'CNG', 'CNG', 3, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (50, 'ELECTRIC', 'Electric', 4, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (51, 'HYBRID', 'Hybrid', 5, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (52, 'LPG', 'LPG', 6, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (54, 'PEARL_WHITE', 'Pearl White', 2, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (55, 'ARCTIC_WHITE', 'Arctic White', 3, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (56, 'GLACIER_WHITE', 'Glacier White', 4, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (57, 'SUPER_WHITE', 'Super White', 5, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (58, 'OFF_WHITE', 'Off White', 6, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (60, 'MIDNIGHT_BLACK', 'Midnight Black', 11, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (61, 'METALLIC_BLACK', 'Metallic Black', 12, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (62, 'PHANTOM_BLACK', 'Phantom Black', 13, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (63, 'SILVER', 'Silver', 20, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (64, 'METALLIC_SILVER', 'Metallic Silver', 21, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (65, 'SPACE_SILVER', 'Space Silver', 22, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (66, 'PREMIUM_SILVER', 'Premium Silver', 23, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (67, 'GREY', 'Grey', 30, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (68, 'GUNMETAL_GREY', 'Gunmetal Grey', 31, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (69, 'TITANIUM_GREY', 'Titanium Grey', 32, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (70, 'STEEL_GREY', 'Steel Grey', 33, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (71, 'GRAPHITE_GREY', 'Graphite Grey', 34, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (72, 'MAGNETIC_GREY', 'Magnetic Grey', 35, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (73, 'RED', 'Red', 40, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (74, 'METALLIC_RED', 'Metallic Red', 41, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (75, 'FIERY_RED', 'Fiery Red', 42, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (76, 'WINE_RED', 'Wine Red', 43, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (77, 'CHERRY_RED', 'Cherry Red', 44, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (78, 'MAROON', 'Maroon', 45, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (79, 'BLUE', 'Blue', 50, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (80, 'METALLIC_BLUE', 'Metallic Blue', 51, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (81, 'SKY_BLUE', 'Sky Blue', 52, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (82, 'OCEAN_BLUE', 'Ocean Blue', 53, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (83, 'NAVY_BLUE', 'Navy Blue', 54, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (84, 'ELECTRIC_BLUE', 'Electric Blue', 55, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (85, 'NEXA_BLUE', 'Nexa Blue', 56, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (86, 'GREEN', 'Green', 60, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (87, 'METALLIC_GREEN', 'Metallic Green', 61, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (88, 'FOREST_GREEN', 'Forest Green', 62, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (89, 'OLIVE_GREEN', 'Olive Green', 63, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (90, 'YELLOW', 'Yellow', 70, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (91, 'SUNNY_YELLOW', 'Sunny Yellow', 71, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (92, 'ORANGE', 'Orange', 80, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (93, 'METALLIC_ORANGE', 'Metallic Orange', 81, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (94, 'BROWN', 'Brown', 90, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (95, 'METALLIC_BROWN', 'Metallic Brown', 91, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (96, 'COFFEE_BROWN', 'Coffee Brown', 92, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (97, 'BEIGE', 'Beige', 100, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (98, 'CREAM', 'Cream', 101, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (99, 'CHAMPAGNE', 'Champagne', 102, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (100, 'GOLDEN', 'Golden', 110, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (101, 'BRONZE', 'Bronze', 111, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (102, 'COPPER', 'Copper', 112, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (103, 'PURPLE', 'Purple', 120, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (104, 'MAGENTA', 'Magenta', 121, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (105, 'DUAL_TONE', 'Dual Tone', 200, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (106, 'OTHER', 'Other', 999, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (107, 'TO_CHARGE', 'TO Charge', 1, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (108, 'RCD', 'RCD', 2, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (109, 'IM_REFUND', 'IM Refund', 3, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (110, 'MT', 'MT', 1, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (111, 'AMT', 'AMT', 2, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (112, 'CVT/IVT', 'CVT/IVT', 3, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (113, 'DCT/DSG', 'DCT/DSG', 4, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (114, 'IMT', 'IMT', 5, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+INSERT INTO public.fnd_lookup_master VALUES (115, 'AT', 'AT', 6, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
+
+INSERT INTO public.fnd_product_category VALUES (1, 'VEHICLE', 'Vehicles', 0, true, true, 'EOY');
+
+INSERT INTO public.fnd_product_brand VALUES (1, 1, 'MARUTISUZUKI', 'Maruti Suzuki', 1, true);
+INSERT INTO public.fnd_product_brand VALUES (2, 1, 'TOYOTA', 'Toyota', 2, true);
+INSERT INTO public.fnd_product_brand VALUES (3, 1, 'HYUNDAI', 'Hyundai', 3, true);
+INSERT INTO public.fnd_product_brand VALUES (4, 1, 'TATA', 'Tata', 4, true);
+INSERT INTO public.fnd_product_brand VALUES (5, 1, 'KIA', 'Kia', 5, true);
+INSERT INTO public.fnd_product_brand VALUES (6, 1, 'MGMOTORS', 'MG Motors', 6, true);
+INSERT INTO public.fnd_product_brand VALUES (7, 1, 'MAHINDRA', 'Mahindra', 7, true);
+INSERT INTO public.fnd_product_brand VALUES (8, 1, 'JEEP', 'Jeep', 8, true);
+INSERT INTO public.fnd_product_brand VALUES (9, 1, 'HONDA', 'Honda', 9, true);
+INSERT INTO public.fnd_product_brand VALUES (10, 1, 'SKODA', 'Skoda', 10, true);
+INSERT INTO public.fnd_product_brand VALUES (11, 1, 'CITROEN', 'Citroen', 11, true);
+INSERT INTO public.fnd_product_brand VALUES (12, 1, 'RENAULT', 'Renault', 12, true);
+INSERT INTO public.fnd_product_brand VALUES (13, 1, 'NISSAN', 'Nissan', 13, true);
+INSERT INTO public.fnd_product_brand VALUES (14, 1, 'VOLKSWAGEN', 'Volkswagen', 14, true);
+INSERT INTO public.fnd_product_brand VALUES (15, 1, 'CHEVROLET', 'Chevrolet', 15, true);
+INSERT INTO public.fnd_product_brand VALUES (16, 1, 'FORD', 'Ford', 16, true);
+INSERT INTO public.fnd_product_brand VALUES (17, 1, 'MERCEDESBENZ', 'Mercedes Benz', 17, true);
+INSERT INTO public.fnd_product_brand VALUES (18, 1, 'AUDI', 'Audi', 18, true);
+INSERT INTO public.fnd_product_brand VALUES (19, 1, 'BMW', 'BMW', 19, true);
+INSERT INTO public.fnd_product_brand VALUES (20, 1, 'TEST', 'Test', NULL, true);
+INSERT INTO public.fnd_product_brand VALUES (21, 1, 'TES2', 'Test 2', NULL, true);
+
 INSERT INTO public.fnd_brand_model VALUES (1, 1, 'MARUTI800', 'Maruti 800', 1, true);
 INSERT INTO public.fnd_brand_model VALUES (2, 1, 'ZEN', 'Zen', 2, true);
 INSERT INTO public.fnd_brand_model VALUES (3, 1, 'ALTO', 'Alto', 3, true);
@@ -173,117 +309,6 @@ INSERT INTO public.fnd_brand_model VALUES (164, 16, 'IKON', 'Ikon', 5, true);
 INSERT INTO public.fnd_brand_model VALUES (165, 16, 'ENDEAVOUR', 'Endeavour', 6, true);
 INSERT INTO public.fnd_brand_model VALUES (166, 16, 'FUSION', 'Fusion', 7, true);
 INSERT INTO public.fnd_brand_model VALUES (167, 19, '360I', '360i', NULL, true);
-
-
-INSERT INTO public.fnd_chart_of_accounts VALUES (80, '6102', 'E - 6102', 'Mechanical', 'EXPENSE', false, '2026-06-16 00:02:06.522324', 1, '2026-06-16 00:02:06.522324', 1, 'Mechanical', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (81, '6103', 'E - 6103', 'Painting', 'EXPENSE', false, '2026-06-16 00:02:25.669958', 1, '2026-06-16 00:02:25.669958', 1, 'Painting', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (87, '3000', 'E-OE', 'Owner''s capital contributions to the business.', 'EQUITY', false, NULL, NULL, NULL, NULL, 'Owner''s Equity', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (88, '3100', 'E-OD', 'Withdrawals by the owner from the business.', 'EQUITY', false, NULL, NULL, NULL, NULL, 'Owner''s Drawing', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (2, '1100', 'A-ACR', 'Money owed to the company by customers. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Accounts Receivable (A/R)', false, false, 'AR', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (34, '1150', 'A-FR', 'Amount due from finance companies for financed vehicle sales.', 'ASSET', false, '2026-06-13 00:13:04.445205', 1, NULL, NULL, 'Finance Receivable', false, false, 'FINANCE_RECEIVABLE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (96, '1170', 'VND-REF-REC', 'Vendor Refund Receivable', 'ASSET', true, NULL, NULL, NULL, NULL, 'Money owed to us by vendors for returned purchases', false, false, 'VENDOR_REFUND_RECEIVABLE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (3, '1200', 'A-INV', 'Total cost of all vehicles in stock. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Inventory - Vehicles', false, false, 'INVENTORY', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (9, '2000', 'L-ACP', 'Money owed by the company to vendors/suppliers. (Control Account)', 'LIABILITY', true, NULL, NULL, NULL, NULL, 'Accounts Payable (A/P)', false, false, 'AP', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (89, '2400', 'L-CSP', 'Amounts owed to customers from trade-in exchanges where exchange value exceeds sale value.', 'LIABILITY', false, NULL, NULL, NULL, NULL, 'Customer Settlement Payable', false, false, 'CUSTOMER_SETTLEMENT_PAYABLE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (38, '3900', 'E-OBE', 'Temporary clearing account for opening balances during initial setup.', 'EQUITY', false, '2026-06-13 00:13:04.445205', 1, NULL, NULL, 'Opening Balance Equity', false, false, 'OPENING_BALANCE_EQUITY', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (16, '4000', 'R-IN', 'Gross revenue from the sale of new and used vehicles.', 'REVENUE', false, NULL, NULL, NULL, NULL, 'Sales Revenue - Vehicles', false, false, 'SALES_REVENUE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (20, '5000', 'CGOS-IN', 'The landed_cost of vehicles that have been sold.', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'COGS - Vehicles', false, false, 'COGS', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (22, '6000', 'E-RENT', 'Rent for the dealership lot and offices.', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'Rent Expense', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (24, '6100', 'E-SLRY', 'Gross pay for all employees (sales, admin, service).', 'EXPENSE', false, NULL, NULL, NULL, NULL, 'Salaries & Wages Expense', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (79, '6101', 'E - 6101', 'Fuel', 'EXPENSE', false, '2026-06-15 23:54:18.905554', 1, '2026-06-15 23:54:18.905554', 1, 'Fuel', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (82, '4001', 'R - 4001', 'Commission Income', 'REVENUE', false, '2026-06-16 00:04:53.248193', 1, '2026-06-16 00:04:53.248193', 1, 'Commission Income', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (83, '6104', 'E - 6104', 'Internet Or Wifi', 'EXPENSE', false, '2026-06-16 00:05:45.999346', 1, '2026-06-16 00:05:45.999346', 1, 'Internet Or Wifi', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (84, '6105', 'E - 6105', 'Rent', 'EXPENSE', false, '2026-06-16 00:05:58.061935', 1, '2026-06-16 00:05:58.061935', 1, 'Rent', false, true, NULL, 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (99, '2410', 'CUST-REF-PAY', 'Customer Refund Payable', 'LIABILITY', true, NULL, NULL, NULL, NULL, 'Money owed to customers for returned sales, pending refund', false, false, 'CUSTOMER_REFUND_PAYABLE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (92, '4520', 'RTN-INC-DED', 'Return Deduction Income', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Return Deduction Income', false, false, 'RETURN_DEDUCTION_INCOME', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (93, '4530', 'RTN-INC-EXGAIN', 'Gain on Exchange Adjustment', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Gain on Exchange Adjustment', false, false, 'GAIN_ON_EXCHANGE_ADJ', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (94, '5510', 'RTN-EXP-EXCH', 'Loss on Returned Exchange Vehicle', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Returned Exchange Vehicle', false, false, 'LOSS_RETURNED_EXCHANGE', 0);
-INSERT INTO public.fnd_chart_of_accounts VALUES (95, '5520', 'RTN-EXP-PUR', 'Loss on Purchase Return', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Purchase Return', false, false, 'LOSS_PURCHASE_RETURN', 0);
-
-
---
--- TOC entry 4396 (class 0 OID 16908)
--- Dependencies: 216
--- Data for Name: fnd_lookup_master; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-INSERT INTO public.fnd_lookup_master VALUES (5, 'PENDING', 'Pending', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (6, 'RECIEVED', 'Completed', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (7, 'CANCELLED', 'Cancelled', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (8, 'PENDING', 'Pending', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (9, 'COMPLETED', 'Completed', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (10, 'BLACK', 'Black', 0, true, NULL, NULL, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (11, 'WHITE', 'White', 0, true, NULL, NULL, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (45, 'RETURNED', 'Returned', 0, true, NULL, NULL, NULL, NULL, 'SALES_STAUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (46, 'RETURNED', 'Returned', 0, true, NULL, NULL, NULL, NULL, 'PURCHASE_STATUS', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (47, 'PETROL', 'Petrol', 1, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (48, 'DIESEL', 'Diesel', 2, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (49, 'CNG', 'CNG', 3, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (50, 'ELECTRIC', 'Electric', 4, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (51, 'HYBRID', 'Hybrid', 5, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (52, 'LPG', 'LPG', 6, true, NULL, NULL, NULL, NULL, 'FUEL_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (54, 'PEARL_WHITE', 'Pearl White', 2, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (55, 'ARCTIC_WHITE', 'Arctic White', 3, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (56, 'GLACIER_WHITE', 'Glacier White', 4, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (57, 'SUPER_WHITE', 'Super White', 5, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (58, 'OFF_WHITE', 'Off White', 6, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (60, 'MIDNIGHT_BLACK', 'Midnight Black', 11, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (61, 'METALLIC_BLACK', 'Metallic Black', 12, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (62, 'PHANTOM_BLACK', 'Phantom Black', 13, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (63, 'SILVER', 'Silver', 20, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (64, 'METALLIC_SILVER', 'Metallic Silver', 21, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (65, 'SPACE_SILVER', 'Space Silver', 22, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (66, 'PREMIUM_SILVER', 'Premium Silver', 23, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (67, 'GREY', 'Grey', 30, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (68, 'GUNMETAL_GREY', 'Gunmetal Grey', 31, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (69, 'TITANIUM_GREY', 'Titanium Grey', 32, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (70, 'STEEL_GREY', 'Steel Grey', 33, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (71, 'GRAPHITE_GREY', 'Graphite Grey', 34, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (72, 'MAGNETIC_GREY', 'Magnetic Grey', 35, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (73, 'RED', 'Red', 40, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (74, 'METALLIC_RED', 'Metallic Red', 41, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (75, 'FIERY_RED', 'Fiery Red', 42, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (76, 'WINE_RED', 'Wine Red', 43, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (77, 'CHERRY_RED', 'Cherry Red', 44, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (78, 'MAROON', 'Maroon', 45, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (79, 'BLUE', 'Blue', 50, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (80, 'METALLIC_BLUE', 'Metallic Blue', 51, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (81, 'SKY_BLUE', 'Sky Blue', 52, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (82, 'OCEAN_BLUE', 'Ocean Blue', 53, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (83, 'NAVY_BLUE', 'Navy Blue', 54, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (84, 'ELECTRIC_BLUE', 'Electric Blue', 55, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (85, 'NEXA_BLUE', 'Nexa Blue', 56, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (86, 'GREEN', 'Green', 60, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (87, 'METALLIC_GREEN', 'Metallic Green', 61, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (88, 'FOREST_GREEN', 'Forest Green', 62, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (89, 'OLIVE_GREEN', 'Olive Green', 63, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (90, 'YELLOW', 'Yellow', 70, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (91, 'SUNNY_YELLOW', 'Sunny Yellow', 71, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (92, 'ORANGE', 'Orange', 80, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (93, 'METALLIC_ORANGE', 'Metallic Orange', 81, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (94, 'BROWN', 'Brown', 90, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (95, 'METALLIC_BROWN', 'Metallic Brown', 91, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (96, 'COFFEE_BROWN', 'Coffee Brown', 92, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (97, 'BEIGE', 'Beige', 100, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (98, 'CREAM', 'Cream', 101, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (99, 'CHAMPAGNE', 'Champagne', 102, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (100, 'GOLDEN', 'Golden', 110, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (101, 'BRONZE', 'Bronze', 111, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (102, 'COPPER', 'Copper', 112, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (103, 'PURPLE', 'Purple', 120, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (104, 'MAGENTA', 'Magenta', 121, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (105, 'DUAL_TONE', 'Dual Tone', 200, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (106, 'OTHER', 'Other', 999, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (107, 'TO_CHARGE', 'TO Charge', 1, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (108, 'RCD', 'RCD', 2, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (109, 'IM_REFUND', 'IM Refund', 3, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (110, 'MT', 'MT', 1, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (111, 'AMT', 'AMT', 2, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (112, 'CVT/IVT', 'CVT/IVT', 3, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (113, 'DCT/DSG', 'DCT/DSG', 4, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (114, 'IMT', 'IMT', 5, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (115, 'AT', 'AT', 6, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
-
 
 INSERT INTO public.fnd_model_varient VALUES (1, 1, 'STD_P', 'STD', 1, true, 'PETROL');
 INSERT INTO public.fnd_model_varient VALUES (2, 1, 'AC_P', 'AC', 2, true, 'PETROL');
@@ -1085,29 +1110,8 @@ INSERT INTO public.fnd_model_varient VALUES (797, 166, 'PLUS_P', 'Plus', 2, true
 INSERT INTO public.fnd_model_varient VALUES (798, 167, 'M3', 'M3', NULL, true, NULL);
 
 
-INSERT INTO public.fnd_product_brand VALUES (1, 1, 'MARUTISUZUKI', 'Maruti Suzuki', 1, true);
-INSERT INTO public.fnd_product_brand VALUES (2, 1, 'TOYOTA', 'Toyota', 2, true);
-INSERT INTO public.fnd_product_brand VALUES (3, 1, 'HYUNDAI', 'Hyundai', 3, true);
-INSERT INTO public.fnd_product_brand VALUES (4, 1, 'TATA', 'Tata', 4, true);
-INSERT INTO public.fnd_product_brand VALUES (5, 1, 'KIA', 'Kia', 5, true);
-INSERT INTO public.fnd_product_brand VALUES (6, 1, 'MGMOTORS', 'MG Motors', 6, true);
-INSERT INTO public.fnd_product_brand VALUES (7, 1, 'MAHINDRA', 'Mahindra', 7, true);
-INSERT INTO public.fnd_product_brand VALUES (8, 1, 'JEEP', 'Jeep', 8, true);
-INSERT INTO public.fnd_product_brand VALUES (9, 1, 'HONDA', 'Honda', 9, true);
-INSERT INTO public.fnd_product_brand VALUES (10, 1, 'SKODA', 'Skoda', 10, true);
-INSERT INTO public.fnd_product_brand VALUES (11, 1, 'CITROEN', 'Citroen', 11, true);
-INSERT INTO public.fnd_product_brand VALUES (12, 1, 'RENAULT', 'Renault', 12, true);
-INSERT INTO public.fnd_product_brand VALUES (13, 1, 'NISSAN', 'Nissan', 13, true);
-INSERT INTO public.fnd_product_brand VALUES (14, 1, 'VOLKSWAGEN', 'Volkswagen', 14, true);
-INSERT INTO public.fnd_product_brand VALUES (15, 1, 'CHEVROLET', 'Chevrolet', 15, true);
-INSERT INTO public.fnd_product_brand VALUES (16, 1, 'FORD', 'Ford', 16, true);
-INSERT INTO public.fnd_product_brand VALUES (17, 1, 'MERCEDESBENZ', 'Mercedes Benz', 17, true);
-INSERT INTO public.fnd_product_brand VALUES (18, 1, 'AUDI', 'Audi', 18, true);
-INSERT INTO public.fnd_product_brand VALUES (19, 1, 'BMW', 'BMW', 19, true);
-INSERT INTO public.fnd_product_brand VALUES (20, 1, 'TEST', 'Test', NULL, true);
-INSERT INTO public.fnd_product_brand VALUES (21, 1, 'TES2', 'Test 2', NULL, true);
 
-INSERT INTO public.fnd_product_category VALUES (1, 'VEHICLE', 'Vehicles', 0, true, true, 'EOY');
+
 
 
 INSERT INTO public.fnd_product_segment VALUES (2, true, 'SEDAN', 'Sedan', 4, 1);

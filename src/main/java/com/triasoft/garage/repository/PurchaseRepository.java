@@ -138,34 +138,34 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
     @Query(value = """
             SELECT
               COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                        WHERE p.order_date >= :startOfMonth AND p.deleted = false
+                        WHERE p.tenant_id = :tenantId AND p.order_date >= :startOfMonth AND p.deleted = false
                           AND NOT EXISTS (
                               SELECT 1 FROM app_purchase_order_detail pod
                               JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
                               WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
                           )), 0)
               + COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                          WHERE p.buyback_recorded_at >= :startOfMonth
+                          WHERE p.tenant_id = :tenantId AND p.buyback_recorded_at >= :startOfMonth
                             AND p.deleted = false), 0)
               -
               COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
-                        WHERE pr.return_date >= :startOfMonth AND pr.deleted = false), 0) as totalThisMonth,
+                        WHERE pr.tenant_id = :tenantId AND pr.return_date >= :startOfMonth AND pr.deleted = false), 0) as totalThisMonth,
               COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                        WHERE p.order_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND p.deleted = false
+                        WHERE p.tenant_id = :tenantId AND p.order_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND p.deleted = false
                           AND NOT EXISTS (
                               SELECT 1 FROM app_purchase_order_detail pod
                               JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
                               WHERE pod.purchase_order_id = p.id AND inv.source_sale_id IS NOT NULL
                           )), 0)
               + COALESCE((SELECT SUM(p.total_amount) FROM app_purchase_order p
-                          WHERE p.buyback_recorded_at BETWEEN :startOfLastMonth AND :endOfLastMonth
+                          WHERE p.tenant_id = :tenantId AND p.buyback_recorded_at BETWEEN :startOfLastMonth AND :endOfLastMonth
                             AND p.deleted = false), 0)
               -
               COALESCE((SELECT SUM(pr.inventory_landed_cost) FROM app_purchase_return pr
-                        WHERE pr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND pr.deleted = false), 0) as totalLastMonth,
+                        WHERE pr.tenant_id = :tenantId AND pr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND pr.deleted = false), 0) as totalLastMonth,
               COALESCE((SELECT COUNT(*) FROM app_purchase_order p
                         LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
-                        WHERE p.order_date = :today AND p.deleted = false
+                        WHERE p.tenant_id = :tenantId AND p.order_date = :today AND p.deleted = false
                           AND (ls.code IS NULL OR ls.code <> 'RETURNED')
                           AND NOT EXISTS (
                               SELECT 1 FROM app_purchase_order_detail pod
@@ -174,7 +174,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                           )), 0) as todayCount,
               COALESCE((SELECT COUNT(*) FROM app_purchase_order p
                         LEFT JOIN fnd_lookup_master ls ON ls.id = p.status_id
-                        WHERE p.order_date >= :startOfMonth AND p.deleted = false
+                        WHERE p.tenant_id = :tenantId AND p.order_date >= :startOfMonth AND p.deleted = false
                           AND (ls.code IS NULL OR ls.code <> 'RETURNED')
                           AND NOT EXISTS (
                               SELECT 1 FROM app_purchase_order_detail pod
@@ -183,7 +183,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                           )), 0) as monthCount
             FROM (SELECT 1) data
             """, nativeQuery = true)
-    PurchaseMetrics getPurchaseSummaryMetrics(@Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth,
+    PurchaseMetrics getPurchaseSummaryMetrics(@Param("tenantId") Long tenantId,
+                                              @Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth,
                                               @Param("startOfMonth") LocalDate startOfMonth, @Param("today") LocalDate today);
 
     @Query(value = """
@@ -244,6 +245,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 GROUP BY purchase_id
             ) pr_sum ON pr_sum.purchase_id = po.id
             WHERE po.deleted = false
+              AND po.tenant_id = :tenantId
               -- Buyback-recorded exchange purchases are tracked via the SaleReturn
               -- Customer Refund Payable and shown in /sale-returns/payables, not here.
               AND po.buyback_recorded_at IS NULL
@@ -257,7 +259,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                   END > 0
             ORDER BY po.order_date DESC
             """, nativeQuery = true)
-    List<PayableRow> findPayables();
+    List<PayableRow> findPayables(@Param("tenantId") Long tenantId);
 
     @Query(value = """
             SELECT
@@ -296,12 +298,13 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             LEFT JOIN app_purchase_return pr ON pr.inventory_id = inv.id AND pr.deleted = false
                                             AND pr.return_date <= :endDate
             WHERE po.deleted = false
+              AND po.tenant_id = :tenantId
               AND inv.deleted = false
               AND inv.source_sale_id IS NULL
               AND po.buyback_recorded_at IS NULL
               AND po.order_date BETWEEN :startDate AND :endDate
             ORDER BY po.order_date, po.id
             """, nativeQuery = true)
-    List<PurchaseLineRow> getPurchaseLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<PurchaseLineRow> getPurchaseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

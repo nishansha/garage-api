@@ -8,6 +8,7 @@ import com.triasoft.garage.dto.SaleAmountSplitDTO;
 import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.dto.SalePaymentDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
@@ -72,7 +73,7 @@ public class SalesService {
         LocalDate startOfLastMonth = startOfMonth.minusMonths(1);
         LocalDate endOfLastMonth = startOfMonth.minusDays(1);
 
-        SaleMetrics metrics = saleRepository.getSalesSummaryMetrics(startOfLastMonth, endOfLastMonth, startOfMonth, today);
+        SaleMetrics metrics = saleRepository.getSalesSummaryMetrics(user.getTenantId(), startOfLastMonth, endOfLastMonth, startOfMonth, today);
         double monthRate = CommonUtil.calculateDelta(metrics.getTotalSalesThisMonth(), metrics.getTotalSalesLastMonth());
         return SaleSummaryRs.builder()
                 .totalThisMonth(metrics.getTotalSalesThisMonth().toString())
@@ -690,7 +691,7 @@ public class SalesService {
     }
 
     public ReceivablesSummaryRs getReceivablesSummary() {
-        List<ReceivableRow> rows = saleRepository.findReceivables();
+        List<ReceivableRow> rows = saleRepository.findReceivables(TenantContext.get());
         List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
                 .saleId(r.getSaleId())
                 .invoiceNo(r.getInvoiceNo())

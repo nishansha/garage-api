@@ -22,7 +22,7 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     public CustomerRs getCustomers(Pageable pageable, UserDTO user) {
-        Page<CustomerBalanceRow> customerPage = customerRepository.findCustomersWithOutstandingBalance(pageable);
+        Page<CustomerBalanceRow> customerPage = customerRepository.findCustomersWithOutstandingBalance(user.getTenantId(), pageable);
         List<CustomerSummaryDTO> customers = customerPage.getContent().stream()
                 .map(this::convertToDTO)
                 .toList();

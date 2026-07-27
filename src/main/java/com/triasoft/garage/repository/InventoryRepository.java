@@ -27,8 +27,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
             "COUNT(CASE WHEN i.status = 'AVAILABLE' THEN 1 END) as totalItems, " +
             "COUNT(CASE WHEN i.status = 'AVAILABLE' AND i.received_date >= :startOfMonth THEN 1 END) as itemsAddedThisMonth " +
             "FROM app_inventory i " +
-            "WHERE i.deleted = false", nativeQuery = true)
-    StockMetrics getStockSummaryMetrics(@Param("startOfMonth") LocalDateTime startOfMonth);
+            "WHERE i.deleted = false AND i.tenant_id = :tenantId", nativeQuery = true)
+    StockMetrics getStockSummaryMetrics(@Param("tenantId") Long tenantId, @Param("startOfMonth") LocalDateTime startOfMonth);
 
     Optional<Inventory> findByPurchaseOrderDetailPurchaseId(Long purchaseId);
 

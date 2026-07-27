@@ -7,6 +7,7 @@ import com.triasoft.garage.dto.DeductionDTO;
 import com.triasoft.garage.dto.RefundPaymentDTO;
 import com.triasoft.garage.dto.SaleReturnDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
@@ -312,7 +313,7 @@ public class SaleReturnService {
     }
 
     public SaleReturnPayablesSummaryRs getPayablesSummary() {
-        List<SaleReturnPayableRow> rows = saleReturnRepository.findPayables();
+        List<SaleReturnPayableRow> rows = saleReturnRepository.findPayables(TenantContext.get());
         List<SaleReturnPayableInfo> items = rows.stream().map(r -> SaleReturnPayableInfo.builder()
                 .saleReturnId(r.getSaleReturnId())
                 .saleId(r.getSaleId())

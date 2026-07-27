@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 @DynamicUpdate
 @Table(name = "app_purchase_order_detail")
 @SoftDelete(columnName = "deleted")
-public class PurchaseDetail extends GenericEntity {
+public class PurchaseDetail extends TenantAwareEntity {
 
     @Serial
     private static final long serialVersionUID = 8487354604294485228L;

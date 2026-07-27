@@ -25,8 +25,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
             "SUM(CASE WHEN e.purchase_order_id IS NULL AND e.date >= :startOfMonth THEN e.amount ELSE 0 END) as generalExpenseThisMonth, " +
             "SUM(CASE WHEN e.purchase_order_id IS NOT NULL AND e.date >= :startOfMonth THEN e.amount ELSE 0 END) as purchaseExpenseThisMonth " +
             "FROM app_expense e " +
-            "WHERE e.deleted = false", nativeQuery = true)
-    ExpenseMetrics getExpenseMetrics(@Param("startOfMonth") LocalDate startOfMonth);
+            "WHERE e.deleted = false AND e.tenant_id = :tenantId", nativeQuery = true)
+    ExpenseMetrics getExpenseMetrics(@Param("tenantId") Long tenantId, @Param("startOfMonth") LocalDate startOfMonth);
 
     Page<Expense> findByPurchaseIsNull(Pageable pageable);
 
@@ -43,9 +43,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
               COALESCE(SUM(CASE WHEN e.purchase_order_id IS NOT NULL THEN e.amount ELSE 0 END), 0) as purchaseExpenses
             FROM app_expense e
             WHERE e.deleted = false
+              AND e.tenant_id = :tenantId
               AND e.date BETWEEN :startDate AND :endDate
             """, nativeQuery = true)
-    PLExpenseMetrics getExpensesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    PLExpenseMetrics getExpensesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -59,9 +60,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
             JOIN fnd_chart_of_accounts coa ON coa.id = e.expense_account_id
             LEFT JOIN app_payment_account pa ON pa.id = e.payment_account_id
             WHERE e.deleted = false
+              AND e.tenant_id = :tenantId
               AND e.purchase_order_id IS NULL
               AND e.date BETWEEN :startDate AND :endDate
             ORDER BY e.date, e.id
             """, nativeQuery = true)
-    List<ExpenseLineRow> getExpenseLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<ExpenseLineRow> getExpenseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

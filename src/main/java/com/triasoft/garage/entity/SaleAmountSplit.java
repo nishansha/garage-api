@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 @DynamicUpdate
 @Table(name = "app_sale_amount_split")
 @SoftDelete(columnName = "deleted")
-public class SaleAmountSplit extends AuditGenericEntity {
+public class SaleAmountSplit extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

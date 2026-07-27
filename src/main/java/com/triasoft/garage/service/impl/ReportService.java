@@ -28,6 +28,7 @@ import com.triasoft.garage.projection.PurchaseLineRow;
 import com.triasoft.garage.projection.ReceivableRow;
 import com.triasoft.garage.projection.SaleLineRow;
 import com.triasoft.garage.repository.*;
+import com.triasoft.garage.security.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -59,34 +60,35 @@ public class ReportService {
     public PLReportRs getProfitAndLoss(YearMonth yearMonth) {
         var startDate = yearMonth.atDay(1);
         var endDate = yearMonth.atEndOfMonth();
+        Long tenantId = TenantContext.get();
 
         // ── 1. Sales ─────────────────────────────────────────────────────────
-        ProfitMetrics sales = saleRepository.getProfitReport(startDate, endDate);
+        ProfitMetrics sales = saleRepository.getProfitReport(tenantId, startDate, endDate);
         BigDecimal vehicleSalesRevenue = safe(sales.getTotalSales());
         BigDecimal grossProfit       = safe(sales.getNetProfit());
 
         // ── 2. Direct Entries ─────────────────────────────────────────────────
-        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(startDate, endDate);
+        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(tenantId, startDate, endDate);
         BigDecimal otherIncome      = safe(de.getTotalIn());
         BigDecimal directAdjustments = safe(de.getTotalOut());
 
         // Retained deductions on sale returns are real income (RETURN_DEDUCTION_INCOME
         // in the ledger) but are netted out of the sales figures above, so add them back.
-        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(startDate, endDate));
+        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(tenantId, startDate, endDate));
 
         // Exchange/return gains & losses live only in the ledger (no operational entity),
         // so pull them from their system-role journal accounts for the period. This closes
         // the remaining entity-vs-journal P&L gap (only manual journals remain uncaptured).
-        BigDecimal exchangeGain       = ledgerRevenue(SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
-        BigDecimal exchangeReturnLoss = ledgerExpense(SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
-        BigDecimal purchaseReturnLoss = ledgerExpense(SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+        BigDecimal exchangeGain       = ledgerRevenue(tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
+        BigDecimal exchangeReturnLoss = ledgerExpense(tenantId, SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
+        BigDecimal purchaseReturnLoss = ledgerExpense(tenantId, SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
 
         // ── 3. Revenue totals ─────────────────────────────────────────────────
         BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome)
                 .add(returnDeductionIncome).add(exchangeGain);
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
-        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(startDate, endDate);
+        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(tenantId, startDate, endDate);
         BigDecimal generalExpenses  = safe(exp.getGeneralExpenses());
         BigDecimal totalOpEx = generalExpenses.add(directAdjustments)
                 .add(exchangeReturnLoss).add(purchaseReturnLoss);
@@ -109,7 +111,7 @@ public class ReportService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // ── 9. Per-vehicle sales breakdown for the period ─────────────────────
-        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(startDate, endDate);
+        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(tenantId, startDate, endDate);
         List<SaleLineInfo> saleLines = saleRows.stream()
                 .map(r -> SaleLineInfo.builder()
                         .saleId(r.getSaleId())
@@ -127,7 +129,7 @@ public class ReportService {
                 .toList();
 
         // ── 10. Per-vehicle purchases breakdown for the period ────────────────
-        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(startDate, endDate);
+        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(tenantId, startDate, endDate);
         List<PurchaseLineInfo> purchaseLines = purchaseRows.stream()
                 .map(r -> PurchaseLineInfo.builder()
                         .purchaseId(r.getPurchaseId())
@@ -145,7 +147,7 @@ public class ReportService {
                 .toList();
 
         // ── 11. General expenses breakdown (excludes purchase expenses) ────────
-        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(startDate, endDate)
+        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(tenantId, startDate, endDate)
                 .stream()
                 .map(r -> ExpenseLineInfo.builder()
                         .date(r.getDate())
@@ -156,7 +158,7 @@ public class ReportService {
                 .toList();
 
         // ── 12. Direct entries breakdown (income / expense / other) ────────────
-        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(startDate, endDate)
+        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(tenantId, startDate, endDate)
                 .stream()
                 .map(r -> DirectEntryLineInfo.builder()
                         .date(r.getDate())
@@ -280,7 +282,7 @@ public class ReportService {
     }
 
     public MonthlyTrendRs getMonthlyTrend(int months) {
-        List<MonthlyTrendMetrics> rows = journalRepository.getMonthlyTrendFromJournal(months);
+        List<MonthlyTrendMetrics> rows = journalRepository.getMonthlyTrendFromJournal(TenantContext.get(), months);
         List<MonthlyTrendInfo> trend = rows.stream().map(r -> {
             BigDecimal revenue = safe(r.getTotalRevenue());
             BigDecimal otherIncome = safe(r.getOtherIncome());
@@ -306,7 +308,7 @@ public class ReportService {
     }
 
     public ReceivablesSummaryRs getReceivablesSummary() {
-        List<ReceivableRow> rows = saleRepository.findReceivables();
+        List<ReceivableRow> rows = saleRepository.findReceivables(TenantContext.get());
         List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
                 .saleId(r.getSaleId())
                 .invoiceNo(r.getInvoiceNo())
@@ -330,7 +332,7 @@ public class ReportService {
     }
 
     public PayablesSummaryRs getPayablesSummary() {
-        List<PayableRow> rows = purchaseRepository.findPayables();
+        List<PayableRow> rows = purchaseRepository.findPayables(TenantContext.get());
         List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
                 .purchaseId(r.getPurchaseId())
                 .referenceNo(r.getReferenceNo())
@@ -357,14 +359,14 @@ public class ReportService {
     }
 
     // Revenue accounts carry a normal credit balance → gain = credit − debit.
-    private BigDecimal ledgerRevenue(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
-        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+    private BigDecimal ledgerRevenue(Long tenantId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, role.name(), from, to);
         return r == null ? BigDecimal.ZERO : safe(r.getCredit()).subtract(safe(r.getDebit()));
     }
 
     // Expense/loss accounts carry a normal debit balance → loss = debit − credit.
-    private BigDecimal ledgerExpense(SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
-        var r = journalDetailRepository.sumBySystemRoleInPeriod(role.name(), from, to);
+    private BigDecimal ledgerExpense(Long tenantId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, role.name(), from, to);
         return r == null ? BigDecimal.ZERO : safe(r.getDebit()).subtract(safe(r.getCredit()));
     }
 

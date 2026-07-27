@@ -21,7 +21,7 @@ import java.time.LocalDate;
 @SoftDelete(columnName = "deleted")
 @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
 @AuditOverride(forClass = AuditGenericEntity.class)
-public class Expense extends AuditGenericEntity {
+public class Expense extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 5393592326235319975L;

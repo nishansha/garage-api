@@ -50,7 +50,7 @@ public class AuthService {
         if (!appConfigurationService.isFlagEnabled(AppConfig.CONCURRENT_LOGIN_ALLOWED, channel)) {
             revokeSessionsAndTokensForUser(user.getId());
         }
-        String sessionId = createSession(user.getId());
+        String sessionId = createSession(user.getId(), user.getTenantId());
         return issueTokens(userPrincipal, user, null, sessionId);
     }
 
@@ -101,6 +101,7 @@ public class AuthService {
         entity.setSessionId(sessionId);
         entity.setTokenHash(tokenService.hashToken(refreshToken));
         entity.setParentId(parentId);
+        entity.setTenantId(user.getTenantId());
         entity.setRevoked(false);
         entity.setCreatedAt(now);
         entity.setExpiresAt(now.plus(tokenService.getRefreshExpirationMs(), ChronoUnit.MILLIS));
@@ -116,10 +117,11 @@ public class AuthService {
     }
 
 
-    private String createSession(Long userId) {
+    private String createSession(Long userId, Long tenantId) {
         UserSession session = new UserSession();
         session.setSessionId(UUID.randomUUID().toString());
         session.setUserId(userId);
+        session.setTenantId(tenantId);
         session.setStatus(SessionStatusEnum.ACTIVE);
         session.setLoginAt(LocalDateTime.now());
         return sessionRepository.save(session).getSessionId();

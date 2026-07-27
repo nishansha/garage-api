@@ -33,7 +33,8 @@ public class PrivilegeAspect {
         if (roles.contains(SUPERADMIN)) {
             return;
         }
-        if (!privilegeCache.isGranted(roles, hasPrivilege.resource(), hasPrivilege.privilege())) {
+        Long tenantId = user != null ? user.getTenantId() : null;
+        if (!privilegeCache.isGranted(tenantId, roles, hasPrivilege.resource(), hasPrivilege.privilege())) {
             throw new SecurityException(ErrorCode.Security.FORBIDDEN);
         }
     }

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -55,8 +56,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
                   AND (sr.refund_amount - COALESCE(ref_sum.refunded, 0)) > 0
                 GROUP BY s.customer_id
             ) refund ON refund.customer_id = c.id
+            WHERE c.tenant_id = :tenantId
             """,
-            countQuery = "SELECT count(*) FROM app_customer",
+            countQuery = "SELECT count(*) FROM app_customer WHERE tenant_id = :tenantId",
             nativeQuery = true)
-    Page<CustomerBalanceRow> findCustomersWithOutstandingBalance(Pageable pageable);
+    Page<CustomerBalanceRow> findCustomersWithOutstandingBalance(@Param("tenantId") Long tenantId, Pageable pageable);
 }

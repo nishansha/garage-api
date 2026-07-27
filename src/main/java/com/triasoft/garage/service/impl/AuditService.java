@@ -19,6 +19,7 @@ import com.triasoft.garage.model.audit.AuditRevisionRs;
 import com.triasoft.garage.model.audit.DeletedRecordRs;
 import com.triasoft.garage.model.audit.FieldChange;
 import com.triasoft.garage.repository.UserProfileRepository;
+import com.triasoft.garage.security.tenant.TenantContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.PersistenceUnitUtil;
@@ -81,6 +82,29 @@ public class AuditService {
     private static final Set<String> DIFF_IGNORED_FIELDS =
             Set.of("createdAt", "createdBy", "modifiedAt", "modifiedBy", "version");
 
+    /**
+     * Base table per audited type, used only to look up the LIVE row's tenant_id for ownership
+     * checks. Envers excludes {@code @TenantId} fields from the audit trail entirely (same
+     * treatment as {@code @Version}) - the _aud tables have no tenant_id column - so historical
+     * revision snapshots can never carry tenant info and the check must go against the base table.
+     * A plain native query bypasses both the Hibernate tenant filter and the @SoftDelete filter,
+     * so it finds the row regardless of tenant or delete status - the check itself does the
+     * tenant comparison explicitly.
+     */
+    private static final Map<String, String> AUDITED_TABLE_NAMES = Map.ofEntries(
+            Map.entry("sale", "app_sale"),
+            Map.entry("sale-payment", "app_sale_payment"),
+            Map.entry("sale-return", "app_sale_return"),
+            Map.entry("sale-return-deduction", "app_sale_return_deduction"),
+            Map.entry("sale-refund-payment", "app_sale_refund_payment"),
+            Map.entry("purchase", "app_purchase_order"),
+            Map.entry("purchase-payment", "app_purchase_payment"),
+            Map.entry("purchase-return", "app_purchase_return"),
+            Map.entry("purchase-return-receipt", "app_purchase_return_receipt"),
+            Map.entry("direct-entry", "app_direct_entry"),
+            Map.entry("expense", "app_expense")
+    );
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -92,6 +116,7 @@ public class AuditService {
     @Transactional(readOnly = true)
     public List<AuditRevisionRs> getHistory(String entityType, Long id) {
         Class<?> type = resolveType(entityType);
+        assertOwnedByCurrentTenant(entityType, id);
         AuditReader reader = AuditReaderFactory.get(entityManager);
 
         @SuppressWarnings("unchecked")
@@ -136,8 +161,8 @@ public class AuditService {
         for (Object[] row : rows) {
             Map<String, Object> state = toState(row[0]);
             Long id = state == null ? null : (Long) state.get("id");
-            if (id == null || !seen.add(id)) {
-                continue; // keep only the latest DEL per id
+            if (id == null || !seen.add(id) || !Objects.equals(liveTenantId(entityType, id), TenantContext.get())) {
+                continue; // keep only the latest DEL per id, and only this tenant's records
             }
             AppRevisionEntity rev = (AppRevisionEntity) row[1];
             deleted.add(DeletedRecordRs.builder()
@@ -181,7 +206,31 @@ public class AuditService {
     @Transactional(readOnly = true)
     public Map<String, Object> getAtRevision(String entityType, Long id, Long revision) {
         Class<?> type = resolveType(entityType);
+        assertOwnedByCurrentTenant(entityType, id);
         return toState(AuditReaderFactory.get(entityManager).find(type, id, revision));
+    }
+
+    /**
+     * Rejects a lookup whose record belongs to another tenant with the same "not found"-shaped
+     * error used for an unknown entity type, so a cross-tenant probe can't distinguish
+     * "wrong tenant" from "doesn't exist".
+     */
+    private void assertOwnedByCurrentTenant(String entityType, Long id) {
+        if (!Objects.equals(liveTenantId(entityType, id), TenantContext.get())) {
+            throw new BusinessException(ErrorCode.Business.AUDIT_ENTITY_TYPE_INVALID);
+        }
+    }
+
+    private Long liveTenantId(String entityType, Long id) {
+        String table = AUDITED_TABLE_NAMES.get(entityType.toLowerCase());
+        try {
+            Object tenantId = entityManager.createNativeQuery("SELECT tenant_id FROM " + table + " WHERE id = :id")
+                    .setParameter("id", id)
+                    .getSingleResult();
+            return tenantId == null ? null : ((Number) tenantId).longValue();
+        } catch (jakarta.persistence.NoResultException e) {
+            return null;
+        }
     }
 
     private AuditRevisionRs toRevision(Object[] row, Map<Long, String> usernameCache) {

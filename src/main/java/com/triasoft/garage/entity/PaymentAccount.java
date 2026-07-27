@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Entity
 @DynamicUpdate
 @Table(name = "app_payment_account")
-public class PaymentAccount extends AuditGenericEntity {
+public class PaymentAccount extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 4712938461029384756L;

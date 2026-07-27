@@ -29,7 +29,8 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             FROM fnd_chart_of_accounts coa
             LEFT JOIN app_journal_detail jd ON jd.account_id = coa.id
             LEFT JOIN app_journal j ON j.id = jd.journal_id
-            WHERE (
+            WHERE coa.tenant_id = :tenantId
+              AND (
                 CAST(:asOfDate AS DATE) IS NULL
                 OR j.journal_date <= CAST(:asOfDate AS DATE)
                 OR j.id IS NULL
@@ -37,7 +38,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             GROUP BY coa.id, coa.code, coa.name, coa.label, coa.type
             ORDER BY coa.code
             """, nativeQuery = true)
-    List<AccountBalanceRow> getTrialBalance(@Param("asOfDate") LocalDate asOfDate);
+    List<AccountBalanceRow> getTrialBalance(@Param("tenantId") Long tenantId, @Param("asOfDate") LocalDate asOfDate);
 
     @Query(value = """
             SELECT
@@ -53,11 +54,13 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             FROM fnd_chart_of_accounts coa
             LEFT JOIN app_journal_detail jd ON jd.account_id = coa.id
             LEFT JOIN app_journal j ON j.id = jd.journal_id
-            WHERE coa.type IN ('REVENUE', 'EXPENSE')
+            WHERE coa.tenant_id = :tenantId
+              AND coa.type IN ('REVENUE', 'EXPENSE')
             GROUP BY coa.id, coa.code, coa.name, coa.label, coa.type
             ORDER BY coa.code
             """, nativeQuery = true)
-    List<AccountBalanceRow> getPLAccountBalances(@Param("fromDate") LocalDate fromDate,
+    List<AccountBalanceRow> getPLAccountBalances(@Param("tenantId") Long tenantId,
+                                                 @Param("fromDate") LocalDate fromDate,
                                                  @Param("toDate") LocalDate toDate);
 
     @Query(value = """
@@ -72,11 +75,13 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
               jd.credit_amount      as credit
             FROM app_journal_detail jd
             JOIN app_journal j ON j.id = jd.journal_id
-            WHERE jd.account_id = :accountId
+            WHERE jd.tenant_id = :tenantId
+              AND jd.account_id = :accountId
               AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
             ORDER BY j.journal_date ASC, j.id ASC, jd.id ASC
             """, nativeQuery = true)
-    List<LedgerRow> getLedgerEntries(@Param("accountId") Long accountId,
+    List<LedgerRow> getLedgerEntries(@Param("tenantId") Long tenantId,
+                                     @Param("accountId") Long accountId,
                                      @Param("fromDate") LocalDate fromDate,
                                      @Param("toDate") LocalDate toDate);
 
@@ -86,10 +91,12 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
               COALESCE(SUM(jd.credit_amount), 0) as credit
             FROM app_journal_detail jd
             JOIN app_journal j ON j.id = jd.journal_id
-            WHERE jd.account_id = :accountId
+            WHERE jd.tenant_id = :tenantId
+              AND jd.account_id = :accountId
               AND j.journal_date < CAST(:beforeDate AS DATE)
             """, nativeQuery = true)
-    OpeningBalanceRow getOpeningBalance(@Param("accountId") Long accountId,
+    OpeningBalanceRow getOpeningBalance(@Param("tenantId") Long tenantId,
+                                        @Param("accountId") Long accountId,
                                         @Param("beforeDate") LocalDate beforeDate);
 
     interface OpeningBalanceRow {
@@ -104,10 +111,12 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             FROM app_journal_detail jd
             JOIN app_journal j ON j.id = jd.journal_id
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-            WHERE coa.system_role = :systemRole
+            WHERE jd.tenant_id = :tenantId
+              AND coa.system_role = :systemRole
               AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
             """, nativeQuery = true)
-    OpeningBalanceRow sumBySystemRoleInPeriod(@Param("systemRole") String systemRole,
+    OpeningBalanceRow sumBySystemRoleInPeriod(@Param("tenantId") Long tenantId,
+                                              @Param("systemRole") String systemRole,
                                               @Param("fromDate") LocalDate fromDate,
                                               @Param("toDate") LocalDate toDate);
 
@@ -116,8 +125,9 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
               COALESCE(SUM(jd.debit_amount), 0)  as debit,
               COALESCE(SUM(jd.credit_amount), 0) as credit
             FROM app_journal_detail jd
-            WHERE jd.journal_id = :journalId
+            WHERE jd.tenant_id = :tenantId
+              AND jd.journal_id = :journalId
             """, nativeQuery = true)
-    OpeningBalanceRow getJournalTotals(@Param("journalId") Long journalId);
+    OpeningBalanceRow getJournalTotals(@Param("tenantId") Long tenantId, @Param("journalId") Long journalId);
 
 }

@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @Entity
 @DynamicUpdate
 @Table(name = "app_journal")
-public class Journal extends AuditGenericEntity {
+public class Journal extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

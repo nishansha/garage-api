@@ -95,9 +95,11 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
             FROM app_journal_detail jd
             JOIN app_journal j ON j.id = jd.journal_id
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-            WHERE j.journal_date >= :startOfLastMonth
+            WHERE j.tenant_id = :tenantId
+              AND j.journal_date >= :startOfLastMonth
             """, nativeQuery = true)
-    SummaryMetrics getFinancialSummaryFromJournal(@Param("startOfMonth") LocalDate startOfMonth,
+    SummaryMetrics getFinancialSummaryFromJournal(@Param("tenantId") Long tenantId,
+                                                  @Param("startOfMonth") LocalDate startOfMonth,
                                                   @Param("startOfLastMonth") LocalDate startOfLastMonth);
 
     /**
@@ -123,31 +125,31 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.system_role = 'SALES_REVENUE'
+                          WHERE j.tenant_id = :tenantId AND coa.system_role = 'SALES_REVENUE'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as sales,
                 COALESCE((SELECT SUM(jd.debit_amount - jd.credit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.system_role = 'INVENTORY'
+                          WHERE j.tenant_id = :tenantId AND coa.system_role = 'INVENTORY'
                             AND j.reference_type IN ('PURCHASE','EXPENSE','PURCHASE_RETURN')
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as purchases,
                 COALESCE((SELECT SUM(jd.debit_amount - jd.credit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
+                          WHERE j.tenant_id = :tenantId AND coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as expenses,
                 COALESCE((SELECT SUM(jd.credit_amount - jd.debit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type IN ('REVENUE','EXPENSE')
+                          WHERE j.tenant_id = :tenantId AND coa.type IN ('REVENUE','EXPENSE')
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as profit
             FROM months m
             ORDER BY m.month_date DESC
             """, nativeQuery = true)
-    List<BalanceMetrics> getMonthlyBalanceSheetFromJournal(@Param("monthCount") int monthCount);
+    List<BalanceMetrics> getMonthlyBalanceSheetFromJournal(@Param("tenantId") Long tenantId, @Param("monthCount") int monthCount);
 
     /**
      * Journal-derived monthly trend. P&L metrics (revenue, gross profit, expenses)
@@ -174,28 +176,28 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
 
                 COALESCE((SELECT COUNT(*) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false
+                          AND s.deleted = false AND s.tenant_id = :tenantId
                           AND s.payment_status <> 'REFUND'), 0) as salesCount,
 
                 COALESCE((SELECT SUM(jd.credit_amount - jd.debit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'REVENUE'
+                          WHERE j.tenant_id = :tenantId AND coa.type = 'REVENUE'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as totalRevenue,
 
                 COALESCE((SELECT SUM(jd.credit_amount - jd.debit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'REVENUE' AND coa.system_role <> 'SALES_REVENUE'
+                          WHERE j.tenant_id = :tenantId AND coa.type = 'REVENUE' AND coa.system_role <> 'SALES_REVENUE'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as otherIncome,
 
                 COALESCE((SELECT SUM(jd.credit_amount - jd.debit_amount)
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.system_role IN ('SALES_REVENUE','RETURN_DEDUCTION_INCOME','COGS')
+                          WHERE j.tenant_id = :tenantId AND coa.system_role IN ('SALES_REVENUE','RETURN_DEDUCTION_INCOME','COGS')
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as grossProfit,
 
                 COALESCE((
@@ -208,7 +210,7 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                         GROUP BY sale_id
                     ) sp_sum ON sp_sum.sale_id = s.id
                     WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                    AND s.deleted = false
+                    AND s.deleted = false AND s.tenant_id = :tenantId
                     AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')
                 ), 0) as totalReceivables,
 
@@ -252,7 +254,7 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                         GROUP BY purchase_id
                     ) pr_sum ON pr_sum.purchase_id = po.id
                     WHERE DATE_TRUNC('month', po.order_date) = m.month_date
-                    AND po.deleted = false
+                    AND po.deleted = false AND po.tenant_id = :tenantId
                     AND po.buyback_recorded_at IS NULL
                 ), 0) as totalPayables,
 
@@ -260,12 +262,12 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
                           FROM app_journal_detail jd
                           JOIN app_journal j ON j.id = jd.journal_id
                           JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
-                          WHERE coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
+                          WHERE j.tenant_id = :tenantId AND coa.type = 'EXPENSE' AND coa.system_role IS DISTINCT FROM 'COGS'
                             AND DATE_TRUNC('month', j.journal_date) = m.month_date), 0) as totalExpenses
 
             FROM months m
             ORDER BY m.month_date ASC
             """, nativeQuery = true)
-    List<MonthlyTrendMetrics> getMonthlyTrendFromJournal(@Param("monthCount") int monthCount);
+    List<MonthlyTrendMetrics> getMonthlyTrendFromJournal(@Param("tenantId") Long tenantId, @Param("monthCount") int monthCount);
 
 }

@@ -22,6 +22,7 @@ import com.triasoft.garage.projection.LedgerRow;
 import com.triasoft.garage.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.JournalDetailRepository;
 import com.triasoft.garage.repository.JournalRepository;
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.specifiction.JournalSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -81,13 +82,14 @@ public class JournalQueryService {
         LocalDate effFrom = fromDate != null ? fromDate : LocalDate.of(1970, 1, 1);
         LocalDate effTo = toDate != null ? toDate : LocalDate.now();
 
-        var openingRow = journalDetailRepository.getOpeningBalance(accountId, effFrom);
+        Long tenantId = TenantContext.get();
+        var openingRow = journalDetailRepository.getOpeningBalance(tenantId, accountId, effFrom);
         BigDecimal openingDr = safe(openingRow.getDebit());
         BigDecimal openingCr = safe(openingRow.getCredit());
         BigDecimal openingBalance = balanceFor(account.getType(), openingDr, openingCr);
         String openingSide = balanceSide(account.getType(), openingDr, openingCr);
 
-        List<LedgerRow> rows = journalDetailRepository.getLedgerEntries(accountId, effFrom, effTo);
+        List<LedgerRow> rows = journalDetailRepository.getLedgerEntries(tenantId, accountId, effFrom, effTo);
         BigDecimal totalDr = BigDecimal.ZERO;
         BigDecimal totalCr = BigDecimal.ZERO;
         BigDecimal running = openingBalance;
@@ -150,7 +152,7 @@ public class JournalQueryService {
 
     public TrialBalanceRs getTrialBalance(LocalDate asOfDate, boolean includeZeroBalance) {
         LocalDate effDate = asOfDate != null ? asOfDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(effDate);
+        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), effDate);
 
         List<TrialBalanceLineDTO> lines = new ArrayList<>();
         BigDecimal totalDr = BigDecimal.ZERO;
@@ -193,7 +195,7 @@ public class JournalQueryService {
 
     public BalanceSheetRs getBalanceSheet(LocalDate asOfDate) {
         LocalDate effDate = asOfDate != null ? asOfDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(effDate);
+        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), effDate);
 
         List<AccountBalanceLineDTO> assetLines = new ArrayList<>();
         List<AccountBalanceLineDTO> liabilityLines = new ArrayList<>();
@@ -266,7 +268,7 @@ public class JournalQueryService {
     public PLFromJournalRs getPLFromJournal(LocalDate fromDate, LocalDate toDate) {
         LocalDate effFrom = fromDate != null ? fromDate : LocalDate.now().withDayOfMonth(1);
         LocalDate effTo = toDate != null ? toDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getPLAccountBalances(effFrom, effTo);
+        List<AccountBalanceRow> rows = journalDetailRepository.getPLAccountBalances(TenantContext.get(), effFrom, effTo);
 
         List<AccountBalanceLineDTO> revenueLines = new ArrayList<>();
         List<AccountBalanceLineDTO> expenseLines = new ArrayList<>();
@@ -316,7 +318,7 @@ public class JournalQueryService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private JournalDTO toJournalDTO(Journal j) {
-        var totals = journalDetailRepository.getJournalTotals(j.getId());
+        var totals = journalDetailRepository.getJournalTotals(j.getTenantId(), j.getId());
         BigDecimal amount = safe(totals.getDebit());
         return JournalDTO.builder()
                 .id(j.getId())

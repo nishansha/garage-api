@@ -56,7 +56,7 @@ public class StockService {
 
     public StockSummaryRs summary(UserDTO user) {
         LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
-        StockMetrics metrics = inventoryRepository.getStockSummaryMetrics(startOfMonth);
+        StockMetrics metrics = inventoryRepository.getStockSummaryMetrics(user.getTenantId(), startOfMonth);
         double assetRate = CommonUtil.calculateDelta(
                 metrics.getTotalStockValue(),
                 Objects.nonNull(metrics.getTotalStockValueLastMonth()) ? metrics.getTotalStockValueLastMonth() : BigDecimal.ZERO

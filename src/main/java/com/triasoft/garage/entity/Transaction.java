@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @Setter
 @Entity
 @Table(name = "app_transaction")
-public class Transaction extends AuditGenericEntity {
+public class Transaction extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 8837261049182736450L;

@@ -35,6 +35,7 @@ import com.triasoft.garage.repository.UserRoleRepository;
 import com.triasoft.garage.util.UserUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -57,6 +58,19 @@ public class RoleService {
     private final UserRoleRepository userRoleRepository;
     private final UserProfileRepository userProfileRepository;
     private final PrivilegeCache privilegeCache;
+
+    /**
+     * Called from the identity-resolution path (login/refresh), where the caller has just set
+     * TenantContext from the UserProfile it resolved a moment ago. REQUIRES_NEW forces a fresh
+     * session for this specific lookup - if it instead joined whatever transaction the caller
+     * (e.g. AuthService.login, itself @Transactional) already had open, the tenant would be
+     * whatever was resolvable when THAT transaction started, not the one just set. See
+     * PrivilegeCache/TenantScopedGrantLoader for the same pattern.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public List<String> resolveRoleCodesForUser(Long userId) {
+        return userRoleRepository.findRoleCodesByUserId(userId);
+    }
 
     public RolesRs getAll() {
         return RolesRs.builder().roles(roleRepository.findAll().stream().filter(r -> !"SUPERADMIN".equalsIgnoreCase(r.getCode())).map(this::toDTO).toList()).build();
@@ -165,7 +179,7 @@ public class RoleService {
 
     @Transactional
     public UserRoleRs assignUserRoles(Long userId, UserRoleRq rq) {
-        findUserById(userId);
+        UserProfile targetUser = findUserById(userId);
         List<Role> roles = roleRepository.findAllById(rq.getRoleIds());
         if (roles.size() != rq.getRoleIds().size()) {
             throw new BusinessException(ErrorCode.Business.ROLE_NOT_FOUND);
@@ -176,6 +190,7 @@ public class RoleService {
             UserRole ur = new UserRole();
             ur.setUserId(userId);
             ur.setRoleId(role.getId());
+            ur.setTenantId(targetUser.getTenantId());
             return ur;
         }).toList();
         userRoleRepository.saveAll(toSave);
@@ -186,7 +201,7 @@ public class RoleService {
         UserDTO user = UserUtil.getUser();
         List<String> roles = user != null && user.getRoles() != null ? user.getRoles() : List.of();
         boolean superAdmin = roles.contains(SUPERADMIN_CODE);
-        Map<String, Set<Privilege>> resolved = superAdmin ? Map.of() : privilegeCache.resolve(roles);
+        Map<String, Set<Privilege>> resolved = superAdmin ? Map.of() : privilegeCache.resolve(user != null ? user.getTenantId() : null, roles);
         List<PrivilegeGrantDTO> permissions = resolved.entrySet().stream()
                 .map(entry -> {
                     Resource resource = resourceRepository.findByCodeIgnoreCase(entry.getKey());

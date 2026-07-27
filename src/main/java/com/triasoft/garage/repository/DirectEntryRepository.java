@@ -29,9 +29,10 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
             FROM app_direct_entry d
             JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
             WHERE d.deleted = false
+              AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
             """, nativeQuery = true)
-    PLDirectEntryMetrics getDirectEntryMetrics(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    PLDirectEntryMetrics getDirectEntryMetrics(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -50,9 +51,10 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
             JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
             JOIN app_payment_account pa ON pa.id = d.payment_account_id
             WHERE d.deleted = false
+              AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
             ORDER BY d.entry_date, d.id
             """, nativeQuery = true)
-    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

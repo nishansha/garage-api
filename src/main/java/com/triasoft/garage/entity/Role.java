@@ -16,7 +16,7 @@ import java.io.Serial;
 @DynamicUpdate
 @Table(name = "fnd_role")
 @SoftDelete(columnName = "deleted")
-public class Role extends AuditGenericEntity {
+public class Role extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

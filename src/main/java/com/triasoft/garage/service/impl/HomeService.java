@@ -33,7 +33,7 @@ public class HomeService {
     public SummaryRs summaryData(UserDTO user) {
         LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
         LocalDate startOfLastMonth = startOfMonth.minusMonths(1);
-        SummaryMetrics metrics = journalRepository.getFinancialSummaryFromJournal(startOfMonth, startOfLastMonth);
+        SummaryMetrics metrics = journalRepository.getFinancialSummaryFromJournal(user.getTenantId(), startOfMonth, startOfLastMonth);
 
         // grossProfit already has purchase expenses absorbed via landed_cost — only subtract general expenses
         BigDecimal thisMonthProfit = metrics.getTotalGrossProfit().subtract(metrics.getTotalExpenses());
@@ -57,9 +57,9 @@ public class HomeService {
     public ChartRs getChartData(String type, UserDTO user) {
         List<ProductMetrics> topProducts;
         if (type.equalsIgnoreCase("PROFIT")) {
-            topProducts = saleRepository.findTopProfitProducts();
+            topProducts = saleRepository.findTopProfitProducts(user.getTenantId());
         } else {
-            topProducts = saleRepository.findTopSoldProducts();
+            topProducts = saleRepository.findTopSoldProducts(user.getTenantId());
         }
         List<DataInfo> dataInfoList = topProducts.stream().map(p -> DataInfo.builder().name(p.getName())
                 .value(type.equalsIgnoreCase("PROFIT") ? String.valueOf(p.getRevenueValue()) : String.valueOf(p.getCountValue())).build()).toList();
@@ -67,7 +67,7 @@ public class HomeService {
     }
 
     public ActivityRs getActivities(UserDTO user) {
-        List<ActivityProjection> activities = saleRepository.findRecentActivities();
+        List<ActivityProjection> activities = saleRepository.findRecentActivities(user.getTenantId());
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-yyyy, hh:mm a");
 
         List<ActivityDTO> dataInfoList = activities.stream()
@@ -84,7 +84,7 @@ public class HomeService {
     }
 
     public OverviewRs getOverview(Integer monthCount, UserDTO user) {
-        List<BalanceMetrics> results = journalRepository.getMonthlyBalanceSheetFromJournal(monthCount);
+        List<BalanceMetrics> results = journalRepository.getMonthlyBalanceSheetFromJournal(user.getTenantId(), monthCount);
         List<SummaryInfo> data = results.stream().map(m -> SummaryInfo.builder()
                 .month(m.getMonthName())
                 .totalSales(m.getSales())

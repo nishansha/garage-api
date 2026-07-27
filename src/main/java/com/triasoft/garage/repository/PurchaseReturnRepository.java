@@ -71,9 +71,10 @@ public interface PurchaseReturnRepository extends JpaRepository<PurchaseReturn, 
                 GROUP BY purchase_return_id
             ) rec_sum ON rec_sum.purchase_return_id = pr.id
             WHERE pr.deleted = false
+              AND pr.tenant_id = :tenantId
               AND ((pr.return_amount - COALESCE(outstanding.ap, 0))
                     - COALESCE(rec_sum.received, 0)) > 0
             ORDER BY pr.return_date DESC
             """, nativeQuery = true)
-    List<PurchaseReturnReceivableRow> findReceivables();
+    List<PurchaseReturnReceivableRow> findReceivables(@Param("tenantId") Long tenantId);
 }

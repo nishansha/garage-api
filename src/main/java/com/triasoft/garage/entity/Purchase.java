@@ -24,7 +24,7 @@ import java.util.List;
 @SoftDelete(columnName = "deleted")
 @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
 @AuditOverride(forClass = AuditGenericEntity.class)
-public class Purchase extends AuditGenericEntity {
+public class Purchase extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = -7193141372297102034L;

@@ -6,6 +6,7 @@ import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
@@ -404,7 +405,7 @@ public class PurchaseService {
         LocalDate startOfLastMonth = startOfMonth.minusMonths(1);
         LocalDate endOfLastMonth = startOfMonth.minusDays(1);
 
-        PurchaseMetrics metrics = purchaseRepository.getPurchaseSummaryMetrics(startOfLastMonth, endOfLastMonth, startOfMonth, today);
+        PurchaseMetrics metrics = purchaseRepository.getPurchaseSummaryMetrics(user.getTenantId(), startOfLastMonth, endOfLastMonth, startOfMonth, today);
         double deltaPercent = CommonUtil.calculateDelta(metrics.getTotalThisMonth(), metrics.getTotalLastMonth());
 
         return PurchaseSummaryRs.builder().totalThisMonth(metrics.getTotalThisMonth().toString()).monthRate(deltaPercent).todayCount(metrics.getTodayCount()).totalCount(metrics.getMonthCount()).build();
@@ -929,7 +930,7 @@ public class PurchaseService {
     }
 
     public PayablesSummaryRs getPayablesSummary() {
-        List<PayableRow> rows = purchaseRepository.findPayables();
+        List<PayableRow> rows = purchaseRepository.findPayables(TenantContext.get());
         List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
                 .purchaseId(r.getPurchaseId())
                 .referenceNo(r.getReferenceNo())

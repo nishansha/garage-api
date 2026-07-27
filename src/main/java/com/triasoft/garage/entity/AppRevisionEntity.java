@@ -47,4 +47,8 @@ public class AppRevisionEntity implements Serializable {
     /** Id of the authenticated user that triggered this revision; null for system/anonymous actions. */
     @Column(name = "user_id")
     private Long userId;
+
+    /** Tenant the acting user belonged to; null for system/anonymous actions. Used to scope /api/v1/audit reads. */
+    @Column(name = "tenant_id")
+    private Long tenantId;
 }

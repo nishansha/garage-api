@@ -2,6 +2,7 @@ package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.locking.VersionCheck;
 
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.constants.AccountTypeEnum;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
@@ -215,7 +216,7 @@ public class PaymentAccountService {
 
     private ChartOfAccount autoCreateCoA(PaymentAccount account) {
         boolean isBank = AccountTypeEnum.BANK.equals(account.getAccountType());
-        long nextCode = chartOfAccountRepository.findMaxNumericCodeByType("ASSET") + 1;
+        long nextCode = chartOfAccountRepository.findMaxNumericCodeByType(TenantContext.get(), "ASSET") + 1;
         ChartOfAccount coa = new ChartOfAccount();
         coa.setType("ASSET");
         coa.setName(isBank ? "A-BNK-" + account.getId() : "A-CSH-" + account.getId());

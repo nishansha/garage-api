@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Entity
 @DynamicUpdate
 @Table(name = "user_refresh_token")
-public class UserRefreshToken extends GenericEntity {
+public class UserRefreshToken extends TenantScopedEntity {
 
     @Serial
     private static final long serialVersionUID = -8043118451927364511L;

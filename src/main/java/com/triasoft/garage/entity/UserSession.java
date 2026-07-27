@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @Entity
 @DynamicUpdate
 @Table(name = "user_session")
-public class UserSession extends GenericEntity {
+public class UserSession extends TenantScopedEntity {
 
     @Serial
     private static final long serialVersionUID = -5521092284401170841L;

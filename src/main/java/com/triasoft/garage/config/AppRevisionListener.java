@@ -3,6 +3,7 @@ package com.triasoft.garage.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.AppRevisionEntity;
+import com.triasoft.garage.security.tenant.TenantContext;
 import io.jsonwebtoken.Claims;
 import org.hibernate.envers.RevisionListener;
 import org.springframework.security.core.Authentication;
@@ -22,7 +23,9 @@ public class AppRevisionListener implements RevisionListener {
 
     @Override
     public void newRevision(Object revisionEntity) {
-        ((AppRevisionEntity) revisionEntity).setUserId(currentUserId());
+        AppRevisionEntity revision = (AppRevisionEntity) revisionEntity;
+        revision.setUserId(currentUserId());
+        revision.setTenantId(TenantContext.get());
     }
 
     private Long currentUserId() {

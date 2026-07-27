@@ -14,7 +14,7 @@ import java.io.Serial;
 @Entity
 @DynamicUpdate
 @Table(name = "app_vendor")
-public class Vendor extends AuditGenericEntity {
+public class Vendor extends TenantAwareAuditEntity {
 
     @Serial
     private static final long serialVersionUID = -4853395816627727935L;

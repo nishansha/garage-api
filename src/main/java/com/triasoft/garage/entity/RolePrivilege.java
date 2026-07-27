@@ -17,7 +17,7 @@ import java.io.Serial;
 @Entity
 @DynamicUpdate
 @Table(name = "fnd_role_privilege")
-public class RolePrivilege extends GenericEntity {
+public class RolePrivilege extends TenantAwareEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

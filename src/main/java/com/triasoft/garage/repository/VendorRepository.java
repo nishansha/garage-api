@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -100,8 +101,9 @@ public interface VendorRepository extends JpaRepository<Vendor, Long> {
                   AND ((pr.return_amount - COALESCE(outstanding.ap, 0)) - COALESCE(rec_sum.received, 0)) > 0
                 GROUP BY po.vendor_id
             ) prret ON prret.vendor_id = v.id
+            WHERE v.tenant_id = :tenantId
             """,
-            countQuery = "SELECT count(*) FROM app_vendor",
+            countQuery = "SELECT count(*) FROM app_vendor WHERE tenant_id = :tenantId",
             nativeQuery = true)
-    Page<VendorBalanceRow> findVendorsWithOutstandingBalance(Pageable pageable);
+    Page<VendorBalanceRow> findVendorsWithOutstandingBalance(@Param("tenantId") Long tenantId, Pageable pageable);
 }

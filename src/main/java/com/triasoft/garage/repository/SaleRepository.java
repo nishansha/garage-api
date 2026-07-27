@@ -52,32 +52,32 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = """
             SELECT
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
-                        WHERE s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as totalSales,
+                        WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as totalSales,
               COALESCE((SELECT SUM(s.landed_cost_at_sale) FROM app_sale s
-                        WHERE s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
               -
               COALESCE((SELECT SUM(s.landed_cost_at_sale) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as totalCost,
+                        WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as totalCost,
               COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
-                        WHERE s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as netProfit,
+                        WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as netProfit,
               COALESCE((SELECT COUNT(*) FROM app_sale s
-                        WHERE s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false), 0)
               -
               COALESCE((SELECT COUNT(*) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as unitsSold
+                        WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false), 0) as unitsSold
             FROM (SELECT 1) data
             """, nativeQuery = true)
-    ProfitMetrics getProfitReport(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    ProfitMetrics getProfitReport(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -112,34 +112,35 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                                         AND sr.return_date <= :endDate
             LEFT JOIN app_sale_return sr_all ON sr_all.sale_id = s.id AND sr_all.deleted = false
             WHERE s.deleted = false
+              AND s.tenant_id = :tenantId
               AND s.sale_date BETWEEN :startDate AND :endDate
             ORDER BY s.sale_date, s.id
             """, nativeQuery = true)
-    List<SaleLineRow> getSaleLinesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<SaleLineRow> getSaleLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
-                        WHERE s.sale_date >= :startOfMonth AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date >= :startOfMonth AND s.deleted = false), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date >= :startOfMonth AND sr.deleted = false), 0) as totalSalesThisMonth,
+                        WHERE s.tenant_id = :tenantId AND sr.return_date >= :startOfMonth AND sr.deleted = false), 0) as totalSalesThisMonth,
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
-                        WHERE s.sale_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND s.deleted = false), 0)
+                        WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND s.deleted = false), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
-                        WHERE sr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND sr.deleted = false), 0) as totalSalesLastMonth,
+                        WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startOfLastMonth AND :endOfLastMonth AND sr.deleted = false), 0) as totalSalesLastMonth,
               COALESCE((SELECT COUNT(*) FROM app_sale s
-                        WHERE s.sale_date = :today AND s.deleted = false
+                        WHERE s.tenant_id = :tenantId AND s.sale_date = :today AND s.deleted = false
                           AND s.payment_status <> 'REFUND'), 0) as todayCount,
               COALESCE((SELECT COUNT(*) FROM app_sale s
-                        WHERE s.sale_date >= :startOfMonth AND s.deleted = false
+                        WHERE s.tenant_id = :tenantId AND s.sale_date >= :startOfMonth AND s.deleted = false
                           AND s.payment_status <> 'REFUND'), 0) as monthCount
             FROM (SELECT 1) data
             """, nativeQuery = true)
-    SaleMetrics getSalesSummaryMetrics(@Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth, @Param("startOfMonth") LocalDate startOfMonth, @Param("today") LocalDate today);
+    SaleMetrics getSalesSummaryMetrics(@Param("tenantId") Long tenantId, @Param("startOfLastMonth") LocalDate startOfLastMonth, @Param("endOfLastMonth") LocalDate endOfLastMonth, @Param("startOfMonth") LocalDate startOfMonth, @Param("today") LocalDate today);
 
     @Query(value = """
             SELECT
@@ -251,7 +252,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
              JOIN app_product p ON i.product_id = p.id
              JOIN fnd_brand_model v ON p.model_id = v.id
              JOIN app_customer c ON s.customer_id = c.id
-             WHERE s.deleted = false AND s.payment_status <> 'REFUND')
+             WHERE s.deleted = false AND s.tenant_id = :tenantId AND s.payment_status <> 'REFUND')
             UNION ALL
             (SELECT 'PURCHASE' as activityType,
                     CONCAT('Purchase from ', ven.name) as description,
@@ -259,48 +260,50 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
              FROM app_purchase_order p_order
              JOIN app_vendor ven ON p_order.vendor_id = ven.id
              LEFT JOIN fnd_lookup_master ls ON ls.id = p_order.status_id
-             WHERE p_order.deleted = false AND (ls.code IS NULL OR ls.code <> 'RETURNED'))
+             WHERE p_order.deleted = false AND p_order.tenant_id = :tenantId AND (ls.code IS NULL OR ls.code <> 'RETURNED'))
             UNION ALL
-            (SELECT 'EXPENSE' as activityType, 
-                    e.description as description, 
+            (SELECT 'EXPENSE' as activityType,
+                    e.description as description,
                     CAST(e.date AS TIMESTAMP) as dateTime, 'D' as txnType, e.amount as txnAmount
              FROM app_expense e
-             WHERE e.deleted = false AND e.purchase_order_id IS NULL)
+             WHERE e.deleted = false AND e.tenant_id = :tenantId AND e.purchase_order_id IS NULL)
             ORDER BY dateTime DESC LIMIT 5
             """, nativeQuery = true)
-    List<ActivityProjection> findRecentActivities();
+    List<ActivityProjection> findRecentActivities(@Param("tenantId") Long tenantId);
 
     @Query(value = """
-            SELECT 
-                m.description as name, 
+            SELECT
+                m.description as name,
                 COUNT(s.id) as countValue
             FROM app_sale s
             JOIN app_inventory i ON s.inventory_id = i.id
             JOIN app_product p ON i.product_id = p.id
             JOIN fnd_brand_model m ON p.model_id = m.id
             WHERE s.deleted = false
+              AND s.tenant_id = :tenantId
               AND s.payment_status <> 'REFUND'
             GROUP BY m.description
             ORDER BY countValue DESC
             LIMIT 5
             """, nativeQuery = true)
-    List<ProductMetrics> findTopSoldProducts();
+    List<ProductMetrics> findTopSoldProducts(@Param("tenantId") Long tenantId);
 
     @Query(value = """
-            SELECT 
-                m.description as name, 
+            SELECT
+                m.description as name,
                 SUM(s.profit_amount) as revenueValue
             FROM app_sale s
             JOIN app_inventory i ON s.inventory_id = i.id
             JOIN app_product p ON i.product_id = p.id
             JOIN fnd_brand_model m ON p.model_id = m.id
             WHERE s.deleted = false
+              AND s.tenant_id = :tenantId
               AND s.payment_status <> 'REFUND'
             GROUP BY m.description
             ORDER BY revenueValue DESC
             LIMIT 5
             """, nativeQuery = true)
-    List<ProductMetrics> findTopProfitProducts();
+    List<ProductMetrics> findTopProfitProducts(@Param("tenantId") Long tenantId);
 
     @Query(value = """
         WITH RECURSIVE months AS (
@@ -403,54 +406,54 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
 
                 COALESCE((SELECT COUNT(*) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false
+                          AND s.deleted = false AND s.tenant_id = :tenantId
                           AND s.payment_status <> 'REFUND'), 0) as salesCount,
 
                 COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false), 0)
+                          AND s.deleted = false AND s.tenant_id = :tenantId), 0)
                 +
                 COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
-                          AND d.deleted = false AND d.direction = 'IN'
+                          AND d.deleted = false AND d.tenant_id = :tenantId AND d.direction = 'IN'
                           AND coa.type = 'REVENUE'), 0)
                 -
                 COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
                           JOIN app_sale s ON s.id = sr.sale_id
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false), 0)
+                          AND sr.deleted = false AND s.tenant_id = :tenantId), 0)
                 +
                 COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
                           FROM app_sale_return sr
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false), 0) as totalRevenue,
+                          AND sr.deleted = false AND sr.tenant_id = :tenantId), 0) as totalRevenue,
 
                 COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
-                          AND d.deleted = false AND d.direction = 'IN'
+                          AND d.deleted = false AND d.tenant_id = :tenantId AND d.direction = 'IN'
                           AND coa.type = 'REVENUE'), 0)
                 +
                 COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
                           FROM app_sale_return sr
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false), 0) as otherIncome,
+                          AND sr.deleted = false AND sr.tenant_id = :tenantId), 0) as otherIncome,
 
                 COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
                           WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                          AND s.deleted = false), 0)
+                          AND s.deleted = false AND s.tenant_id = :tenantId), 0)
                 -
                 COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0))
                           FROM app_sale_return sr
                           JOIN app_sale s ON s.id = sr.sale_id
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false), 0)
+                          AND sr.deleted = false AND s.tenant_id = :tenantId), 0)
                 +
                 COALESCE((SELECT SUM(sr.sold_vehicle_deduction_amount + sr.exchange_vehicle_deduction_amount)
                           FROM app_sale_return sr
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false), 0) as grossProfit,
+                          AND sr.deleted = false AND sr.tenant_id = :tenantId), 0) as grossProfit,
 
                 COALESCE((
                     SELECT SUM(s.net_sale_amount) - COALESCE(SUM(sp_sum.paid), 0)
@@ -462,7 +465,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                         GROUP BY sale_id
                     ) sp_sum ON sp_sum.sale_id = s.id
                     WHERE DATE_TRUNC('month', s.sale_date) = m.month_date
-                    AND s.deleted = false
+                    AND s.deleted = false AND s.tenant_id = :tenantId
                     AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')
                 ), 0) as totalReceivables,
 
@@ -504,37 +507,37 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                         GROUP BY purchase_id
                     ) pr_sum ON pr_sum.purchase_id = po.id
                     WHERE DATE_TRUNC('month', po.order_date) = m.month_date
-                    AND po.deleted = false
+                    AND po.deleted = false AND po.tenant_id = :tenantId
                 ), 0) as totalPayables,
 
                 COALESCE((SELECT SUM(e.amount) FROM app_expense e
                           WHERE DATE_TRUNC('month', e.date) = m.month_date
-                          AND e.deleted = false
+                          AND e.deleted = false AND e.tenant_id = :tenantId
                           AND e.purchase_order_id IS NULL), 0)
                 +
                 COALESCE((SELECT SUM(d.amount) FROM app_direct_entry d
                           JOIN fnd_chart_of_accounts coa ON coa.id = d.coa_id
                           WHERE DATE_TRUNC('month', d.entry_date) = m.month_date
-                          AND d.deleted = false AND d.direction = 'OUT'
+                          AND d.deleted = false AND d.tenant_id = :tenantId AND d.direction = 'OUT'
                           AND coa.type = 'EXPENSE'), 0)
                 +
                 COALESCE((SELECT SUM(GREATEST(0, pr.inventory_landed_cost - pr.return_amount))
                           FROM app_purchase_return pr
                           WHERE DATE_TRUNC('month', pr.return_date) = m.month_date
-                          AND pr.deleted = false), 0)
+                          AND pr.deleted = false AND pr.tenant_id = :tenantId), 0)
                 +
                 COALESCE((SELECT SUM(GREATEST(0, inv.landed_cost - s.exchange_amount))
                           FROM app_sale_return sr
                           JOIN app_sale s ON s.id = sr.sale_id
                           JOIN app_inventory inv ON inv.source_sale_id = s.id
                           WHERE DATE_TRUNC('month', sr.return_date) = m.month_date
-                          AND sr.deleted = false
+                          AND sr.deleted = false AND sr.tenant_id = :tenantId
                           AND sr.exchange_handling = 'RETURN_TO_BUYER'), 0) as totalExpenses
 
             FROM months m
             ORDER BY m.month_date ASC
             """, nativeQuery = true)
-    List<MonthlyTrendMetrics> getMonthlyTrend(@Param("monthCount") int monthCount);
+    List<MonthlyTrendMetrics> getMonthlyTrend(@Param("tenantId") Long tenantId, @Param("monthCount") int monthCount);
 
     @Query(value = """
             SELECT
@@ -578,10 +581,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
                 GROUP BY sale_id
             ) sp_sum ON sp_sum.sale_id = s.id
             WHERE s.deleted = false
+              AND s.tenant_id = :tenantId
               AND s.payment_status IN ('PENDING','PARTIAL','FINANCE_PENDING')
             ORDER BY s.sale_date DESC
             """, nativeQuery = true)
-    List<ReceivableRow> findReceivables();
+    List<ReceivableRow> findReceivables(@Param("tenantId") Long tenantId);
 
     @Query("""
             SELECT pd.purchase.id as purchaseId,

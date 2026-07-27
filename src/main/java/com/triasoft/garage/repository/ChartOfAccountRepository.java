@@ -27,6 +27,6 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     Optional<ChartOfAccount> findByTypeAndLabelIgnoreCaseAndIdNot(String type, String label, Long id);
 
-    @Query(value = "SELECT COALESCE(MAX(CAST(code AS BIGINT)), 1599) FROM fnd_chart_of_accounts WHERE type = :type AND code ~ '^[0-9]+$'", nativeQuery = true)
-    Long findMaxNumericCodeByType(@Param("type") String type);
+    @Query(value = "SELECT COALESCE(MAX(CAST(code AS BIGINT)), 1599) FROM fnd_chart_of_accounts WHERE tenant_id = :tenantId AND type = :type AND code ~ '^[0-9]+$'", nativeQuery = true)
+    Long findMaxNumericCodeByType(@Param("tenantId") Long tenantId, @Param("type") String type);
 }

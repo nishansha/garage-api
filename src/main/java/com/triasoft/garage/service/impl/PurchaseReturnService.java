@@ -6,6 +6,7 @@ import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.PurchaseReturnDTO;
 import com.triasoft.garage.dto.PurchaseReturnReceiptDTO;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
@@ -191,7 +192,7 @@ public class PurchaseReturnService {
     }
 
     public PurchaseReturnReceivablesSummaryRs getReceivablesSummary() {
-        List<PurchaseReturnReceivableRow> rows = purchaseReturnRepository.findReceivables();
+        List<PurchaseReturnReceivableRow> rows = purchaseReturnRepository.findReceivables(TenantContext.get());
         List<PurchaseReturnReceivableInfo> items = rows.stream().map(r -> PurchaseReturnReceivableInfo.builder()
                 .purchaseReturnId(r.getPurchaseReturnId())
                 .purchaseId(r.getPurchaseId())
