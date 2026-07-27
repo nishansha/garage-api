@@ -95,6 +95,10 @@ public class PurchaseRq extends GenericRq implements Versioned {
     @Pattern(regexp = "^[0-9]{10}$", message = "INVALID_FORMAT")
     private String ownerMobileNo;
 
+    @NullOrNotBlank
+    @Size(max = 500, message = "MAX_LENGTH")
+    private String ownerAddress;
+
     @Size(max = 50, message = "MAX_LENGTH")
     @Pattern(regexp = "^[A-Za-z0-9-]+$", message = "INVALID_CHARS")
     private String ownerShipSerialNo;
