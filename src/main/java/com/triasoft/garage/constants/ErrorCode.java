@@ -134,7 +134,9 @@ public class ErrorCode {
         ROLE_REQUIRED("BUS_204", "At least one role must be assigned to the user"),
         SALE_NOT_FOUND("BUS_205", "Sale not found"),
         INVENTORY_NOT_FOUND("BUS_206", "Inventory item not found"),
-        EXCHANGE_INVENTORY_NOT_FOUND("BUS_207", "Exchange inventory record not found for this sale");
+        EXCHANGE_INVENTORY_NOT_FOUND("BUS_207", "Exchange inventory record not found for this sale"),
+        OTHER_INCOME_NOT_FOUND("BUS_208", "Other income entry not found"),
+        OTHER_INCOME_INVALID_CATEGORY("BUS_209", "Selected account is not a valid other income category");
 
         private final String code;
         private final String message;
