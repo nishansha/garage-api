@@ -45,4 +45,11 @@ public class DirectEntrySpecification {
         };
     }
 
+    public static Specification<DirectEntry> buildOtherIncomeSearchQuery(FilterRq filter) {
+        return buildSearchQuery(filter).and((root, query, cb) -> cb.and(
+                cb.equal(root.get("chartOfAccount").get("type"), "REVENUE"),
+                cb.isTrue(root.get("chartOfAccount").get("isDirectPostable"))
+        ));
+    }
+
 }

@@ -174,7 +174,7 @@ public class DirectEntryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.DIRECT_ENTRY_NOT_FOUND));
     }
 
-    private DirectEntryDTO toDTO(DirectEntry e) {
+    DirectEntryDTO toDTO(DirectEntry e) {
         return DirectEntryDTO.builder()
                 .id(e.getId())
                 .version(e.getVersion())
