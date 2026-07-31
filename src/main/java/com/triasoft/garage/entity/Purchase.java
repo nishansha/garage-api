@@ -49,6 +49,15 @@ public class Purchase extends AuditGenericEntity {
     @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
 
+    /**
+     * Refundable amount paid to the vendor on top of the vehicle price, recoverable once this
+     * unit is resold (the resale triggers a direct RC transfer, so the vendor owes this back).
+     * Excluded from {@link PurchaseDetail#getUnitCost()} / landed cost — it's not part of the
+     * vehicle's true cost, just cash parked with the vendor pending refund. Nullable/optional.
+     */
+    @Column(name = "rc_due_amount")
+    private BigDecimal rcDueAmount;
+
     @Column(name = "notes")
     private String notes;
 

@@ -3,12 +3,15 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.constants.Privilege;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.model.common.ApiResponse;
+import com.triasoft.garage.model.user.UserPreferenceRq;
+import com.triasoft.garage.model.user.UserPreferenceRs;
 import com.triasoft.garage.model.user.UserRoleRq;
 import com.triasoft.garage.model.user.UserRoleRs;
 import com.triasoft.garage.model.user.UserRq;
 import com.triasoft.garage.model.user.UserRs;
 import com.triasoft.garage.security.rbac.HasPrivilege;
 import com.triasoft.garage.service.impl.RoleService;
+import com.triasoft.garage.service.impl.UserPreferenceService;
 import com.triasoft.garage.service.impl.UserService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +29,17 @@ public class UserController {
 
     private final UserService userService;
     private final RoleService roleService;
+    private final UserPreferenceService userPreferenceService;
+
+    @GetMapping(value = "/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<UserPreferenceRs>> getPreferences(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userPreferenceService.get(UserUtil.getUser(request).getId())));
+    }
+
+    @PutMapping(value = "/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<UserPreferenceRs>> updatePreferences(@RequestBody UserPreferenceRq rq, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userPreferenceService.update(UserUtil.getUser(request).getId(), rq)));
+    }
 
     @GetMapping(value = "/staff", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<UserRs>> getStaffs(HttpServletRequest request) {

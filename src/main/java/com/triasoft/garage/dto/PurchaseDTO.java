@@ -42,8 +42,13 @@ public class PurchaseDTO implements Serializable {
     private BigDecimal purchaseRate;
     private BigDecimal totalExpenses;
     private BigDecimal totalCost;
+    private BigDecimal landedCost;
     private BigDecimal paidAmount;
     private BigDecimal pendingAmount;
+    private BigDecimal rcDueAmount;
+    private BigDecimal paidRcDueAmount;
+    private BigDecimal pendingRcDueAmount;
+    private List<RcDueReceiptDTO> rcDueReceipts;
     private StatusEnum paymentStatus;
     private Long pickupStaffId;
     private String pickupLocation;
@@ -60,6 +65,7 @@ public class PurchaseDTO implements Serializable {
     private String ownerName;
     private String ownerMobileNo;
     private String ownerShipSerialNo;
+    private String ownerAddress;
     private List<ExpenseDTO> expenses;
     private List<PurchasePaymentDTO> payments;
 

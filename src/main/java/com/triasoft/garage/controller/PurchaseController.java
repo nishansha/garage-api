@@ -7,7 +7,10 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
+import com.triasoft.garage.model.purchase.RcDueReceiptCreateRs;
+import com.triasoft.garage.model.purchase.RcDueReceiptRq;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.RcDueSummaryRs;
 import com.triasoft.garage.service.impl.PurchaseService;
 import com.triasoft.garage.util.UserUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,5 +93,29 @@ public class PurchaseController {
     @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary() {
         return ResponseEntity.ok(ApiResponse.success(purchaseService.getPayablesSummary()));
+    }
+
+    @PostMapping(value = "/{id}/rc-due-receipts", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<RcDueReceiptCreateRs>> recordRcDueReceipt(@PathVariable("id") Long id, @Valid @RequestBody RcDueReceiptRq rq, HttpServletRequest request) {
+        log.info(":: PurchaseController - recordRcDueReceipt() - id - {}, {} ::", id, rq);
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.recordRcDueReceipt(id, rq, UserUtil.getUser(request))));
+    }
+
+    @PutMapping(value = "/{id}/rc-due-receipts/{receiptId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<RcDueReceiptCreateRs>> updateRcDueReceipt(@PathVariable("id") Long id, @PathVariable("receiptId") Long receiptId, @Valid @RequestBody RcDueReceiptRq rq, HttpServletRequest request) {
+        log.info(":: PurchaseController - updateRcDueReceipt() - id - {}, receiptId - {}, {} ::", id, receiptId, rq);
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.updateRcDueReceipt(id, receiptId, rq, UserUtil.getUser(request))));
+    }
+
+    @DeleteMapping(value = "/{id}/rc-due-receipts/{receiptId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<Void>> deleteRcDueReceipt(@PathVariable("id") Long id, @PathVariable("receiptId") Long receiptId, HttpServletRequest request) {
+        log.info(":: PurchaseController - deleteRcDueReceipt() - id - {}, receiptId - {} ::", id, receiptId);
+        purchaseService.deleteRcDueReceipt(id, receiptId, UserUtil.getUser(request));
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping(value = "/rc-due-summary", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<RcDueSummaryRs>> getRcDueSummary() {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.getRcDueSummary()));
     }
 }

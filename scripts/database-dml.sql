@@ -182,6 +182,7 @@ INSERT INTO public.fnd_chart_of_accounts VALUES (88, '3100', 'E-OD', 'Withdrawal
 INSERT INTO public.fnd_chart_of_accounts VALUES (2, '1100', 'A-ACR', 'Money owed to the company by customers. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Accounts Receivable (A/R)', false, false, 'AR', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (34, '1150', 'A-FR', 'Amount due from finance companies for financed vehicle sales.', 'ASSET', false, '2026-06-13 00:13:04.445205', 1, NULL, NULL, 'Finance Receivable', false, false, 'FINANCE_RECEIVABLE', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (96, '1170', 'VND-REF-REC', 'Vendor Refund Receivable', 'ASSET', true, NULL, NULL, NULL, NULL, 'Money owed to us by vendors for returned purchases', false, false, 'VENDOR_REFUND_RECEIVABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (107, '1180', 'A-RCD', 'Amount due from the vehicle''s original purchase vendor for RCD splits, collected at RC conversion', 'ASSET', false, NULL, NULL, NULL, NULL, 'RC Due Receivable', false, false, 'RC_DUE_RECEIVABLE', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (3, '1200', 'A-INV', 'Total cost of all vehicles in stock. (Control Account)', 'ASSET', true, NULL, NULL, NULL, NULL, 'Inventory - Vehicles', false, false, 'INVENTORY', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (9, '2000', 'L-ACP', 'Money owed by the company to vendors/suppliers. (Control Account)', 'LIABILITY', true, NULL, NULL, NULL, NULL, 'Accounts Payable (A/P)', false, false, 'AP', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (89, '2400', 'L-CSP', 'Amounts owed to customers from trade-in exchanges where exchange value exceeds sale value.', 'LIABILITY', false, NULL, NULL, NULL, NULL, 'Customer Settlement Payable', false, false, 'CUSTOMER_SETTLEMENT_PAYABLE', 0);
@@ -199,6 +200,8 @@ INSERT INTO public.fnd_chart_of_accounts VALUES (92, '4520', 'RTN-INC-DED', 'Ret
 INSERT INTO public.fnd_chart_of_accounts VALUES (93, '4530', 'RTN-INC-EXGAIN', 'Gain on Exchange Adjustment', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Gain on Exchange Adjustment', false, false, 'GAIN_ON_EXCHANGE_ADJ', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (94, '5510', 'RTN-EXP-EXCH', 'Loss on Returned Exchange Vehicle', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Returned Exchange Vehicle', false, false, 'LOSS_RETURNED_EXCHANGE', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (95, '5520', 'RTN-EXP-PUR', 'Loss on Purchase Return', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Purchase Return', false, false, 'LOSS_PURCHASE_RETURN', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (109, '1201', 'A-FA-OUT', 'Capitalized setup cost for the KKL sales outlet (fit-out, fixtures, furniture, equipment), funded by owner capital contribution.', 'ASSET', false, NULL, NULL, NULL, NULL, 'Fixed Assets - KKL Sales Outlet', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (110, '1202', 'A-FA-WS', 'Capitalized setup cost for the painting workshop (fit-out, fixtures, equipment), funded by owner capital contribution.', 'ASSET', false, NULL, NULL, NULL, NULL, 'Fixed Assets - Painting Workshop', false, true, NULL, 0);
 
 
 --
@@ -275,7 +278,6 @@ INSERT INTO public.fnd_lookup_master VALUES (104, 'MAGENTA', 'Magenta', 121, tru
 INSERT INTO public.fnd_lookup_master VALUES (105, 'DUAL_TONE', 'Dual Tone', 200, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (106, 'OTHER', 'Other', 999, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (107, 'TO_CHARGE', 'TO Charge', 1, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (108, 'RCD', 'RCD', 2, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (109, 'IM_REFUND', 'IM Refund', 3, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (110, 'MT', 'MT', 1, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (111, 'AMT', 'AMT', 2, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
@@ -1159,7 +1161,7 @@ INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (30, 7, 'EXPENSE_
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (31, 7, 'EXPENSE_GENERAL', 'General Expenses', 51, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (32, 9, 'DATA_RESET', 'Clear Data', 50, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (33, 9, 'RECYCLE_BIN', 'Recycle Bin', 40, true);
-
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (34, 7, 'OTHER_INCOME', 'Other Incomes', 40, true);
 
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (1, 'SUPERADMIN', 'Super Admin', 'Unrestricted access; bypasses privilege checks entirely', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (2, 'ADMIN', 'Admin', 'Administrative access; privileges granted explicitly like any other role', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
@@ -1281,6 +1283,11 @@ INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (199, 2, 19
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (200, 2, 19, 'UPDATE');
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (201, 2, 19, 'CREATE');
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (202, 2, 19, 'VIEW');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (203, 2, 34, 'EXPORT');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (204, 2, 34, 'DELETE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (205, 2, 34, 'UPDATE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (206, 2, 34, 'CREATE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (207, 2, 34, 'VIEW');
 
 
 INSERT INTO public.inf_warehouse VALUES (1, 'FUTURE_MOTORS', 'Future Motors', 'Karuvankallu', NULL);
@@ -1318,7 +1325,7 @@ SELECT pg_catalog.setval('public.app_sale_return_id_seq', 1, false);
 SELECT pg_catalog.setval('public.app_transaction_id_seq', 1, false);
 SELECT pg_catalog.setval('public.app_vendor_id_seq', 65, true);
 SELECT pg_catalog.setval('public.fnd_brand_model_id_seq', 167, true);
-SELECT pg_catalog.setval('public.fnd_chart_of_accounts_id_seq', 106, true);
+SELECT pg_catalog.setval('public.fnd_chart_of_accounts_id_seq', 110, true);
 SELECT pg_catalog.setval('public.fnd_lookup_master_id_seq', 115, true);
 SELECT pg_catalog.setval('public.fnd_model_varient_id_seq', 798, true);
 SELECT pg_catalog.setval('public.fnd_product_brand_id_seq', 21, true);
