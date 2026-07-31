@@ -4,9 +4,15 @@ import com.triasoft.garage.constants.JournalStatusEnum;
 import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.entity.ChartOfAccount;
 import com.triasoft.garage.entity.Customer;
+import com.triasoft.garage.entity.Inventory;
 import com.triasoft.garage.entity.Journal;
 import com.triasoft.garage.entity.JournalDetail;
+import com.triasoft.garage.entity.PaymentAccount;
+import com.triasoft.garage.entity.Purchase;
+import com.triasoft.garage.entity.PurchaseDetail;
+import com.triasoft.garage.entity.RcDueReceipt;
 import com.triasoft.garage.entity.Sale;
+import com.triasoft.garage.entity.Vendor;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.journal.JournalLineRq;
 import com.triasoft.garage.model.journal.JournalRq;
@@ -21,6 +27,7 @@ import com.triasoft.garage.repository.PurchasePaymentRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
 import com.triasoft.garage.repository.PurchaseReturnReceiptRepository;
 import com.triasoft.garage.repository.PurchaseReturnRepository;
+import com.triasoft.garage.repository.RcDueReceiptRepository;
 import com.triasoft.garage.repository.SalePaymentRepository;
 import com.triasoft.garage.repository.SaleRefundPaymentRepository;
 import com.triasoft.garage.repository.SaleRepository;
@@ -74,6 +81,7 @@ class JournalServiceTest {
     @Mock private SaleRefundPaymentRepository saleRefundPaymentRepository;
     @Mock private PurchaseReturnRepository purchaseReturnRepository;
     @Mock private PurchaseReturnReceiptRepository purchaseReturnReceiptRepository;
+    @Mock private RcDueReceiptRepository rcDueReceiptRepository;
 
     private JournalService journalService;
 
@@ -84,7 +92,7 @@ class JournalServiceTest {
                 saleRepository, salePaymentRepository, purchaseRepository, purchasePaymentRepository,
                 expenseRepository, directEntryRepository, paymentAccountRepository, inventoryRepository,
                 saleReturnRepository, saleRefundPaymentRepository, purchaseReturnRepository,
-                purchaseReturnReceiptRepository);
+                purchaseReturnReceiptRepository, rcDueReceiptRepository);
 
         AtomicLong journalIdSeq = new AtomicLong(1);
         lenient().when(journalRepository.save(any(Journal.class))).thenAnswer(inv -> {
@@ -124,6 +132,25 @@ class JournalServiceTest {
         sale.setFinanceAmount(financeAmount);
         sale.setLandedCostAtSale(landedCost);
         return sale;
+    }
+
+    private Purchase buildPurchase(BigDecimal purchaseRate, BigDecimal rcDueAmount) {
+        Vendor vendor = new Vendor();
+        vendor.setId(1L);
+        vendor.setName("Acme Motors");
+
+        Purchase purchase = new Purchase();
+        purchase.setId(1L);
+        purchase.setReferenceNo("PO-1");
+        purchase.setVendor(vendor);
+        purchase.setOrderDate(LocalDate.of(2026, 1, 5));
+        purchase.setTotalAmount(purchaseRate.add(safeOrZero(rcDueAmount)));
+        purchase.setRcDueAmount(rcDueAmount);
+        return purchase;
+    }
+
+    private BigDecimal safeOrZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     @Test
@@ -238,6 +265,124 @@ class JournalServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(ex -> ((BusinessException) ex).getCode())
                 .isEqualTo("BUS_130"); // JOURNAL_COA_MISSING
+    }
+
+    @Test
+    void post_purchase_basicCase_postsInventoryAndAP() {
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), null);
+        when(purchaseRepository.findById(1L)).thenReturn(Optional.of(purchase));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.INVENTORY);
+        coaFor(SystemCoaRole.AP);
+
+        journalService.post(JournalService.REF_PURCHASE, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        List<JournalDetail> lines = captor.getValue();
+
+        BigDecimal totalDebit = lines.stream().map(JournalDetail::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = lines.stream().map(JournalDetail::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(totalDebit).isEqualByComparingTo(totalCredit);
+        assertThat(totalDebit).isEqualByComparingTo("100000");
+
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.INVENTORY.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("100000");
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
+        });
+    }
+
+    @Test
+    void post_purchase_withRcDue_debitsReceivableAndInflatesPayableWithoutTouchingInventory() {
+        // 5000 of the 105000 paid to the vendor is a refundable RCD deposit, recoverable once
+        // this unit is resold — it must land in RC_DUE_RECEIVABLE, not Inventory, but the vendor
+        // was genuinely paid the full 105000 so A/P must reflect that in full.
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), new BigDecimal("5000"));
+        when(purchaseRepository.findById(1L)).thenReturn(Optional.of(purchase));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.INVENTORY);
+        coaFor(SystemCoaRole.RC_DUE_RECEIVABLE);
+        coaFor(SystemCoaRole.AP);
+
+        journalService.post(JournalService.REF_PURCHASE, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        List<JournalDetail> lines = captor.getValue();
+
+        BigDecimal totalDebit = lines.stream().map(JournalDetail::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = lines.stream().map(JournalDetail::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(totalDebit).isEqualByComparingTo(totalCredit);
+        assertThat(totalDebit).isEqualByComparingTo("105000");
+
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.INVENTORY.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("100000"); // rcDue excluded from landed cost
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.RC_DUE_RECEIVABLE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("5000");
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("105000"); // full cash paid to vendor
+        });
+    }
+
+    @Test
+    void post_rcDueReceipt_settlesReceivableFromPurchase() {
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), new BigDecimal("5000"));
+
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(50L);
+        cashCoa.setLabel("CASH");
+        cashAccount.setChartOfAccount(cashCoa);
+
+        RcDueReceipt receipt = new RcDueReceipt();
+        receipt.setId(1L);
+        receipt.setPurchase(purchase);
+        receipt.setAmount(new BigDecimal("5000"));
+        receipt.setReceiptDate(LocalDate.of(2026, 2, 1));
+        receipt.setPaymentAccount(cashAccount);
+
+        when(rcDueReceiptRepository.findById(1L)).thenReturn(Optional.of(receipt));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_RC_DUE_RECEIPT, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.RC_DUE_RECEIVABLE);
+
+        journalService.post(JournalService.REF_RC_DUE_RECEIPT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        List<JournalDetail> lines = captor.getValue();
+
+        BigDecimal totalDebit = lines.stream().map(JournalDetail::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = lines.stream().map(JournalDetail::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(totalDebit).isEqualByComparingTo(totalCredit);
+        assertThat(totalDebit).isEqualByComparingTo("5000");
+
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount()).isEqualTo(cashCoa);
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("5000");
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.RC_DUE_RECEIVABLE.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("5000");
+        });
     }
 
 

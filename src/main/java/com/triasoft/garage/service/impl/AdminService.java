@@ -32,6 +32,7 @@ public class AdminService {
             "app_sale_refund_payment",
             "app_sale_return",
             "app_sale_amount_split",
+            "app_rc_due_receipt",
             "app_sale_payment",
             "app_sale",
             // Purchases
@@ -65,6 +66,7 @@ public class AdminService {
      */
     static final List<String> AUDIT_TABLES = List.of(
             "app_sale_aud",
+            "app_rc_due_receipt_aud",
             "app_sale_payment_aud",
             "app_sale_return_aud",
             "app_sale_return_deduction_aud",

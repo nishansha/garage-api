@@ -7,5 +7,6 @@ public enum TransactionTypeEnum {
     EXPENSE,
     REFUND,
     TRANSFER,
-    DIRECT_ENTRY
+    DIRECT_ENTRY,
+    RC_DUE_RECEIPT
 }

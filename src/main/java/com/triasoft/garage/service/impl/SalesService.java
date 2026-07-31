@@ -131,7 +131,7 @@ public class SalesService {
         sale.setFinanced(saleRq.isFinanced());
         BigDecimal exchangeAmt = saleRq.isExchanged() && Objects.nonNull(saleRq.getExchangeAmount()) ? saleRq.getExchangeAmount() : BigDecimal.ZERO;
         sale.setExchangeAmount(exchangeAmt);
-        sale.setNetSaleAmount(saleRq.getSaleRate().subtract(exchangeAmt));
+        sale.setNetSaleAmount(computeNetSaleAmount(saleRq.getSaleRate(), exchangeAmt));
         BigDecimal financeAmt = resolveFinanceAmount(saleRq, sale.getNetSaleAmount());
         sale.setFinanceAmount(financeAmt);
         sale.setFinanceCompany(saleRq.isFinanced() ? saleRq.getFinanceCompany() : null);
@@ -169,6 +169,7 @@ public class SalesService {
         exchangePurchaseRq.setCode(details.getCode());
         exchangePurchaseRq.setOwnerName(saleRq.getCustomerName());
         exchangePurchaseRq.setOwnerMobileNo(saleRq.getCustomerMobileNo());
+        exchangePurchaseRq.setOwnerAddress(saleRq.getCustomerAddress());
         exchangePurchaseRq.setOwnerShipSerialNo(details.getOwnerShipSerialNo());
         exchangePurchaseRq.setVehicleNo(details.getVehicleNo());
         exchangePurchaseRq.setBrandId(details.getBrandId());
@@ -288,7 +289,7 @@ public class SalesService {
         }
         syncExchangeVehicle(existingSale, salesRq, user);
         BigDecimal exchangeAmt = salesRq.isExchanged() && Objects.nonNull(salesRq.getExchangeAmount()) ? salesRq.getExchangeAmount() : BigDecimal.ZERO;
-        BigDecimal newNetSaleAmount = salesRq.getSaleRate().subtract(exchangeAmt);
+        BigDecimal newNetSaleAmount = computeNetSaleAmount(salesRq.getSaleRate(), exchangeAmt);
         BigDecimal newFinanceAmount = resolveFinanceAmount(salesRq, newNetSaleAmount);
         BigDecimal financePaidSoFar = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.FINANCE);
         BigDecimal customerPaidSoFar = salePaymentRepository.sumAmountBySaleIdAndPayerType(id, PayerTypeEnum.CUSTOMER);
@@ -300,7 +301,7 @@ public class SalesService {
             throw new BusinessException(new ErrorCode.CustomError("SAL_413",
                     "Finance amount cannot be lower than finance payments already recorded (" + financePaidSoFar + ")."));
         }
-        BigDecimal newCustomerCap = newNetSaleAmount.subtract(newFinanceAmount != null ? newFinanceAmount : BigDecimal.ZERO);
+        BigDecimal newCustomerCap = newNetSaleAmount.subtract(newFinanceAmount != null ? newFinanceAmount : BigDecimal.ZERO).max(BigDecimal.ZERO);
         if (customerPaidSoFar.compareTo(newCustomerCap) > 0) {
             throw new BusinessException(new ErrorCode.CustomError("SAL_414",
                     "Customer payments already recorded (" + customerPaidSoFar + ") exceed the new customer payable amount (" + newCustomerCap + ")."));
@@ -328,19 +329,6 @@ public class SalesService {
         }
         saleRepository.save(existingSale);
         syncAmountSplits(existingSale, salesRq.getAmountSplits());
-
-        // TODO [JOURNAL ENTRY] - Sale Updated
-        // Trigger  : after any sale field that affects amounts or vehicle changes.
-        // Strategy : reverse the original sale journal entries, then post fresh ones.
-        //   Reversal of Entry 1:  Dr Sales Revenue (Income)     / Cr Accounts Receivable (Asset)
-        //   Reversal of Entry 2:  Dr Vehicle Inventory (Asset)  / Cr Cost of Goods Sold (Expense)
-        //   New Entry 1:          Dr Accounts Receivable        / Cr Sales Revenue         (new saleRate)
-        //   New Entry 2:          Dr Cost of Goods Sold         / Cr Vehicle Inventory     (new landedCostAtSale)
-        // If vehicle changed: the COGS reversal must use the OLD vehicle's landedCostAtSale and the
-        //   new entry must use the NEW vehicle's landedCostAtSale (already updated on existingSale above).
-        // Future call: JournalEntryService.reverseByReference("SALE", id);
-        //              JournalEntryService.postSale(id)
-
         journalService.post(JournalService.REF_SALE, id);
         return SalesRs.builder().build();
     }
@@ -620,6 +608,10 @@ public class SalesService {
         } else {
             sale.setPaymentStatus(StatusEnum.PENDING);
         }
+    }
+
+    private BigDecimal computeNetSaleAmount(BigDecimal saleRate, BigDecimal exchangeAmt) {
+        return saleRate.subtract(exchangeAmt);
     }
 
     private void saveAmountSplits(Sale sale, List<SaleAmountSplitDTO> splits) {
