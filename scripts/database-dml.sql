@@ -33,7 +33,9 @@ INSERT INTO public.fnd_chart_of_accounts VALUES (92, '4520', 'RTN-INC-DED', 'Ret
 INSERT INTO public.fnd_chart_of_accounts VALUES (93, '4530', 'RTN-INC-EXGAIN', 'Gain on Exchange Adjustment', 'REVENUE', true, NULL, NULL, NULL, NULL, 'Gain on Exchange Adjustment', false, false, 'GAIN_ON_EXCHANGE_ADJ', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (94, '5510', 'RTN-EXP-EXCH', 'Loss on Returned Exchange Vehicle', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Returned Exchange Vehicle', false, false, 'LOSS_RETURNED_EXCHANGE', 0);
 INSERT INTO public.fnd_chart_of_accounts VALUES (95, '5520', 'RTN-EXP-PUR', 'Loss on Purchase Return', 'EXPENSE', true, NULL, NULL, NULL, NULL, 'Loss on Purchase Return', false, false, 'LOSS_PURCHASE_RETURN', 0);
-
+INSERT INTO public.fnd_chart_of_accounts VALUES (107, '1180', 'A-RCD', 'Amount due from the vehicle''s original purchase vendor for RCD splits, collected at RC conversion', 'ASSET', false, NULL, NULL, NULL, NULL, 'RC Due Receivable', false, false, 'RC_DUE_RECEIVABLE', 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (109, '1201', 'A-FA-OUT', 'Capitalized setup cost for the KKL sales outlet (fit-out, fixtures, furniture, equipment), funded by owner capital contribution.', 'ASSET', false, NULL, NULL, NULL, NULL, 'Fixed Assets - KKL Sales Outlet', false, true, NULL, 0);
+INSERT INTO public.fnd_chart_of_accounts VALUES (110, '1202', 'A-FA-WS', 'Capitalized setup cost for the painting workshop (fit-out, fixtures, equipment), funded by owner capital contribution.', 'ASSET', false, NULL, NULL, NULL, NULL, 'Fixed Assets - Painting Workshop', false, true, NULL, 0);
 
 --
 -- TOC entry 4396 (class 0 OID 16908)
@@ -109,7 +111,6 @@ INSERT INTO public.fnd_lookup_master VALUES (104, 'MAGENTA', 'Magenta', 121, tru
 INSERT INTO public.fnd_lookup_master VALUES (105, 'DUAL_TONE', 'Dual Tone', 200, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (106, 'OTHER', 'Other', 999, true, '2026-07-06 14:08:37.588572', 1, NULL, NULL, 'COLOR', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (107, 'TO_CHARGE', 'TO Charge', 1, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
-INSERT INTO public.fnd_lookup_master VALUES (108, 'RCD', 'RCD', 2, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (109, 'IM_REFUND', 'IM Refund', 3, true, NULL, NULL, NULL, NULL, 'SALE_SPLIT_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (110, 'MT', 'MT', 1, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
 INSERT INTO public.fnd_lookup_master VALUES (111, 'AMT', 'AMT', 2, true, NULL, NULL, NULL, NULL, 'TRANSMISSION_TYPE', false, NULL, 0);
