@@ -20,6 +20,8 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
 
     Page<DirectEntry> findAllByOrderByEntryDateDescCreatedAtDesc(Pageable pageable);
 
+    Page<DirectEntry> findAllByChartOfAccount_TypeAndChartOfAccount_IsDirectPostableTrueOrderByEntryDateDescCreatedAtDesc(String type, Pageable pageable);
+
     @Query(value = """
             SELECT
               COALESCE(SUM(CASE WHEN d.direction = 'IN' AND coa.type = 'REVENUE'

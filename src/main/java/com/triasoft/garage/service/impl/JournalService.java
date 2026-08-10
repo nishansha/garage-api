@@ -34,6 +34,7 @@ public class JournalService {
     public static final String REF_SALE_RETURN_REFUND = "SALE_RETURN_REFUND";
     public static final String REF_PURCHASE_RETURN = "PURCHASE_RETURN";
     public static final String REF_PURCHASE_RETURN_RECEIPT = "PURCHASE_RETURN_RECEIPT";
+    public static final String REF_RC_DUE_RECEIPT = "RC_DUE_RECEIPT";
 
     // System-managed CoA accounts are looked up by SystemCoaRole, so user-editable
     // code/name changes don't break journal posting or aggregation queries.
@@ -53,6 +54,7 @@ public class JournalService {
     private final SaleRefundPaymentRepository saleRefundPaymentRepository;
     private final PurchaseReturnRepository purchaseReturnRepository;
     private final PurchaseReturnReceiptRepository purchaseReturnReceiptRepository;
+    private final RcDueReceiptRepository rcDueReceiptRepository;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Public API
@@ -75,6 +77,7 @@ public class JournalService {
             case REF_SALE_RETURN_REFUND      -> handleSaleReturnRefund(referenceId);
             case REF_PURCHASE_RETURN         -> handlePurchaseReturn(referenceId);
             case REF_PURCHASE_RETURN_RECEIPT -> handlePurchaseReturnReceipt(referenceId);
+            case REF_RC_DUE_RECEIPT           -> handleRcDueReceipt(referenceId);
             default -> throw new BusinessException("JNL_400", "Unknown reference type: " + referenceType);
         }
     }
@@ -187,7 +190,20 @@ public class JournalService {
         BigDecimal exchange = safe(sale.getExchangeAmount());
         BigDecimal finance = sale.isFinanced() ? safe(sale.getFinanceAmount()) : BigDecimal.ZERO;
         BigDecimal landedCost = safe(sale.getLandedCostAtSale());
-        BigDecimal customerAR = saleRate.subtract(exchange).subtract(finance);
+
+        // RCD no longer touches the sale: it's captured and recognized entirely on the Purchase
+        // side (see JournalService.handlePurchase) as a vendor receivable, independent of what
+        // the customer pays here.
+        BigDecimal beforeExchange = saleRate.subtract(exchange).subtract(finance);
+        BigDecimal customerAR;
+        BigDecimal settlementPayable;
+        if (beforeExchange.signum() < 0) {
+            customerAR = BigDecimal.ZERO;
+            settlementPayable = beforeExchange.abs();
+        } else {
+            customerAR = beforeExchange;
+            settlementPayable = BigDecimal.ZERO;
+        }
 
         Journal journal = createJournal(REF_SALE, saleId, sale.getSaleDate(),
                 "Sale " + sale.getInvoiceNo() + " — " + sale.getCustomer().getName());
@@ -211,8 +227,8 @@ public class JournalService {
         if (landedCost.signum() > 0) {
             lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), landedCost, "Inventory out"));
         }
-        if (customerAR.signum() < 0) {
-            lines.add(credit(journal, coa(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE), customerAR.abs(),
+        if (settlementPayable.signum() > 0) {
+            lines.add(credit(journal, coa(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE), settlementPayable,
                     "Customer settlement payable — " + sale.getCustomer().getName()));
         }
 
@@ -244,23 +260,32 @@ public class JournalService {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
 
-        // total_amount on Purchase includes both the base vehicle price AND linked expenses.
-        // Purchase-linked expenses post their own EXPENSE journals (DR Inventory / CR cash),
-        // so this PURCHASE journal must use only the base (vendor-billed) amount to avoid:
+        // total_amount on Purchase includes the base vehicle price, linked expenses, AND any
+        // refundable RCD paid to the vendor on top of the vehicle price. Purchase-linked expenses
+        // post their own EXPENSE journals (DR Inventory / CR cash), so this PURCHASE journal must
+        // strip both expenses and RCD out of the base (vendor-billed vehicle) amount to avoid:
         //  • double-debiting Inventory (once here, once in EXPENSE)
         //  • inflating A/P by expense amounts that were paid directly, not invoiced by vendor
+        //  • landing RCD in Inventory, which would inflate landed cost/COGS with a recoverable amount
         BigDecimal expensesSum = purchase.getPurchaseExpenses().stream()
                 .map(e -> safe(e.getAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal baseAmount = safe(purchase.getTotalAmount()).subtract(expensesSum);
+        BigDecimal rcDue = safe(purchase.getRcDueAmount());
+        BigDecimal baseAmount = safe(purchase.getTotalAmount()).subtract(expensesSum).subtract(rcDue);
 
         Journal journal = createJournal(REF_PURCHASE, purchaseId, purchase.getOrderDate(),
                 "Purchase " + purchase.getReferenceNo() + " — " + purchase.getVendor().getName());
 
-        List<JournalDetail> lines = List.of(
-                debit(journal, coa(SystemCoaRole.INVENTORY), baseAmount, "Inventory in (vehicle base)"),
-                credit(journal, coa(SystemCoaRole.AP), baseAmount, "Vendor payable — " + purchase.getVendor().getName())
-        );
+        List<JournalDetail> lines = new ArrayList<>();
+        lines.add(debit(journal, coa(SystemCoaRole.INVENTORY), baseAmount, "Inventory in (vehicle base)"));
+        if (rcDue.signum() > 0) {
+            // RCD is cash paid to the vendor on top of the vehicle price, recoverable once this
+            // unit is resold — a receivable from day one, never part of Inventory/COGS.
+            lines.add(debit(journal, coa(SystemCoaRole.RC_DUE_RECEIVABLE), rcDue,
+                    "RC due receivable — " + purchase.getVendor().getName()));
+        }
+        lines.add(credit(journal, coa(SystemCoaRole.AP), baseAmount.add(rcDue),
+                "Vendor payable — " + purchase.getVendor().getName()));
         saveBalanced(lines);
     }
 
@@ -443,13 +468,19 @@ public class JournalService {
         Purchase purchase = pr.getPurchase();
         BigDecimal unwindAmount = safe(pr.getReturnAmount());
         BigDecimal landedCost = safe(pr.getInventoryLandedCost());
+        // A return can only happen before this unit is ever sold (see PurchaseReturnService),
+        // and an RC due receipt can only be recorded after — so any rcDueAmount here is always
+        // fully un-received. It must unwind alongside the vehicle cost, not leak into loss/gain:
+        // the RCD was never part of landedCost, so it isn't part of what the vendor "restocks"
+        // either — it's closed out 1:1 against the receivable that was booked for it at purchase.
+        BigDecimal rcDue = safe(purchase.getRcDueAmount());
         BigDecimal vendorInvoice = computeVendorInvoiceAmount(purchase);
         BigDecimal paidToVendor = safe(purchasePaymentRepository.sumAmountByPurchaseId(purchase.getId()));
         BigDecimal outstandingAp = vendorInvoice.subtract(paidToVendor).max(BigDecimal.ZERO);
         // Cap at unwindAmount in the (unlikely) edge case that outstandingAp drifted higher.
         BigDecimal apToCancel = outstandingAp.min(unwindAmount);
         BigDecimal vendorReceivable = unwindAmount.subtract(apToCancel).max(BigDecimal.ZERO);
-        BigDecimal loss = landedCost.subtract(unwindAmount); // sunk expenses + restocking fee
+        BigDecimal loss = landedCost.add(rcDue).subtract(unwindAmount); // sunk expenses + restocking fee
 
         Journal journal = createJournal(REF_PURCHASE_RETURN, purchaseReturnId, pr.getReturnDate(),
                 "Purchase return for inventory " + pr.getInventory().getUin() +
@@ -472,6 +503,10 @@ public class JournalService {
         }
         if (landedCost.signum() > 0) {
             lines.add(credit(journal, coa(SystemCoaRole.INVENTORY), landedCost, "Inventory out — returned to vendor"));
+        }
+        if (rcDue.signum() > 0) {
+            lines.add(credit(journal, coa(SystemCoaRole.RC_DUE_RECEIVABLE), rcDue,
+                    "Close RC due receivable — unit returned before resale"));
         }
         saveBalanced(lines);
     }
@@ -497,6 +532,24 @@ public class JournalService {
                         "Refund received to " + receipt.getPaymentAccount().getName()),
                 credit(journal, coa(SystemCoaRole.VENDOR_REFUND_RECEIVABLE), receipt.getAmount(),
                         "Settle vendor refund receivable")
+        );
+        saveBalanced(lines);
+    }
+
+    private void handleRcDueReceipt(Long receiptId) {
+        RcDueReceipt receipt = rcDueReceiptRepository.findById(receiptId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_NOT_FOUND));
+
+        ChartOfAccount paymentCoa = paymentAccountCoa(receipt.getPaymentAccount());
+        Purchase purchase = receipt.getPurchase();
+        Journal journal = createJournal(REF_RC_DUE_RECEIPT, receiptId, receipt.getReceiptDate(),
+                "RC due receipt from " + purchase.getVendor().getName() + " for purchase " + purchase.getReferenceNo());
+
+        List<JournalDetail> lines = List.of(
+                debit(journal, paymentCoa, receipt.getAmount(),
+                        "RC due received to " + receipt.getPaymentAccount().getName()),
+                credit(journal, coa(SystemCoaRole.RC_DUE_RECEIVABLE), receipt.getAmount(),
+                        "Settle RC due receivable")
         );
         saveBalanced(lines);
     }

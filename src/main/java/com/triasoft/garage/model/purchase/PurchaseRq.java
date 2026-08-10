@@ -76,6 +76,9 @@ public class PurchaseRq extends GenericRq implements Versioned {
     @DecimalMin(value = "0.0", inclusive = false, message = "MUST_BE_POSITIVE")
     private BigDecimal purchaseRate;
 
+    @DecimalMin(value = "0.0", inclusive = false, message = "MUST_BE_POSITIVE")
+    private BigDecimal rcDueAmount;
+
     private Long pickupStaffId;
 
     @Size(max = 100, message = "MAX_LENGTH")

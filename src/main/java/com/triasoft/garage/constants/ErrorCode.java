@@ -134,7 +134,14 @@ public class ErrorCode {
         ROLE_REQUIRED("BUS_204", "At least one role must be assigned to the user"),
         SALE_NOT_FOUND("BUS_205", "Sale not found"),
         INVENTORY_NOT_FOUND("BUS_206", "Inventory item not found"),
-        EXCHANGE_INVENTORY_NOT_FOUND("BUS_207", "Exchange inventory record not found for this sale");
+        EXCHANGE_INVENTORY_NOT_FOUND("BUS_207", "Exchange inventory record not found for this sale"),
+        OTHER_INCOME_NOT_FOUND("BUS_208", "Other income entry not found"),
+        OTHER_INCOME_INVALID_CATEGORY("BUS_209", "Selected account is not a valid other income category"),
+        RC_DUE_EXCEEDS_PURCHASE_AMOUNT("BUS_210", "RC due amount cannot exceed the purchase rate"),
+        RC_DUE_RECEIPT_NOT_FOUND("BUS_211", "RC due receipt not found"),
+        RC_DUE_RECEIPT_EXCEEDS_REMAINING("BUS_212", "Receipt amount exceeds the remaining RC due balance"),
+        RC_DUE_REDUCED_BELOW_RECEIVED("BUS_213", "RC due amount cannot be reduced below what has already been received from the vendor"),
+        RC_DUE_RECEIPT_BEFORE_SALE("BUS_214", "RC due can only be collected from the vendor after this vehicle has been sold");
 
         private final String code;
         private final String message;

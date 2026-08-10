@@ -1110,8 +1110,29 @@ INSERT INTO public.fnd_model_varient VALUES (797, 166, 'PLUS_P', 'Plus', 2, true
 INSERT INTO public.fnd_model_varient VALUES (798, 167, 'M3', 'M3', NULL, true, NULL);
 
 
+INSERT INTO public.fnd_product_brand VALUES (1, 1, 'MARUTISUZUKI', 'Maruti Suzuki', 1, true);
+INSERT INTO public.fnd_product_brand VALUES (2, 1, 'TOYOTA', 'Toyota', 2, true);
+INSERT INTO public.fnd_product_brand VALUES (3, 1, 'HYUNDAI', 'Hyundai', 3, true);
+INSERT INTO public.fnd_product_brand VALUES (4, 1, 'TATA', 'Tata', 4, true);
+INSERT INTO public.fnd_product_brand VALUES (5, 1, 'KIA', 'Kia', 5, true);
+INSERT INTO public.fnd_product_brand VALUES (6, 1, 'MGMOTORS', 'MG Motors', 6, true);
+INSERT INTO public.fnd_product_brand VALUES (7, 1, 'MAHINDRA', 'Mahindra', 7, true);
+INSERT INTO public.fnd_product_brand VALUES (8, 1, 'JEEP', 'Jeep', 8, true);
+INSERT INTO public.fnd_product_brand VALUES (9, 1, 'HONDA', 'Honda', 9, true);
+INSERT INTO public.fnd_product_brand VALUES (10, 1, 'SKODA', 'Skoda', 10, true);
+INSERT INTO public.fnd_product_brand VALUES (11, 1, 'CITROEN', 'Citroen', 11, true);
+INSERT INTO public.fnd_product_brand VALUES (12, 1, 'RENAULT', 'Renault', 12, true);
+INSERT INTO public.fnd_product_brand VALUES (13, 1, 'NISSAN', 'Nissan', 13, true);
+INSERT INTO public.fnd_product_brand VALUES (14, 1, 'VOLKSWAGEN', 'Volkswagen', 14, true);
+INSERT INTO public.fnd_product_brand VALUES (15, 1, 'CHEVROLET', 'Chevrolet', 15, true);
+INSERT INTO public.fnd_product_brand VALUES (16, 1, 'FORD', 'Ford', 16, true);
+INSERT INTO public.fnd_product_brand VALUES (17, 1, 'MERCEDESBENZ', 'Mercedes Benz', 17, true);
+INSERT INTO public.fnd_product_brand VALUES (18, 1, 'AUDI', 'Audi', 18, true);
+INSERT INTO public.fnd_product_brand VALUES (19, 1, 'BMW', 'BMW', 19, true);
+INSERT INTO public.fnd_product_brand VALUES (20, 1, 'TEST', 'Test', NULL, true);
+INSERT INTO public.fnd_product_brand VALUES (21, 1, 'TES2', 'Test 2', NULL, true);
 
-
+INSERT INTO public.fnd_product_category VALUES (1, 'VEHICLE', 'Vehicles', 0, true, true, 'EOY');
 
 
 INSERT INTO public.fnd_product_segment VALUES (2, true, 'SEDAN', 'Sedan', 4, 1);
@@ -1163,7 +1184,7 @@ INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (30, 7, 'EXPENSE_
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (31, 7, 'EXPENSE_GENERAL', 'General Expenses', 51, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (32, 9, 'DATA_RESET', 'Clear Data', 50, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (33, 9, 'RECYCLE_BIN', 'Recycle Bin', 40, true);
-
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (34, 7, 'OTHER_INCOME', 'Other Incomes', 40, true);
 
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (1, 'SUPERADMIN', 'Super Admin', 'Unrestricted access; bypasses privilege checks entirely', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (2, 'ADMIN', 'Admin', 'Administrative access; privileges granted explicitly like any other role', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
@@ -1285,6 +1306,11 @@ INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (199, 2, 19
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (200, 2, 19, 'UPDATE');
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (201, 2, 19, 'CREATE');
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (202, 2, 19, 'VIEW');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (203, 2, 34, 'EXPORT');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (204, 2, 34, 'DELETE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (205, 2, 34, 'UPDATE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (206, 2, 34, 'CREATE');
+INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (207, 2, 34, 'VIEW');
 
 
 INSERT INTO public.inf_warehouse VALUES (1, 'FUTURE_MOTORS', 'Future Motors', 'Karuvankallu', NULL);
@@ -1322,7 +1348,7 @@ SELECT pg_catalog.setval('public.app_sale_return_id_seq', 1, false);
 SELECT pg_catalog.setval('public.app_transaction_id_seq', 1, false);
 SELECT pg_catalog.setval('public.app_vendor_id_seq', 65, true);
 SELECT pg_catalog.setval('public.fnd_brand_model_id_seq', 167, true);
-SELECT pg_catalog.setval('public.fnd_chart_of_accounts_id_seq', 106, true);
+SELECT pg_catalog.setval('public.fnd_chart_of_accounts_id_seq', 110, true);
 SELECT pg_catalog.setval('public.fnd_lookup_master_id_seq', 115, true);
 SELECT pg_catalog.setval('public.fnd_model_varient_id_seq', 798, true);
 SELECT pg_catalog.setval('public.fnd_product_brand_id_seq', 21, true);

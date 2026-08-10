@@ -587,6 +587,38 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             """, nativeQuery = true)
     List<ReceivableRow> findReceivables(@Param("tenantId") Long tenantId);
 
+    @Query(value = """
+            SELECT
+                po.id           as purchaseId,
+                s.id            as saleId,
+                s.invoice_no    as invoiceNo,
+                inv.product_no  as vehicleNo,
+                s.sale_date     as saleDate,
+                po.rc_due_amount as amount,
+                (po.rc_due_amount - COALESCE(rc_sum.received, 0)) as pendingAmount,
+                rc_sum.last_receipt_date as lastReceiptDate,
+                v.name          as vendorName,
+                v.mobile        as vendorMobile
+            FROM app_sale s
+            JOIN app_inventory inv ON inv.id = s.inventory_id
+            JOIN app_purchase_order_detail pod ON pod.id = inv.purchase_order_detail_id
+            JOIN app_purchase_order po ON po.id = pod.purchase_order_id
+            JOIN app_vendor v ON v.id = po.vendor_id
+            LEFT JOIN (
+                SELECT purchase_order_id,
+                       SUM(amount)       as received,
+                       MAX(receipt_date) as last_receipt_date
+                FROM app_rc_due_receipt
+                WHERE deleted = false
+                GROUP BY purchase_order_id
+            ) rc_sum ON rc_sum.purchase_order_id = po.id
+            WHERE s.deleted = false
+              AND po.rc_due_amount > 0
+              AND (po.rc_due_amount - COALESCE(rc_sum.received, 0)) > 0
+            ORDER BY s.sale_date DESC
+            """, nativeQuery = true)
+    List<RcDueRow> findPendingRcDues();
+
     @Query("""
             SELECT pd.purchase.id as purchaseId,
                    s.saleDate as saleDate,

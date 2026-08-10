@@ -5,6 +5,7 @@ import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.dto.PurchasePaymentDTO;
+import com.triasoft.garage.dto.RcDueReceiptDTO;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
@@ -16,8 +17,12 @@ import com.triasoft.garage.model.purchase.PurchasePaymentRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
 import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
+import com.triasoft.garage.model.purchase.RcDueReceiptCreateRs;
+import com.triasoft.garage.model.purchase.RcDueReceiptRq;
 import com.triasoft.garage.model.report.PayableInfo;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.RcDueInfo;
+import com.triasoft.garage.model.report.RcDueSummaryRs;
 import com.triasoft.garage.projection.*;
 import com.triasoft.garage.repository.*;
 import com.triasoft.garage.util.CommonUtil;
@@ -57,6 +62,7 @@ public class PurchaseService {
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
+    private final RcDueReceiptRepository rcDueReceiptRepository;
     private final JournalService journalService;
 
 
@@ -98,12 +104,17 @@ public class PurchaseService {
         BigDecimal paidByOffset = isExchange ? resolvePaidByOffset(inventory.getSourceSaleId(), unitCost) : null;
         BigDecimal paidByCash = isExchange ? paidAmount : null;
         BigDecimal effectivePaid = isExchange ? clampZero(safe(paidByOffset).add(safe(paidByCash))) : paidAmount;
+        // Non-exchange pending/status must track the full vendor payable (vehicle + expenses +
+        // RCD), not just unitCost — mirrors computeRemainingPayable()'s already-correct logic.
+        // Exchange settlement is a separate concept (trade-in value vs offset/cash), so it stays
+        // pinned to unitCost.
+        BigDecimal totalPayable = safe(purchase.getTotalAmount());
         BigDecimal pending = isExchange
                 ? clampZero(unitCost.subtract(effectivePaid))
-                : clampZero(unitCost.subtract(paidAmount));
+                : clampZero(totalPayable.subtract(paidAmount));
         StatusEnum status = isExchange
                 ? deriveSettlementStatus(unitCost, safe(paidByOffset), safe(paidByCash))
-                : derivePaymentStatus(paidAmount, unitCost);
+                : derivePaymentStatus(paidAmount, totalPayable);
         LookupMaster color = inventory != null ? inventory.getColor() : null;
         return PurchaseDTO.builder()
                 .id(purchase.getId())
@@ -145,6 +156,7 @@ public class PurchaseService {
                 .notes(purchase.getNotes())
                 .ownerName(purchase.getVendor().getName())
                 .ownerMobileNo(purchase.getVendor().getMobile())
+                .ownerAddress(purchase.getVendor().getAddress())
                 .ownerShipSerialNo(purchaseDetail.getOwnershipSerialNo())
                 .isSold(inventory != null && StatusEnum.SOLD.equals(inventory.getStatus()))
                 .isReturned(inventory != null && StatusEnum.RETURNED_TO_VENDOR.equals(inventory.getStatus()))
@@ -467,7 +479,15 @@ public class PurchaseService {
         BigDecimal totalExpenseAmt = createAndGetExpense(purchaseRq, purchase, user);
         PurchaseDetail detail = getPurchaseDetail(purchaseRq, product, purchase);
         purchase.setPurchaseDetails(List.of(detail));
-        purchase.setTotalAmount(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
+        BigDecimal rcDueAmt = safe(purchaseRq.getRcDueAmount());
+        if (rcDueAmt.compareTo(purchaseRq.getPurchaseRate()) > 0) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_EXCEEDS_PURCHASE_AMOUNT);
+        }
+        purchase.setRcDueAmount(rcDueAmt);
+        // totalAmount is the full cash outlay for this purchase (vehicle + expenses + the
+        // refundable RCD paid on top of the vendor's bill) — drives A/P and payment tracking.
+        // Landed cost (below) deliberately excludes RCD: it's not part of the vehicle's cost.
+        purchase.setTotalAmount(purchaseRq.getPurchaseRate().add(totalExpenseAmt).add(rcDueAmt));
         purchase.setPickupLocation(purchaseRq.getPickupLocation());
         purchase.setPickupStaffId(purchaseRq.getPickupStaffId());
         Purchase savedPurchase = purchaseRepository.save(purchase);
@@ -529,7 +549,16 @@ public class PurchaseService {
         entityManager.flush();
 
         BigDecimal totalExpenseAmt = createAndGetExpense(purchaseRq, purchase, user);
-        purchase.setTotalAmount(purchaseRq.getPurchaseRate().add(totalExpenseAmt));
+        BigDecimal newRcDueAmount = safe(purchaseRq.getRcDueAmount());
+        if (newRcDueAmount.compareTo(purchaseRq.getPurchaseRate()) > 0) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_EXCEEDS_PURCHASE_AMOUNT);
+        }
+        BigDecimal rcDueReceivedSoFar = rcDueReceiptRepository.sumAmountByPurchaseId(purchaseId);
+        if (rcDueReceivedSoFar.compareTo(newRcDueAmount) > 0) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_REDUCED_BELOW_RECEIVED);
+        }
+        purchase.setRcDueAmount(newRcDueAmount);
+        purchase.setTotalAmount(purchaseRq.getPurchaseRate().add(totalExpenseAmt).add(newRcDueAmount));
         if (CollectionUtils.isEmpty(purchase.getPurchaseDetails())) {
             throw new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND);
         }
@@ -631,7 +660,6 @@ public class PurchaseService {
     private BigDecimal createAndGetExpense(PurchaseRq purchaseRq, Purchase purchase, UserDTO user) {
         if (CollectionUtils.isEmpty(purchaseRq.getExpenses())) return BigDecimal.ZERO;
 
-        // Aggregate new expenses (no id) per payment account and validate total upfront
         Map<Long, BigDecimal> newExpenseTotalsByAccount = new HashMap<>();
         for (ExpenseDTO exDto : purchaseRq.getExpenses()) {
             if (exDto.getId() == null && exDto.getPaymentAccountId() != null) {
@@ -732,12 +760,20 @@ public class PurchaseService {
         Inventory inventory = inventoryRepository.findByPurchaseOrderDetailPurchaseId(id).orElse(null);
         BigDecimal paidAmount = purchasePaymentRepository.sumAmountByPurchaseId(id);
         PurchaseDTO purchaseDTO = convertToDTO(purchase, inventory, paidAmount);
+        purchaseDTO.setLandedCost(inventory != null ? inventory.getLandedCost() : null);
         List<ExpenseDTO> expenseDTOs = purchase.getPurchaseExpenses().stream().map(this::convertToExpenseDTO).toList();
         purchaseDTO.setExpenses(expenseDTOs);
         purchaseDTO.setTotalExpenses(expenseDTOs.stream().map(ExpenseDTO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
         purchaseDTO.setPayments(purchasePaymentRepository.findByPurchaseIdOrderByPaymentDateDesc(id)
                 .stream().map(this::toPaymentDTO).toList());
         purchaseDTO.setEditable(computeIsEditableForDetail(purchase, inventory));
+        BigDecimal rcDueAmount = safe(purchase.getRcDueAmount());
+        BigDecimal paidRcDueAmount = rcDueReceiptRepository.sumAmountByPurchaseId(id);
+        purchaseDTO.setRcDueAmount(rcDueAmount);
+        purchaseDTO.setPaidRcDueAmount(paidRcDueAmount);
+        purchaseDTO.setPendingRcDueAmount(clampZero(rcDueAmount.subtract(paidRcDueAmount)));
+        purchaseDTO.setRcDueReceipts(rcDueReceiptRepository.findByPurchaseIdOrderByReceiptDateDesc(id)
+                .stream().map(this::toRcDueReceiptDTO).toList());
         return purchaseDTO;
     }
 
@@ -954,6 +990,196 @@ public class PurchaseService {
 
     private BigDecimal safe(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  RC due receipts — vendor settles the RCD amount once this unit is resold
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional
+    public RcDueReceiptCreateRs recordRcDueReceipt(Long purchaseId, RcDueReceiptRq rq, UserDTO user) {
+        Purchase purchase = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
+        requireSold(purchaseId);
+        BigDecimal rcDueAmount = safe(purchase.getRcDueAmount());
+        BigDecimal alreadyReceived = rcDueReceiptRepository.sumAmountByPurchaseId(purchaseId);
+        BigDecimal remaining = rcDueAmount.subtract(alreadyReceived);
+        if (remaining.signum() <= 0) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_EXCEEDS_REMAINING);
+        }
+        if (rq.getAmount().compareTo(remaining) > 0) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_EXCEEDS_REMAINING);
+        }
+        PaymentAccount account = resolveRcDuePaymentAccount(rq.getPaymentAccountId());
+
+        RcDueReceipt receipt = new RcDueReceipt();
+        receipt.setPurchase(purchase);
+        receipt.setAmount(rq.getAmount());
+        receipt.setReceiptDate(rq.getReceiptDate() != null ? rq.getReceiptDate() : LocalDate.now());
+        receipt.setPaymentMethod(rq.getPaymentMethod());
+        receipt.setReferenceNo(rq.getReferenceNo());
+        receipt.setNotes(rq.getNotes());
+        receipt.setPaymentAccount(account);
+        RcDueReceipt saved = rcDueReceiptRepository.save(receipt);
+
+        createRcDueReceiptTransaction(saved, purchase.getReferenceNo());
+        BigDecimal newTotal = alreadyReceived.add(rq.getAmount());
+        return RcDueReceiptCreateRs.builder()
+                .receiptId(saved.getId())
+                .purchaseId(purchase.getId())
+                .amount(saved.getAmount())
+                .totalReceived(newTotal)
+                .remainingRcDue(rcDueAmount.subtract(newTotal).max(BigDecimal.ZERO))
+                .build();
+    }
+
+    @Transactional
+    @VersionCheck(entity = RcDueReceipt.class, idIndex = 1)
+    public RcDueReceiptCreateRs updateRcDueReceipt(Long purchaseId, Long receiptId, RcDueReceiptRq rq, UserDTO user) {
+        Purchase purchase = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PURCHASE_NOT_FOUND));
+        RcDueReceipt receipt = rcDueReceiptRepository.findById(receiptId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_NOT_FOUND));
+        if (!receipt.getPurchase().getId().equals(purchaseId)) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_NOT_FOUND);
+        }
+        boolean amountChanged = receipt.getAmount().compareTo(rq.getAmount()) != 0;
+        Long oldAccountId = receipt.getPaymentAccount() != null ? receipt.getPaymentAccount().getId() : null;
+        boolean accountChanged = !Objects.equals(oldAccountId, rq.getPaymentAccountId());
+
+        if (amountChanged || accountChanged) {
+            BigDecimal rcDueAmount = safe(purchase.getRcDueAmount());
+            BigDecimal alreadyReceived = rcDueReceiptRepository.sumAmountByPurchaseId(purchaseId);
+            BigDecimal excludingThis = alreadyReceived.subtract(receipt.getAmount());
+            BigDecimal remaining = rcDueAmount.subtract(excludingThis);
+            if (rq.getAmount().compareTo(remaining) > 0) {
+                throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_EXCEEDS_REMAINING);
+            }
+            reverseRcDueReceiptTransaction(receipt);
+        }
+
+        receipt.setAmount(rq.getAmount());
+        receipt.setReceiptDate(rq.getReceiptDate() != null ? rq.getReceiptDate() : receipt.getReceiptDate());
+        receipt.setPaymentMethod(rq.getPaymentMethod());
+        receipt.setReferenceNo(rq.getReferenceNo());
+        receipt.setNotes(rq.getNotes());
+        PaymentAccount newAccount = resolveRcDuePaymentAccount(rq.getPaymentAccountId());
+        receipt.setPaymentAccount(newAccount);
+        RcDueReceipt saved = rcDueReceiptRepository.save(receipt);
+
+        if (amountChanged || accountChanged) {
+            createRcDueReceiptTransaction(saved, purchase.getReferenceNo());
+        }
+        BigDecimal newTotal = rcDueReceiptRepository.sumAmountByPurchaseId(purchaseId);
+        BigDecimal rcDueAmount = safe(purchase.getRcDueAmount());
+        return RcDueReceiptCreateRs.builder()
+                .receiptId(saved.getId())
+                .purchaseId(purchase.getId())
+                .amount(saved.getAmount())
+                .totalReceived(newTotal)
+                .remainingRcDue(rcDueAmount.subtract(newTotal).max(BigDecimal.ZERO))
+                .build();
+    }
+
+    @Transactional
+    public void deleteRcDueReceipt(Long purchaseId, Long receiptId, UserDTO user) {
+        RcDueReceipt receipt = rcDueReceiptRepository.findById(receiptId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_NOT_FOUND));
+        if (!receipt.getPurchase().getId().equals(purchaseId)) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_NOT_FOUND);
+        }
+        reverseRcDueReceiptTransaction(receipt);
+        rcDueReceiptRepository.delete(receipt);
+    }
+
+    /** A vendor's RCD only becomes collectible once this specific unit has actually been resold. */
+    private void requireSold(Long purchaseId) {
+        boolean sold = inventoryRepository.findByPurchaseOrderDetailPurchaseId(purchaseId)
+                .map(inv -> StatusEnum.SOLD.equals(inv.getStatus()))
+                .orElse(false);
+        if (!sold) {
+            throw new BusinessException(ErrorCode.Business.RC_DUE_RECEIPT_BEFORE_SALE);
+        }
+    }
+
+    private PaymentAccount resolveRcDuePaymentAccount(Long accountId) {
+        if (accountId == null) {
+            throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_REQUIRED);
+        }
+        return paymentAccountRepository.findById(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
+    }
+
+    private void createRcDueReceiptTransaction(RcDueReceipt receipt, String purchaseRefNo) {
+        Transaction transaction = new Transaction();
+        transaction.setTransactionDate(receipt.getReceiptDate());
+        transaction.setType(TransactionTypeEnum.RC_DUE_RECEIPT);
+        transaction.setReferenceType("RC_DUE_RECEIPT");
+        transaction.setReferenceId(receipt.getId());
+        transaction.setPaymentAccount(receipt.getPaymentAccount());
+        transaction.setAmount(receipt.getAmount());
+        transaction.setDirection(TransactionDirectionEnum.IN);
+        transaction.setDescription("RC due received – " + purchaseRefNo);
+        transaction.setNotes(receipt.getNotes());
+        transactionRepository.save(transaction);
+        journalService.post(JournalService.REF_RC_DUE_RECEIPT, receipt.getId());
+    }
+
+    private void reverseRcDueReceiptTransaction(RcDueReceipt receipt) {
+        transactionRepository.findActiveByReferenceTypeAndReferenceId("RC_DUE_RECEIPT", receipt.getId())
+                .ifPresent(original -> {
+                    if (transactionRepository.existsByReversalOfId(original.getId())) return;
+                    Transaction reversal = new Transaction();
+                    reversal.setTransactionDate(LocalDate.now());
+                    reversal.setType(TransactionTypeEnum.RC_DUE_RECEIPT);
+                    reversal.setReferenceType("RC_DUE_RECEIPT");
+                    reversal.setReferenceId(receipt.getId());
+                    reversal.setPaymentAccount(original.getPaymentAccount());
+                    reversal.setAmount(original.getAmount());
+                    reversal.setDirection(TransactionDirectionEnum.OUT);
+                    reversal.setDescription("Reversal – " + original.getDescription());
+                    reversal.setReversalOf(original);
+                    transactionRepository.save(reversal);
+                    journalService.reverseOnDate(JournalService.REF_RC_DUE_RECEIPT, receipt.getId(), LocalDate.now());
+                });
+    }
+
+    private RcDueReceiptDTO toRcDueReceiptDTO(RcDueReceipt r) {
+        return RcDueReceiptDTO.builder()
+                .id(r.getId())
+                .version(r.getVersion())
+                .amount(r.getAmount())
+                .receiptDate(r.getReceiptDate())
+                .paymentMethod(r.getPaymentMethod())
+                .paymentAccountId(r.getPaymentAccount() != null ? r.getPaymentAccount().getId() : null)
+                .paymentAccountName(r.getPaymentAccount() != null ? r.getPaymentAccount().getName() : null)
+                .referenceNo(r.getReferenceNo())
+                .notes(r.getNotes())
+                .build();
+    }
+
+    public RcDueSummaryRs getRcDueSummary() {
+        List<RcDueRow> rows = saleRepository.findPendingRcDues();
+        List<RcDueInfo> items = rows.stream().map(r -> RcDueInfo.builder()
+                .purchaseId(r.getPurchaseId())
+                .saleId(r.getSaleId())
+                .invoiceNo(r.getInvoiceNo())
+                .vehicleNo(r.getVehicleNo())
+                .saleDate(r.getSaleDate())
+                .amount(safe(r.getAmount()))
+                .pendingAmount(safe(r.getPendingAmount()))
+                .lastReceiptDate(r.getLastReceiptDate())
+                .vendorName(r.getVendorName())
+                .vendorMobile(r.getVendorMobile())
+                .build()).toList();
+        BigDecimal totalPending = items.stream()
+                .map(RcDueInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return RcDueSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
     }
 
     private boolean isExchangePurchase(Long purchaseId) {

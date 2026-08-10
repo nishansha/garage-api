@@ -587,6 +587,7 @@ CREATE TABLE public.app_purchase_order (
     pickup_staff_id bigint,
     deleted boolean NOT NULL,
     buyback_recorded_at date,
+    rc_due_amount numeric(38,2),
     version bigint DEFAULT 0 NOT NULL
 );
 
@@ -603,6 +604,7 @@ CREATE TABLE public.app_purchase_order_aud (
     order_date date,
     revtype smallint,
     total_amount numeric(38,2),
+    rc_due_amount numeric(38,2),
     created_at timestamp(6) without time zone,
     created_by bigint,
     id bigint NOT NULL,
@@ -867,6 +869,76 @@ ALTER TABLE public.app_purchase_return_receipt_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.app_purchase_return_receipt_id_seq OWNED BY public.app_purchase_return_receipt.id;
+
+
+--
+-- Name: app_rc_due_receipt; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_rc_due_receipt (
+    id bigint NOT NULL,
+    purchase_order_id bigint NOT NULL,
+    amount numeric(15,2) NOT NULL,
+    receipt_date date NOT NULL,
+    payment_method character varying(50) NOT NULL,
+    payment_account_id bigint NOT NULL,
+    reference_no character varying(100),
+    notes text,
+    created_by bigint,
+    created_at timestamp without time zone,
+    modified_by bigint,
+    modified_at timestamp without time zone,
+    deleted boolean DEFAULT false,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.app_rc_due_receipt OWNER TO postgres;
+
+--
+-- Name: app_rc_due_receipt_aud; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_rc_due_receipt_aud (
+    amount numeric(38,2),
+    receipt_date date,
+    revtype smallint,
+    created_at timestamp(6) without time zone,
+    created_by bigint,
+    id bigint NOT NULL,
+    modified_at timestamp(6) without time zone,
+    modified_by bigint,
+    payment_account_id bigint,
+    purchase_order_id bigint,
+    rev bigint NOT NULL,
+    notes character varying(255),
+    payment_method character varying(255),
+    reference_no character varying(255),
+    CONSTRAINT app_rc_due_receipt_aud_payment_method_check CHECK (((payment_method)::text = ANY ((ARRAY['CASH'::character varying, 'BANK'::character varying, 'CHEQUE'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.app_rc_due_receipt_aud OWNER TO postgres;
+
+--
+-- Name: app_rc_due_receipt_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_rc_due_receipt_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_rc_due_receipt_id_seq OWNER TO postgres;
+
+--
+-- Name: app_rc_due_receipt_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.app_rc_due_receipt_id_seq OWNED BY public.app_rc_due_receipt.id;
 
 
 --
@@ -1869,6 +1941,37 @@ CREATE SEQUENCE public.so_ref_no_seq
 ALTER TABLE public.so_ref_no_seq OWNER TO postgres;
 
 --
+-- Name: user_preference; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.user_preference (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    language character varying(10) NOT NULL,
+    theme character varying(10) NOT NULL,
+    navbar_position character varying(10) NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    modified_at timestamp without time zone
+);
+
+
+ALTER TABLE public.user_preference OWNER TO postgres;
+
+--
+-- Name: user_preference_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.user_preference ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_preference_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: user_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -2039,6 +2142,13 @@ ALTER TABLE ONLY public.app_purchase_return ALTER COLUMN id SET DEFAULT nextval(
 --
 
 ALTER TABLE ONLY public.app_purchase_return_receipt ALTER COLUMN id SET DEFAULT nextval('public.app_purchase_return_receipt_id_seq'::regclass);
+
+
+--
+-- Name: app_rc_due_receipt id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt ALTER COLUMN id SET DEFAULT nextval('public.app_rc_due_receipt_id_seq'::regclass);
 
 
 --
@@ -2273,6 +2383,22 @@ ALTER TABLE ONLY public.app_purchase_return_receipt_aud
 
 ALTER TABLE ONLY public.app_purchase_return_receipt
     ADD CONSTRAINT app_purchase_return_receipt_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_rc_due_receipt_aud app_rc_due_receipt_aud_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt_aud
+    ADD CONSTRAINT app_rc_due_receipt_aud_pkey PRIMARY KEY (id, rev);
+
+
+--
+-- Name: app_rc_due_receipt app_rc_due_receipt_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt
+    ADD CONSTRAINT app_rc_due_receipt_pkey PRIMARY KEY (id);
 
 
 --
@@ -2612,11 +2738,27 @@ ALTER TABLE ONLY public.app_configurations
 
 
 --
+-- Name: user_preference uk_user_preference_user_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_preference
+    ADD CONSTRAINT uk_user_preference_user_id UNIQUE (user_id);
+
+
+--
 -- Name: user_session uk_user_session_session_id; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.user_session
     ADD CONSTRAINT uk_user_session_session_id UNIQUE (session_id);
+
+
+--
+-- Name: user_preference user_preference_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_preference
+    ADD CONSTRAINT user_preference_pkey PRIMARY KEY (id);
 
 
 --
@@ -2772,6 +2914,13 @@ CREATE INDEX idx_pod_purchase_order_id ON public.app_purchase_order_detail USING
 --
 
 CREATE INDEX idx_pr_receipt_return ON public.app_purchase_return_receipt USING btree (purchase_return_id);
+
+
+--
+-- Name: idx_rc_due_receipt_purchase_order; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_rc_due_receipt_purchase_order ON public.app_rc_due_receipt USING btree (purchase_order_id);
 
 
 --
@@ -3224,6 +3373,22 @@ ALTER TABLE ONLY public.app_purchase_return_receipt
 
 
 --
+-- Name: app_rc_due_receipt app_rc_due_receipt_payment_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt
+    ADD CONSTRAINT app_rc_due_receipt_payment_account_id_fkey FOREIGN KEY (payment_account_id) REFERENCES public.app_payment_account(id);
+
+
+--
+-- Name: app_rc_due_receipt app_rc_due_receipt_purchase_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt
+    ADD CONSTRAINT app_rc_due_receipt_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.app_purchase_order(id);
+
+
+--
 -- Name: app_sale_amount_split app_sale_amount_split_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3528,6 +3693,14 @@ ALTER TABLE ONLY public.app_purchase_return_receipt_aud
 
 
 --
+-- Name: app_rc_due_receipt_aud app_rc_due_receipt_aud_rev_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_rc_due_receipt_aud
+    ADD CONSTRAINT app_rc_due_receipt_aud_rev_fkey FOREIGN KEY (rev) REFERENCES public.revinfo(rev);
+
+
+--
 -- Name: app_sale fkgx1ea9fp6pvboi1cn4ikrggvy; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3653,6 +3826,14 @@ ALTER TABLE ONLY public.app_expense
 
 ALTER TABLE ONLY public.app_purchase_order
     ADD CONSTRAINT status_fk2 FOREIGN KEY (status_id) REFERENCES public.fnd_lookup_master(id);
+
+
+--
+-- Name: user_preference user_preference_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_preference
+    ADD CONSTRAINT user_preference_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profile(id);
 
 
 --
