@@ -8,6 +8,7 @@ import com.triasoft.garage.entity.Role;
 import com.triasoft.garage.entity.RolePrivilege;
 import com.triasoft.garage.entity.Tenant;
 import com.triasoft.garage.entity.Vendor;
+import com.triasoft.garage.entity.Warehouse;
 import com.triasoft.garage.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.FndModuleRepository;
 import com.triasoft.garage.repository.ResourceRepository;
@@ -15,6 +16,7 @@ import com.triasoft.garage.repository.RolePrivilegeRepository;
 import com.triasoft.garage.repository.RoleRepository;
 import com.triasoft.garage.repository.TenantRepository;
 import com.triasoft.garage.repository.VendorRepository;
+import com.triasoft.garage.repository.WarehouseRepository;
 import com.triasoft.garage.security.rbac.PrivilegeCache;
 import com.triasoft.garage.security.tenant.TenantContext;
 import org.junit.jupiter.api.AfterAll;
@@ -100,6 +102,8 @@ class TenantIsolationIT {
     @Autowired
     private VendorRepository vendorRepository;
     @Autowired
+    private WarehouseRepository warehouseRepository;
+    @Autowired
     private RoleRepository roleRepository;
     @Autowired
     private RolePrivilegeRepository rolePrivilegeRepository;
@@ -145,6 +149,33 @@ class TenantIsolationIT {
         TenantContext.clear();
 
         assertThat(seenByA).extracting(ChartOfAccount::getName).containsExactly("Tenant A Cash");
+    }
+
+    /**
+     * ORM path (Hibernate @TenantId): inf_warehouse was left out of the original tenant-bucketing
+     * pass and retrofitted afterward (see multi-tenancy refactor notes). Same shape as the CoA
+     * check above - two tenants each create a Warehouse with the SAME code, allowed since the
+     * unique constraint is now (tenant_id, code), and each tenant's findAll() must see only its
+     * own row.
+     */
+    @Test
+    void warehouseOrmPathIsolatesFindAllAcrossTenants() {
+        Long tenantA = createTenant("WAREHOUSE_TENANT_A");
+        Long tenantB = createTenant("WAREHOUSE_TENANT_B");
+
+        TenantContext.set(tenantA);
+        warehouseRepository.save(newWarehouse("MAIN", "Tenant A Warehouse"));
+        TenantContext.clear();
+
+        TenantContext.set(tenantB);
+        warehouseRepository.save(newWarehouse("MAIN", "Tenant B Warehouse"));
+        TenantContext.clear();
+
+        TenantContext.set(tenantA);
+        List<Warehouse> seenByA = warehouseRepository.findAll();
+        TenantContext.clear();
+
+        assertThat(seenByA).extracting(Warehouse::getName).containsExactly("Tenant A Warehouse");
     }
 
     /**
@@ -246,6 +277,15 @@ class TenantIsolationIT {
         vendor.setCreatedBy(0L);
         vendor.setCreatedAt(java.time.LocalDateTime.now());
         return vendor;
+    }
+
+    private Warehouse newWarehouse(String code, String name) {
+        Warehouse warehouse = new Warehouse();
+        warehouse.setCode(code);
+        warehouse.setName(name);
+        warehouse.setCreatedBy(0L);
+        warehouse.setCreatedAt(java.time.LocalDateTime.now());
+        return warehouse;
     }
 
     private Role newRole(String code) {

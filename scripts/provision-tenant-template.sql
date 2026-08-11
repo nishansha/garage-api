@@ -58,7 +58,14 @@ INSERT INTO fnd_chart_of_accounts
   (:tenant_id, '5510', 'RTN-EXP-EXCH',  'Loss on Returned Exchange Vehicle',                                                        'EXPENSE',   true,  'Loss on Returned Exchange Vehicle',                            false, 'LOSS_RETURNED_EXCHANGE',      0, now(), 0),
   (:tenant_id, '5520', 'RTN-EXP-PUR',   'Loss on Purchase Return',                                                                  'EXPENSE',   true,  'Loss on Purchase Return',                                      false, 'LOSS_PURCHASE_RETURN',        0, now(), 0);
 
--- 4. First user (this tenant's own SUPERADMIN) -----------------------------
+-- 4. Default warehouse ------------------------------------------------------
+-- Warehouse is a real tenant-scoped entity (inf_warehouse), managed afterward
+-- via the Warehouses screen/API. Seed one so purchases have somewhere to
+-- assign inventory to without requiring warehouse management to happen first.
+INSERT INTO inf_warehouse (tenant_id, code, name, created_by, created_at, version)
+VALUES (:tenant_id, 'MAIN', 'Main Warehouse', 0, now(), 0);
+
+-- 5. First user (this tenant's own SUPERADMIN) -----------------------------
 INSERT INTO user_profile (tenant_id, username, password, name, designation, deleted)
 VALUES (:tenant_id, 'USERNAME', 'PASSWORD_BCRYPT_HASH', 'Full Name', 'Owner', false)
 RETURNING id AS user_id \gset

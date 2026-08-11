@@ -1875,10 +1875,16 @@ ALTER TABLE public.inf_warehouse_id_seq OWNER TO postgres;
 
 CREATE TABLE public.inf_warehouse (
     id bigint DEFAULT nextval('public.inf_warehouse_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
     code character varying(50) NOT NULL,
     name character varying NOT NULL,
     address character varying,
-    location text
+    location text,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
 );
 
 
@@ -2822,7 +2828,7 @@ ALTER TABLE ONLY public.app_inventory
 --
 
 ALTER TABLE ONLY public.inf_warehouse
-    ADD CONSTRAINT warehouse UNIQUE (code);
+    ADD CONSTRAINT warehouse UNIQUE (tenant_id, code);
 
 
 --
@@ -3243,6 +3249,14 @@ ALTER TABLE ONLY public.app_transaction
 
 ALTER TABLE ONLY public.app_vendor
     ADD CONSTRAINT app_vendor_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: inf_warehouse inf_warehouse_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.inf_warehouse
+    ADD CONSTRAINT inf_warehouse_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
 
 
 --

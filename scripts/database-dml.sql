@@ -1186,6 +1186,7 @@ INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (31, 7, 'EXPENSE_
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (32, 9, 'DATA_RESET', 'Clear Data', 50, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (33, 9, 'RECYCLE_BIN', 'Recycle Bin', 40, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (34, 7, 'OTHER_INCOME', 'Other Incomes', 40, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (35, 4, 'WAREHOUSE', 'Warehouses', 20, true);
 
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (1, 'SUPERADMIN', 'Super Admin', 'Unrestricted access; bypasses privilege checks entirely', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (2, 'ADMIN', 'Admin', 'Administrative access; privileges granted explicitly like any other role', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
@@ -1314,7 +1315,7 @@ INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (206, 2, 34
 INSERT INTO public.fnd_role_privilege OVERRIDING SYSTEM VALUE VALUES (207, 2, 34, 'VIEW');
 
 
-INSERT INTO public.inf_warehouse VALUES (1, 'FUTURE_MOTORS', 'Future Motors', 'Karuvankallu', NULL);
+INSERT INTO public.inf_warehouse VALUES (1, 1, 'FUTURE_MOTORS', 'Future Motors', 'Karuvankallu', NULL, now(), 0, NULL, NULL, 0);
 
 
 INSERT INTO public.user_profile VALUES (1, 'Salman', '$2a$10$.4eLvOnwMk4DXnxV.ahiQO5e1tTLU8NrZCyyT76b77fa2Bsc6ebGy', NULL, NULL, NULL, NULL, NULL, NULL, false, 'ADMIN', 'Salman', 'MD');
@@ -1364,6 +1365,6 @@ SELECT pg_catalog.setval('public.user_profile_id_seq', 3, true);
 SELECT pg_catalog.setval('public.user_refresh_token_id_seq', 1, true);
 SELECT pg_catalog.setval('public.user_session_id_seq', 1, true);
 SELECT pg_catalog.setval('public.fnd_module_id_seq', 9, true);
-SELECT pg_catalog.setval('public.fnd_resource_id_seq', 33, true);
+SELECT pg_catalog.setval('public.fnd_resource_id_seq', 35, true);
 SELECT pg_catalog.setval('public.fnd_role_id_seq', 4, true);
 SELECT pg_catalog.setval('public.fnd_role_privilege_id_seq', 228, true);

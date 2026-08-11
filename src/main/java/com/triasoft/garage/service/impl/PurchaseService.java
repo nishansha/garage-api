@@ -59,6 +59,7 @@ public class PurchaseService {
     private final TransactionRepository transactionRepository;
     private final VendorRepository vendorRepository;
     private final InventoryRepository inventoryRepository;
+    private final WarehouseRepository warehouseRepository;
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
@@ -582,7 +583,7 @@ public class PurchaseService {
             inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
             inventory.setMakeYear(purchaseRq.getMakeYear());
             inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
-            inventory.setWarehouseId(purchaseRq.getWarehouseId());
+            inventory.setWarehouseId(resolveWarehouseId(purchaseRq.getWarehouseId()));
             BigDecimal newLandedCost = purchaseRq.getPurchaseRate().add(totalExpenseAmt);
             inventory.setLandedCost(newLandedCost);
             if (StatusEnum.PENDING_DELIVERY.equals(inventory.getStatus()) && purchaseRq.getDeliveredDate() != null) {
@@ -1239,6 +1240,15 @@ public class PurchaseService {
         }
     }
 
+    private Long resolveWarehouseId(Long warehouseId) {
+        if (warehouseId == null) {
+            return null;
+        }
+        return warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND))
+                .getId();
+    }
+
 
     private void createInventoryRecord(Purchase p, PurchaseDetail d, Product prod, PurchaseRq purchaseRq, BigDecimal totalExpenses, StatusEnum status) {
         Inventory inventory = new Inventory();
@@ -1249,7 +1259,7 @@ public class PurchaseService {
         inventory.setOdometer(parseOdometer(purchaseRq.getOdometer()));
         inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
         inventory.setMakeYear(purchaseRq.getMakeYear());
-        inventory.setWarehouseId(purchaseRq.getWarehouseId());
+        inventory.setWarehouseId(resolveWarehouseId(purchaseRq.getWarehouseId()));
         inventory.setStatus(status);
         if (StatusEnum.AVAILABLE.equals(status)) {
             inventory.setReceivedDate(purchaseRq.getDeliveredDate() != null
