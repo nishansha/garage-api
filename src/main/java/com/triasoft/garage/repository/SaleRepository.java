@@ -428,4 +428,33 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             """)
     List<PurchaseEditabilityProjection> findEditabilityInfoByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);
 
+    // Lightweight per-warehouse sales rollup for the period (count / revenue / stored
+    // profit_amount) - not return-adjusted like the full P&L per-vehicle lines, same rigor
+    // as the existing dashboard summary cards. The UNION ALL branch buckets sales whose
+    // vehicle has no warehouse assigned as "Unassigned" so totals reconcile with the
+    // tenant-wide figures.
+    @Query(value = "SELECT " +
+            "w.id as warehouseId, w.code as warehouseCode, w.name as warehouseName, " +
+            "COALESCE(COUNT(s.id), 0) as salesCount, " +
+            "COALESCE(SUM(s.sale_rate), 0) as totalRevenue, " +
+            "COALESCE(SUM(s.profit_amount), 0) as grossProfit " +
+            "FROM inf_warehouse w " +
+            "LEFT JOIN app_inventory i ON i.warehouse_id = w.id AND i.tenant_id = :tenantId " +
+            "LEFT JOIN app_sale s ON s.inventory_id = i.id AND s.deleted = false AND s.tenant_id = :tenantId " +
+            "    AND s.sale_date BETWEEN :startDate AND :endDate AND s.payment_status <> 'REFUND' " +
+            "WHERE w.tenant_id = :tenantId " +
+            "GROUP BY w.id, w.code, w.name " +
+            "UNION ALL " +
+            "SELECT " +
+            "NULL as warehouseId, 'UNASSIGNED' as warehouseCode, 'Unassigned' as warehouseName, " +
+            "COALESCE(COUNT(s.id), 0) as salesCount, " +
+            "COALESCE(SUM(s.sale_rate), 0) as totalRevenue, " +
+            "COALESCE(SUM(s.profit_amount), 0) as grossProfit " +
+            "FROM app_sale s " +
+            "JOIN app_inventory i ON i.id = s.inventory_id " +
+            "WHERE s.deleted = false AND s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate " +
+            "    AND s.payment_status <> 'REFUND' AND i.warehouse_id IS NULL",
+            nativeQuery = true)
+    List<WarehouseSalesMetrics> getSalesPerformanceByWarehouse(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
 }

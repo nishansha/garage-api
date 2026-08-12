@@ -205,7 +205,10 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                 END as pendingAmount,
                 pp_sum.last_payment_date as lastPaymentDate,
                 v.name           as vendorName,
-                v.mobile         as vendorMobile
+                v.mobile         as vendorMobile,
+                (SELECT i2.warehouse_id FROM app_purchase_order_detail pod2
+                 JOIN app_inventory i2 ON i2.purchase_order_detail_id = pod2.id
+                 WHERE pod2.purchase_order_id = po.id LIMIT 1) as warehouseId
             FROM app_purchase_order po
             JOIN app_vendor v ON v.id = po.vendor_id
             LEFT JOIN (
@@ -290,7 +293,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
                                 WHERE pp.purchase_order_id = po.id AND pp.deleted = false), 0)
                     - COALESCE((SELECT SUM(prr.return_amount) FROM app_purchase_return prr
                                 WHERE prr.purchase_id = po.id AND prr.deleted = false), 0)
-                ) as pendingTillDate
+                ) as pendingTillDate,
+                inv.warehouse_id as warehouseId
             FROM app_purchase_order po
             JOIN app_purchase_order_detail pod ON pod.purchase_order_id = po.id
             JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id

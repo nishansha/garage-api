@@ -39,6 +39,9 @@ public class StockSpecification {
             if (filter.getFuelTypeId() != null) {
                 predicates.add(cb.equal(product.get("fuelType").get("id"), filter.getFuelTypeId()));
             }
+            if (StringUtils.hasLength(filter.getWarehouseId())) {
+                predicates.add(cb.equal(root.get("warehouseId"), Long.valueOf(filter.getWarehouseId())));
+            }
             if (filter.getVehicleNo() != null && !filter.getVehicleNo().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("productNo")), "%" + filter.getVehicleNo().toLowerCase() + "%"));
             }

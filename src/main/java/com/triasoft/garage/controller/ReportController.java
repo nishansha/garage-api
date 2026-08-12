@@ -9,10 +9,12 @@ import com.triasoft.garage.model.report.PLReportRs;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
+import com.triasoft.garage.model.report.WarehouseComparisonRs;
 import com.triasoft.garage.service.impl.JournalQueryService;
 import com.triasoft.garage.service.impl.JournalReportCsvWriter;
 import com.triasoft.garage.service.impl.PLReportCsvWriter;
 import com.triasoft.garage.service.impl.ReportService;
+import com.triasoft.garage.service.impl.WarehouseReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -37,6 +39,7 @@ public class ReportController {
 
     private final ReportService reportService;
     private final JournalQueryService journalQueryService;
+    private final WarehouseReportService warehouseReportService;
     private final PLReportCsvWriter plReportCsvWriter;
     private final JournalReportCsvWriter journalReportCsvWriter;
 
@@ -51,6 +54,12 @@ public class ReportController {
         YearMonth yearMonth = parseMonth(month);
         String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth));
         return csvResponse(csv, "business-summary-" + yearMonth + ".csv");
+    }
+
+    @GetMapping(value = "/warehouse-comparison", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<WarehouseComparisonRs>> getWarehouseComparison(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "warehouseId", required = false) Long warehouseId) {
+        YearMonth yearMonth = parseMonth(month);
+        return ResponseEntity.ok(ApiResponse.success(warehouseReportService.compare(yearMonth, warehouseId)));
     }
 
     @GetMapping(value = "/trend", produces = MediaType.APPLICATION_JSON_VALUE)

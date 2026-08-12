@@ -13,4 +13,5 @@ public interface PayableRow {
     LocalDate getLastPaymentDate();
     String getVendorName();
     String getVendorMobile();
+    Long getWarehouseId();
 }

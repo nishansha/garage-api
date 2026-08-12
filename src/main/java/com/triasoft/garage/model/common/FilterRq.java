@@ -21,5 +21,6 @@ public class FilterRq implements Serializable {
     private String fuelTypeId;
     private String typeId;
     private String status;
+    private String warehouseId;
 
 }
