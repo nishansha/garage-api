@@ -1,5 +1,6 @@
 package com.triasoft.garage.entity;
 
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

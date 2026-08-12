@@ -1,5 +1,6 @@
 package com.triasoft.garage.entity;
 
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.constants.AccountTypeEnum;
 import jakarta.persistence.*;
 import lombok.Getter;

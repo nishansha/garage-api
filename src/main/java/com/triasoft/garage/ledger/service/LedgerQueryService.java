@@ -1,29 +1,30 @@
-package com.triasoft.garage.service.impl;
+package com.triasoft.garage.ledger.service;
 
 import com.triasoft.garage.constants.ErrorCode;
-import com.triasoft.garage.constants.JournalStatusEnum;
 import com.triasoft.garage.dto.AccountBalanceLineDTO;
 import com.triasoft.garage.dto.JournalDTO;
 import com.triasoft.garage.dto.JournalLineDTO;
 import com.triasoft.garage.dto.LedgerLineDTO;
 import com.triasoft.garage.dto.TrialBalanceLineDTO;
-import com.triasoft.garage.entity.ChartOfAccount;
-import com.triasoft.garage.entity.Journal;
-import com.triasoft.garage.entity.JournalDetail;
 import com.triasoft.garage.exception.BusinessException;
+import com.triasoft.garage.ledger.constants.JournalStatusEnum;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.Journal;
+import com.triasoft.garage.ledger.entity.JournalDetail;
+import com.triasoft.garage.ledger.projection.AccountBalanceRow;
+import com.triasoft.garage.ledger.projection.LedgerRow;
+import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
+import com.triasoft.garage.ledger.repository.JournalDetailRepository;
+import com.triasoft.garage.ledger.repository.JournalRepository;
+import com.triasoft.garage.ledger.specification.JournalSpecification;
 import com.triasoft.garage.model.journal.JournalDetailRs;
 import com.triasoft.garage.model.journal.JournalListRs;
 import com.triasoft.garage.model.journal.LedgerRs;
+import com.triasoft.garage.model.journal.PartyLedgerRs;
 import com.triasoft.garage.model.report.BalanceSheetRs;
 import com.triasoft.garage.model.report.PLFromJournalRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
-import com.triasoft.garage.projection.AccountBalanceRow;
-import com.triasoft.garage.projection.LedgerRow;
-import com.triasoft.garage.repository.ChartOfAccountRepository;
-import com.triasoft.garage.repository.JournalDetailRepository;
-import com.triasoft.garage.repository.JournalRepository;
 import com.triasoft.garage.security.tenant.TenantContext;
-import com.triasoft.garage.specifiction.JournalSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,9 +35,15 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Generic ledger query/reporting: journal list/detail, general ledger (per-account and
+ * per-party running balance), trial balance, balance sheet, P&L from journal. Operates
+ * purely on Journal/JournalDetail/ChartOfAccount - no Sale/Purchase/Expense knowledge -
+ * so it can move into a standalone reusable module with the rest of the ledger package.
+ */
 @Service
 @RequiredArgsConstructor
-public class JournalQueryService {
+public class LedgerQueryService {
 
     private final JournalRepository journalRepository;
     private final JournalDetailRepository journalDetailRepository;
@@ -134,6 +141,72 @@ public class JournalQueryService {
                         .type(account.getType())
                         .balance(closingBalance)
                         .build())
+                .fromDate(effFrom)
+                .toDate(effTo)
+                .openingBalance(openingBalance.abs())
+                .openingBalanceSide(openingSide)
+                .closingBalance(closingBalance.abs())
+                .closingBalanceSide(closingSide)
+                .totalDebit(totalDr)
+                .totalCredit(totalCr)
+                .lines(lines)
+                .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Party subledger (AR/AP etc. by customer/vendor)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * A party's ledger is "their account" - own natural DR/CR sides from the raw
+     * debit/credit sums of whatever lines were tagged with their party_type/party_id,
+     * exactly like {@link #getLedger} for a single GL account, just filtered by party
+     * instead of account_id. DR side = they owe us (receivable); CR side = we owe them
+     * (payable) - true uniformly regardless of which specific GL account each line hit,
+     * since every party-tagged line was chosen by the domain layer specifically because
+     * it increases or decreases that party's net position.
+     */
+    public PartyLedgerRs getPartyLedger(String partyType, Long partyId, LocalDate fromDate, LocalDate toDate) {
+        LocalDate effFrom = fromDate != null ? fromDate : LocalDate.of(1970, 1, 1);
+        LocalDate effTo = toDate != null ? toDate : LocalDate.now();
+        Long tenantId = TenantContext.get();
+
+        var openingRow = journalDetailRepository.getPartyOpeningBalance(tenantId, partyType, partyId, effFrom);
+        BigDecimal openingBalance = safe(openingRow.getDebit()).subtract(safe(openingRow.getCredit()));
+
+        List<LedgerRow> rows = journalDetailRepository.getPartyLedgerEntries(tenantId, partyType, partyId, effFrom, effTo);
+        BigDecimal totalDr = BigDecimal.ZERO;
+        BigDecimal totalCr = BigDecimal.ZERO;
+        BigDecimal signedRunning = openingBalance;
+
+        List<LedgerLineDTO> lines = new ArrayList<>();
+        for (LedgerRow row : rows) {
+            BigDecimal dr = safe(row.getDebit());
+            BigDecimal cr = safe(row.getCredit());
+            totalDr = totalDr.add(dr);
+            totalCr = totalCr.add(cr);
+            signedRunning = signedRunning.add(dr).subtract(cr);
+            String runningSide = signedRunning.signum() >= 0 ? "DR" : "CR";
+            lines.add(LedgerLineDTO.builder()
+                    .journalId(row.getJournalId())
+                    .journalDate(row.getJournalDate())
+                    .referenceType(row.getReferenceType())
+                    .referenceId(row.getReferenceId())
+                    .description(row.getLineDescription() != null ? row.getLineDescription() : row.getJournalDescription())
+                    .debit(dr)
+                    .credit(cr)
+                    .runningBalance(signedRunning.abs())
+                    .runningBalanceSide(runningSide)
+                    .build());
+        }
+
+        BigDecimal closingBalance = signedRunning;
+        String openingSide = openingBalance.signum() >= 0 ? "DR" : "CR";
+        String closingSide = closingBalance.signum() >= 0 ? "DR" : "CR";
+
+        return PartyLedgerRs.builder()
+                .partyType(partyType)
+                .partyId(partyId)
                 .fromDate(effFrom)
                 .toDate(effTo)
                 .openingBalance(openingBalance.abs())

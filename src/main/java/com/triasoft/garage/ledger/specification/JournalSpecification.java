@@ -1,7 +1,7 @@
-package com.triasoft.garage.specifiction;
+package com.triasoft.garage.ledger.specification;
 
-import com.triasoft.garage.constants.JournalStatusEnum;
-import com.triasoft.garage.entity.Journal;
+import com.triasoft.garage.ledger.constants.JournalStatusEnum;
+import com.triasoft.garage.ledger.entity.Journal;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 

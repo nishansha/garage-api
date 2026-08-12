@@ -10,7 +10,7 @@ import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
 import com.triasoft.garage.model.report.WarehouseComparisonRs;
-import com.triasoft.garage.service.impl.JournalQueryService;
+import com.triasoft.garage.ledger.service.LedgerQueryService;
 import com.triasoft.garage.service.impl.JournalReportCsvWriter;
 import com.triasoft.garage.service.impl.PLReportCsvWriter;
 import com.triasoft.garage.service.impl.ReportService;
@@ -38,7 +38,7 @@ import java.time.format.DateTimeParseException;
 public class ReportController {
 
     private final ReportService reportService;
-    private final JournalQueryService journalQueryService;
+    private final LedgerQueryService journalQueryService;
     private final WarehouseReportService warehouseReportService;
     private final PLReportCsvWriter plReportCsvWriter;
     private final JournalReportCsvWriter journalReportCsvWriter;

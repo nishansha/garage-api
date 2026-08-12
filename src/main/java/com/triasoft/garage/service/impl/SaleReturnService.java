@@ -213,7 +213,7 @@ public class SaleReturnService {
                 exchPurchase.setBuybackRecordedAt(returnDate);
                 purchaseRepository.save(exchPurchase);
                 journalService.postExchangeBuybackPurchase(
-                        exchPurchase.getId(), buyback, returnDate, customerName);
+                        exchPurchase.getId(), buyback, returnDate, customerName, sale.getCustomer().getId());
             });
         }
 

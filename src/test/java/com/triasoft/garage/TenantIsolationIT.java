@@ -1,7 +1,7 @@
 package com.triasoft.garage;
 
 import com.triasoft.garage.constants.Privilege;
-import com.triasoft.garage.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.entity.FndModule;
 import com.triasoft.garage.entity.Resource;
 import com.triasoft.garage.entity.Role;
@@ -9,7 +9,7 @@ import com.triasoft.garage.entity.RolePrivilege;
 import com.triasoft.garage.entity.Tenant;
 import com.triasoft.garage.entity.Vendor;
 import com.triasoft.garage.entity.Warehouse;
-import com.triasoft.garage.repository.ChartOfAccountRepository;
+import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.FndModuleRepository;
 import com.triasoft.garage.repository.ResourceRepository;
 import com.triasoft.garage.repository.RolePrivilegeRepository;

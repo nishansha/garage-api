@@ -1,5 +1,6 @@
-package com.triasoft.garage.entity;
+package com.triasoft.garage.ledger.entity;
 
+import com.triasoft.garage.entity.TenantAwareAuditEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

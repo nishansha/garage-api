@@ -1,12 +1,8 @@
 package com.triasoft.garage.service.impl;
 
-import com.triasoft.garage.constants.JournalStatusEnum;
 import com.triasoft.garage.constants.SystemCoaRole;
-import com.triasoft.garage.entity.ChartOfAccount;
 import com.triasoft.garage.entity.Customer;
 import com.triasoft.garage.entity.Inventory;
-import com.triasoft.garage.entity.Journal;
-import com.triasoft.garage.entity.JournalDetail;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Purchase;
 import com.triasoft.garage.entity.PurchaseDetail;
@@ -14,14 +10,19 @@ import com.triasoft.garage.entity.RcDueReceipt;
 import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.entity.Vendor;
 import com.triasoft.garage.exception.BusinessException;
+import com.triasoft.garage.ledger.constants.JournalStatusEnum;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.Journal;
+import com.triasoft.garage.ledger.entity.JournalDetail;
+import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
+import com.triasoft.garage.ledger.repository.JournalDetailRepository;
+import com.triasoft.garage.ledger.repository.JournalRepository;
+import com.triasoft.garage.ledger.service.LedgerService;
 import com.triasoft.garage.model.journal.JournalLineRq;
 import com.triasoft.garage.model.journal.JournalRq;
-import com.triasoft.garage.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.InventoryRepository;
-import com.triasoft.garage.repository.JournalDetailRepository;
-import com.triasoft.garage.repository.JournalRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.PurchasePaymentRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
@@ -59,9 +60,11 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the double-entry posting/reversal logic in {@link JournalService}.
- * All repositories are mocked — no DB involved — so these only verify the business
- * math (which accounts get debited/credited, balancing, reversal semantics), not
- * persistence/query correctness.
+ * JournalService now delegates the generic post/reverse/balance mechanics to
+ * {@link LedgerService} - these tests use a REAL LedgerService (constructed with mocked
+ * ledger repositories) as JournalService's collaborator, so the "which accounts/amounts"
+ * business-logic assertions below still exercise the actual posting code path end to end,
+ * without needing a real DB.
  */
 @ExtendWith(MockitoExtension.class)
 class JournalServiceTest {
@@ -87,8 +90,9 @@ class JournalServiceTest {
 
     @BeforeEach
     void setUp() {
+        LedgerService ledgerService = new LedgerService(journalRepository, journalDetailRepository, chartOfAccountRepository);
         journalService = new JournalService(
-                journalRepository, journalDetailRepository, chartOfAccountRepository,
+                ledgerService,
                 saleRepository, salePaymentRepository, purchaseRepository, purchasePaymentRepository,
                 expenseRepository, directEntryRepository, paymentAccountRepository, inventoryRepository,
                 saleReturnRepository, saleRefundPaymentRepository, purchaseReturnRepository,
@@ -206,10 +210,15 @@ class JournalServiceTest {
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AR.name());
             assertThat(line.getDebitAmount()).isEqualByComparingTo("100000");
+            // Part 2: AR line must be tagged with the customer for the party subledger.
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALES_REVENUE.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
+            // Revenue lines aren't a per-party balance - no party tag.
+            assertThat(line.getPartyType()).isNull();
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.COGS.name());
@@ -250,6 +259,8 @@ class JournalServiceTest {
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("10000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
     }
 
@@ -296,6 +307,8 @@ class JournalServiceTest {
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
     }
 
@@ -332,10 +345,13 @@ class JournalServiceTest {
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.RC_DUE_RECEIVABLE.name());
             assertThat(line.getDebitAmount()).isEqualByComparingTo("5000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("105000"); // full cash paid to vendor
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
         });
     }
 
@@ -382,6 +398,8 @@ class JournalServiceTest {
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.RC_DUE_RECEIVABLE.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("5000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
     }
 
@@ -416,6 +434,8 @@ class JournalServiceTest {
         debitLine.setAccount(arAccount);
         debitLine.setDebitAmount(new BigDecimal("100"));
         debitLine.setCreditAmount(BigDecimal.ZERO);
+        debitLine.setPartyType(JournalService.PARTY_CUSTOMER);
+        debitLine.setPartyId(1L);
 
         JournalDetail creditLine = new JournalDetail();
         creditLine.setAccount(revenueAccount);
@@ -448,6 +468,9 @@ class JournalServiceTest {
             assertThat(line.getAccount()).isEqualTo(arAccount);
             assertThat(line.getDebitAmount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(line.getCreditAmount()).isEqualByComparingTo("100"); // swapped from debit
+            // Party tag carries over onto the reversal line too.
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
         });
         assertThat(savedLines).anySatisfy(line -> {
             assertThat(line.getAccount()).isEqualTo(revenueAccount);

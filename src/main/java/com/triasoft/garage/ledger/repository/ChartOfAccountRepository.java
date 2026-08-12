@@ -1,6 +1,6 @@
-package com.triasoft.garage.repository;
+package com.triasoft.garage.ledger.repository;
 
-import com.triasoft.garage.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

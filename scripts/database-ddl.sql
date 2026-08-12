@@ -364,6 +364,8 @@ CREATE TABLE public.app_journal_detail (
     debit_amount numeric(15,2) DEFAULT 0 NOT NULL,
     credit_amount numeric(15,2) DEFAULT 0 NOT NULL,
     description character varying(500),
+    party_type character varying(20),
+    party_id bigint,
     created_by bigint NOT NULL,
     created_at timestamp without time zone NOT NULL,
     modified_by bigint,
@@ -2871,6 +2873,13 @@ CREATE INDEX idx_jdetail_account ON public.app_journal_detail USING btree (accou
 --
 
 CREATE INDEX idx_jdetail_journal ON public.app_journal_detail USING btree (journal_id);
+
+
+--
+-- Name: idx_jdetail_party; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_jdetail_party ON public.app_journal_detail USING btree (tenant_id, party_type, party_id) WHERE (party_type IS NOT NULL);
 
 
 --

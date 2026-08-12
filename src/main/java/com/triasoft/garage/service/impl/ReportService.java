@@ -3,6 +3,8 @@ package com.triasoft.garage.service.impl;
 import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
 import com.triasoft.garage.entity.PaymentAccount;
+import com.triasoft.garage.ledger.repository.JournalDetailRepository;
+import com.triasoft.garage.repository.JournalDashboardRepository;
 import com.triasoft.garage.model.report.AccountBalanceInfo;
 import com.triasoft.garage.model.report.DirectEntryLineInfo;
 import com.triasoft.garage.model.report.ExpenseLineInfo;
@@ -50,7 +52,7 @@ public class ReportService {
     private final SaleRepository saleRepository;
     private final SaleReturnRepository saleReturnRepository;
     private final JournalDetailRepository journalDetailRepository;
-    private final JournalRepository journalRepository;
+    private final JournalDashboardRepository journalRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
     private final DirectEntryRepository directEntryRepository;

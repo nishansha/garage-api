@@ -1,8 +1,8 @@
-package com.triasoft.garage.repository;
+package com.triasoft.garage.ledger.repository;
 
-import com.triasoft.garage.entity.JournalDetail;
-import com.triasoft.garage.projection.AccountBalanceRow;
-import com.triasoft.garage.projection.LedgerRow;
+import com.triasoft.garage.ledger.entity.JournalDetail;
+import com.triasoft.garage.ledger.projection.AccountBalanceRow;
+import com.triasoft.garage.ledger.projection.LedgerRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -129,5 +129,55 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
               AND jd.journal_id = :journalId
             """, nativeQuery = true)
     OpeningBalanceRow getJournalTotals(@Param("tenantId") Long tenantId, @Param("journalId") Long journalId);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Party subledger (AR/AP etc. by customer/vendor) - see LedgerQueryService.getPartyLedger
+    //
+    // A party's ledger is just "their account" - own natural DR/CR sides from the raw
+    // debit/credit sums of whatever lines were tagged with their party_type/party_id,
+    // exactly like any other ledger account (a vendor naturally carries a CR balance
+    // when we owe them - that's correct, not something to flip). No need to look at
+    // which specific GL account each line hit, unlike getLedger's single-account case.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Query(value = """
+            SELECT
+              j.id                  as journalId,
+              j.journal_date        as journalDate,
+              j.reference_type      as referenceType,
+              j.reference_id        as referenceId,
+              j.description         as journalDescription,
+              jd.description        as lineDescription,
+              jd.debit_amount       as debit,
+              jd.credit_amount      as credit
+            FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            WHERE jd.tenant_id = :tenantId
+              AND jd.party_type = :partyType
+              AND jd.party_id = :partyId
+              AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
+            ORDER BY j.journal_date ASC, j.id ASC, jd.id ASC
+            """, nativeQuery = true)
+    List<LedgerRow> getPartyLedgerEntries(@Param("tenantId") Long tenantId,
+                                          @Param("partyType") String partyType,
+                                          @Param("partyId") Long partyId,
+                                          @Param("fromDate") LocalDate fromDate,
+                                          @Param("toDate") LocalDate toDate);
+
+    @Query(value = """
+            SELECT
+              COALESCE(SUM(jd.debit_amount), 0)  as debit,
+              COALESCE(SUM(jd.credit_amount), 0) as credit
+            FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            WHERE jd.tenant_id = :tenantId
+              AND jd.party_type = :partyType
+              AND jd.party_id = :partyId
+              AND j.journal_date < CAST(:beforeDate AS DATE)
+            """, nativeQuery = true)
+    OpeningBalanceRow getPartyOpeningBalance(@Param("tenantId") Long tenantId,
+                                             @Param("partyType") String partyType,
+                                             @Param("partyId") Long partyId,
+                                             @Param("beforeDate") LocalDate beforeDate);
 
 }

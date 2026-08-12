@@ -1,5 +1,6 @@
-package com.triasoft.garage.entity;
+package com.triasoft.garage.ledger.entity;
 
+import com.triasoft.garage.entity.TenantAwareAuditEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -34,5 +35,16 @@ public class JournalDetail extends TenantAwareAuditEntity {
 
     @Column(name = "description")
     private String description;
+
+    // Subledger dimension: which customer/vendor (etc.) this line belongs to, for
+    // AR/AP/receivable/payable lines. No FK to Customer/Vendor deliberately - this
+    // entity is meant to stay generic/reusable, resolving party identity is the
+    // domain layer's job (see JournalService). Null for lines with no party (COGS,
+    // Inventory, Expense, etc).
+    @Column(name = "party_type")
+    private String partyType;
+
+    @Column(name = "party_id")
+    private Long partyId;
 
 }

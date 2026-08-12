@@ -1,6 +1,6 @@
 package com.triasoft.garage.specifiction;
 
-import com.triasoft.garage.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.entity.Expense;
 import com.triasoft.garage.model.common.FilterRq;
 import jakarta.persistence.criteria.Join;

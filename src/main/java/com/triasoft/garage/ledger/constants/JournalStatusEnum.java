@@ -1,4 +1,4 @@
-package com.triasoft.garage.constants;
+package com.triasoft.garage.ledger.constants;
 
 public enum JournalStatusEnum {
     POSTED,

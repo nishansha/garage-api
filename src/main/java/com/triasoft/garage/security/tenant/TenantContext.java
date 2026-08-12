@@ -14,7 +14,7 @@ public final class TenantContext {
     }
 
     public static void set(Long tenantId) {
-        CURRENT_TENANT.set(tenantId);
+tha        CURRENT_TENANT.set(tenantId);
     }
 
     public static Long get() {

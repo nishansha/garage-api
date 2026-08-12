@@ -1,6 +1,6 @@
 package com.triasoft.garage.model.journal;
 
-import com.triasoft.garage.constants.JournalStatusEnum;
+import com.triasoft.garage.ledger.constants.JournalStatusEnum;
 import com.triasoft.garage.dto.JournalLineDTO;
 import lombok.Builder;
 import lombok.Data;

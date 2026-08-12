@@ -4,7 +4,7 @@ import com.triasoft.garage.locking.VersionCheck;
 
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.DirectEntryDTO;
-import com.triasoft.garage.entity.ChartOfAccount;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.entity.DirectEntry;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
@@ -12,7 +12,7 @@ import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.model.entry.DirectEntryRs;
-import com.triasoft.garage.repository.ChartOfAccountRepository;
+import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;

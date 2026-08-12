@@ -1,6 +1,7 @@
-package com.triasoft.garage.entity;
+package com.triasoft.garage.ledger.entity;
 
-import com.triasoft.garage.constants.JournalStatusEnum;
+import com.triasoft.garage.entity.TenantAwareAuditEntity;
+import com.triasoft.garage.ledger.constants.JournalStatusEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

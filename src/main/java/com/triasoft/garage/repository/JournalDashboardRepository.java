@@ -1,42 +1,24 @@
 package com.triasoft.garage.repository;
 
-import com.triasoft.garage.entity.Journal;
+import com.triasoft.garage.ledger.entity.Journal;
 import com.triasoft.garage.projection.BalanceMetrics;
 import com.triasoft.garage.projection.MonthlyTrendMetrics;
 import com.triasoft.garage.projection.SummaryMetrics;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
+// Dashboard-specific journal aggregations - unlike ledger.repository.JournalRepository
+// (generic double-entry mechanics), these hardcode this business's own reference-type
+// vocabulary (PURCHASE/EXPENSE/PURCHASE_RETURN) and system-role naming
+// (SALES_REVENUE/INVENTORY/COGS), so they stay in garage-api rather than moving to the
+// ledger package.
 @Repository
-public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpecificationExecutor<Journal> {
-
-    @Query("""
-            SELECT j FROM Journal j
-            WHERE j.referenceType = :referenceType
-              AND j.referenceId   = :referenceId
-              AND j.status        = com.triasoft.garage.constants.JournalStatusEnum.POSTED
-              AND j.reversalOf IS NULL
-            """)
-    Optional<Journal> findActiveByReferenceTypeAndReferenceId(
-            @Param("referenceType") String referenceType,
-            @Param("referenceId") Long referenceId);
-
-    @Query("""
-            SELECT j FROM Journal j
-            WHERE j.referenceType = :referenceType
-              AND j.referenceId   = :referenceId
-            ORDER BY j.createdAt DESC
-            """)
-    Optional<Journal> findLatestByReferenceTypeAndReferenceId(
-            @Param("referenceType") String referenceType,
-            @Param("referenceId") Long referenceId);
+public interface JournalDashboardRepository extends JpaRepository<Journal, Long> {
 
     /**
      * Journal-derived financial summary for the dashboard. Aggregates CoA balances

@@ -1,4 +1,4 @@
-package com.triasoft.garage.projection;
+package com.triasoft.garage.ledger.projection;
 
 import java.math.BigDecimal;
 
