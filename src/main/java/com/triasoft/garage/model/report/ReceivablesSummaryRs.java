@@ -17,6 +17,12 @@ public class ReceivablesSummaryRs implements Serializable {
 
     private long totalCount;
     private BigDecimal totalPendingAmount;
+    // Additive fields (existing consumers unaffected): totalPendingAmount stays customer-only
+    // for list/drill-down consistency, these two exist purely for the "Total Outstanding" KPI,
+    // which must include what finance companies haven't yet disbursed - see
+    // ReportService.getFinanceReceivablesSummary() for the finance-side breakdown/drill-down.
+    private BigDecimal financePendingAmount;
+    private BigDecimal totalOutstandingAmount;
     private List<ReceivableInfo> items;
 
 }

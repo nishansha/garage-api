@@ -99,6 +99,7 @@ public class StockService {
                 .totalAmount(purchase.getTotalAmount())
                 .vendorName(vendor.getName())
                 .vendorMobileNo(vendor.getMobile())
+                .vendorAddress(vendor.getAddress())
                 .status(inventory.getStatus().name())
                 .color(Objects.nonNull(inventory.getColor()) ? inventory.getColor().getDescription() : null)
                 .odometer(inventory.getOdometer())
@@ -115,6 +116,7 @@ public class StockService {
                 dto.setProfit(sale.getProfitAmount());
                 dto.setCustomerName(sale.getCustomer().getName());
                 dto.setCustomerMobileNo(sale.getCustomer().getMobile());
+                dto.setCustomerAddress(sale.getCustomer().getAddress());
             }
         }
         return dto;

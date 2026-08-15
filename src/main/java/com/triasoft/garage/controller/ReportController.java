@@ -3,6 +3,7 @@ package com.triasoft.garage.controller;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.report.BalanceSheetRs;
+import com.triasoft.garage.model.report.FinanceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.MonthlyTrendRs;
 import com.triasoft.garage.model.report.PLFromJournalRs;
 import com.triasoft.garage.model.report.PLReportRs;
@@ -95,6 +96,11 @@ public class ReportController {
     @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
         return ResponseEntity.ok(ApiResponse.success(reportService.getReceivablesSummary()));
+    }
+
+    @GetMapping(value = "/finance-receivables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<FinanceReceivablesSummaryRs>> getFinanceReceivablesSummary() {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getFinanceReceivablesSummary()));
     }
 
     @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)

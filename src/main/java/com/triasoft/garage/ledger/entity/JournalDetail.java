@@ -47,4 +47,16 @@ public class JournalDetail extends TenantAwareAuditEntity {
     @Column(name = "party_id")
     private Long partyId;
 
+    // Open-item dimension: which original transaction (Sale/Purchase) this line belongs
+    // to, regardless of which journal actually posted it - e.g. a SALE_PAYMENT journal's
+    // own referenceId is the payment's id, not the sale's; sourceId is what lets that
+    // payment line be grouped back with the sale it paid down. Independent of partyType/
+    // partyId (party = whose balance, source = which invoice/PO), same no-FK philosophy.
+    // Null for lines with no open-item concept (COGS, Inventory, Expense, etc).
+    @Column(name = "source_type")
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private Long sourceId;
+
 }

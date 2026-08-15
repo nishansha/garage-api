@@ -114,6 +114,14 @@ public class DirectEntryService {
     private void mapFields(DirectEntry entry, DirectEntryRq rq) {
         ChartOfAccount coa = chartOfAccountRepository.findById(rq.getCoaId())
                 .orElseThrow(() -> new BusinessException("DE_404", "Account not found"));
+        // Control accounts (AR, AP, RC_DUE_RECEIVABLE, FINANCE_RECEIVABLE, etc.) are
+        // is_direct_postable=false precisely because manual entries carry no party/source tag -
+        // posting to one directly would move the control account's balance without touching a
+        // single row any subledger report (receivables/payables/...) reads, silently breaking
+        // the invariant that the control account total equals the sum of its subledger.
+        if (!coa.isDirectPostable()) {
+            throw new BusinessException("DE_405", "This account does not accept direct entries");
+        }
         PaymentAccount account = paymentAccountRepository.findById(rq.getPaymentAccountId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NOT_FOUND));
         entry.setEntryDate(rq.getEntryDate() != null ? rq.getEntryDate() : LocalDate.now());

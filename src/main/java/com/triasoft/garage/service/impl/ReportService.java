@@ -2,8 +2,14 @@ package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.constants.TransactionDirectionEnum;
+import com.triasoft.garage.entity.FinanceCompany;
 import com.triasoft.garage.entity.PaymentAccount;
+import com.triasoft.garage.entity.Purchase;
+import com.triasoft.garage.entity.Sale;
+import com.triasoft.garage.ledger.projection.PartySourceBalanceRow;
+import com.triasoft.garage.ledger.projection.SourceBalanceRow;
 import com.triasoft.garage.ledger.repository.JournalDetailRepository;
+import com.triasoft.garage.projection.LastPaymentDateProjection;
 import com.triasoft.garage.repository.JournalDashboardRepository;
 import com.triasoft.garage.model.report.AccountBalanceInfo;
 import com.triasoft.garage.model.report.DirectEntryLineInfo;
@@ -18,6 +24,9 @@ import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.PurchaseLineInfo;
 import com.triasoft.garage.model.report.PurchaseTotals;
 import com.triasoft.garage.model.report.SalesTotals;
+import com.triasoft.garage.model.report.FinanceCompanyReceivableInfo;
+import com.triasoft.garage.model.report.FinanceReceivableSaleInfo;
+import com.triasoft.garage.model.report.FinanceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivableInfo;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.report.SaleLineInfo;
@@ -36,11 +45,14 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +70,9 @@ public class ReportService {
     private final DirectEntryRepository directEntryRepository;
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
+    private final SalePaymentRepository salePaymentRepository;
+    private final PurchasePaymentRepository purchasePaymentRepository;
+    private final FinanceCompanyRepository financeCompanyRepository;
 
     public PLReportRs getProfitAndLoss(YearMonth yearMonth) {
         var startDate = yearMonth.atDay(1);
@@ -227,6 +242,21 @@ public class ReportService {
                 .build();
 
         // ── 14. Receivables / Payables arising from this period's deals ───────
+        // Deliberately period-cohort, NOT the same metric as getReceivablesSummary()/
+        // getPayablesSummary() (which answer "of everything ever sold/bought, what's
+        // outstanding right now"). This is "of what was sold/bought in THIS period, what's
+        // still outstanding" - saleRows/purchaseRows are already filtered to sale_date/
+        // order_date within [startDate, endDate]. A sale from a prior period that's still
+        // partially unpaid correctly does NOT appear here, even though it would appear in
+        // /reports/receivables. Do not "fix" this to match the ledger-derived current-balance
+        // queries - that would inflate this period's figure with every prior period's
+        // still-open balance, which is a different (and wrong) thing for a per-period report
+        // to show. Verified by hand (2026-08-13) that both formulas below are internally
+        // correct on their own terms and were never exposed to the control-account blending
+        // bugs found in getReceivablesSummary()/getPayablesSummary(): the sales formula never
+        // separates customer vs. finance-company debt in the first place (so nothing to
+        // blend), and the purchase formula uses total_amount, which already includes RC due
+        // as owed and is never netted against it.
         BigDecimal totalReceivables = sumBd(saleRows, SaleLineRow::getPendingAmount);
         BigDecimal totalReceivablesTillDate = sumBd(saleRows, SaleLineRow::getPendingTillDate);
 
@@ -309,7 +339,240 @@ public class ReportService {
         return MonthlyTrendRs.builder().trend(trend).build();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Receivables / Payables — ledger-derived (primary, live endpoints)
+    //
+    // Pending amount comes from JournalDetail.sourceType/sourceId (one formula, the same
+    // one that actually posted AR/AP), not a hand-rolled SQL re-derivation. Entity lookups
+    // below are for DISPLAY fields only (invoice/PO number, vehicle, contact, dates) - the
+    // *FromEntities methods further down stay in the codebase, unchanged, as the audit
+    // reference these are reconciled against.
+    // ─────────────────────────────────────────────────────────────────────────
+
     public ReceivablesSummaryRs getReceivablesSummary() {
+        Long tenantId = TenantContext.get();
+        // Scoped to the AR account itself, not just party=CUSTOMER: a SALE source can also carry
+        // FINANCE_RECEIVABLE, CUSTOMER_SETTLEMENT_PAYABLE, and CUSTOMER_REFUND_PAYABLE lines
+        // tagged to the same customer+sale - summing across accounts (even filtered to one
+        // party) would still net a payable-type line against the true AR balance. See
+        // getFinanceReceivablesSummary() for the finance-company portion.
+        List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
+                tenantId, JournalService.SOURCE_SALE, SystemCoaRole.AR.name());
+
+        // SALE sources are receivable-natured (AR is DR-normal): pending = debit - credit.
+        Map<Long, BigDecimal> pendingBySaleId = new LinkedHashMap<>();
+        for (SourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getDebit()).subtract(safe(row.getCredit()));
+            if (pending.signum() > 0) {
+                pendingBySaleId.put(row.getSourceId(), pending);
+            }
+        }
+
+        List<Long> saleIds = new ArrayList<>(pendingBySaleId.keySet());
+        Map<Long, Sale> salesById = saleRepository.findAllById(saleIds).stream()
+                .collect(Collectors.toMap(Sale::getId, s -> s));
+        Map<Long, LocalDate> lastPaymentBySaleId = salePaymentRepository.findLastPaymentDatesBySaleIds(saleIds).stream()
+                .collect(Collectors.toMap(LastPaymentDateProjection::getSourceId, LastPaymentDateProjection::getLastPaymentDate));
+
+        List<ReceivableInfo> items = pendingBySaleId.entrySet().stream()
+                .map(e -> {
+                    Sale sale = salesById.get(e.getKey());
+                    if (sale == null) return null; // source predates this tenant's data / was hard-deleted
+                    return ReceivableInfo.builder()
+                            .saleId(sale.getId())
+                            .invoiceNo(sale.getInvoiceNo())
+                            .paymentStatus(sale.getPaymentStatus() != null ? sale.getPaymentStatus().name() : null)
+                            .vehicleNo(sale.getInventory() != null ? sale.getInventory().getProductNo() : null)
+                            .saleDate(sale.getSaleDate())
+                            .amount(safe(sale.getNetSaleAmount()))
+                            .pendingAmount(e.getValue())
+                            .lastPaymentDate(lastPaymentBySaleId.get(sale.getId()))
+                            .customerName(sale.getCustomer() != null ? sale.getCustomer().getName() : null)
+                            .customerMobile(sale.getCustomer() != null ? sale.getCustomer().getMobile() : null)
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> b.getSaleDate().compareTo(a.getSaleDate()))
+                .toList();
+        BigDecimal totalPending = items.stream()
+                .map(ReceivableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Combined KPI figure: what customers owe (above) plus what finance companies haven't
+        // yet disbursed - deliberately kept as separate fields rather than folded into
+        // totalPendingAmount/items, which stay customer-only (see field comments on the DTO).
+        BigDecimal financePending = getFinanceReceivablesSummary().getTotalPendingAmount();
+        return ReceivablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .financePendingAmount(financePending)
+                .totalOutstandingAmount(totalPending.add(financePending))
+                .items(items)
+                .build();
+    }
+
+    // Grouped by (party_id=financeCompanyId, source_id=saleId) and scoped to the
+    // FINANCE_RECEIVABLE account itself (see getOpenSourceBalancesByRole) - a financed sale can
+    // carry both a CUSTOMER-tagged AR line and a FINANCE-tagged FINANCE_RECEIVABLE line under
+    // the same source_id, so both party AND account scoping matter here.
+    public FinanceReceivablesSummaryRs getFinanceReceivablesSummary() {
+        Long tenantId = TenantContext.get();
+        List<PartySourceBalanceRow> balances = journalDetailRepository.getOpenPartySourceBalances(
+                tenantId, JournalService.PARTY_FINANCE, JournalService.SOURCE_SALE, SystemCoaRole.FINANCE_RECEIVABLE.name());
+
+        // FINANCE_RECEIVABLE is receivable-natured (asset, DR-normal): pending = debit - credit.
+        Map<Long, Map<Long, BigDecimal>> pendingByCompanyThenSale = new LinkedHashMap<>();
+        for (PartySourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getDebit()).subtract(safe(row.getCredit()));
+            if (pending.signum() > 0) {
+                pendingByCompanyThenSale
+                        .computeIfAbsent(row.getPartyId(), k -> new LinkedHashMap<>())
+                        .put(row.getSourceId(), pending);
+            }
+        }
+
+        List<Long> saleIds = pendingByCompanyThenSale.values().stream()
+                .flatMap(m -> m.keySet().stream())
+                .distinct()
+                .toList();
+        Map<Long, Sale> salesById = saleRepository.findAllById(saleIds).stream()
+                .collect(Collectors.toMap(Sale::getId, s -> s));
+        Map<Long, FinanceCompany> companiesById = financeCompanyRepository.findAllById(pendingByCompanyThenSale.keySet()).stream()
+                .collect(Collectors.toMap(FinanceCompany::getId, c -> c));
+
+        List<FinanceCompanyReceivableInfo> items = pendingByCompanyThenSale.entrySet().stream()
+                .map(companyEntry -> {
+                    FinanceCompany company = companiesById.get(companyEntry.getKey());
+                    if (company == null) return null; // party predates this tenant's data / was hard-deleted
+
+                    List<FinanceReceivableSaleInfo> sales = companyEntry.getValue().entrySet().stream()
+                            .map(saleEntry -> {
+                                Sale sale = salesById.get(saleEntry.getKey());
+                                if (sale == null) return null;
+                                return FinanceReceivableSaleInfo.builder()
+                                        .saleId(sale.getId())
+                                        .invoiceNo(sale.getInvoiceNo())
+                                        .paymentStatus(sale.getPaymentStatus() != null ? sale.getPaymentStatus().name() : null)
+                                        .vehicleNo(sale.getInventory() != null ? sale.getInventory().getProductNo() : null)
+                                        .saleDate(sale.getSaleDate())
+                                        .financeAmount(safe(sale.getFinanceAmount()))
+                                        .pendingAmount(saleEntry.getValue())
+                                        .customerName(sale.getCustomer() != null ? sale.getCustomer().getName() : null)
+                                        .build();
+                            })
+                            .filter(java.util.Objects::nonNull)
+                            .sorted((a, b) -> b.getSaleDate().compareTo(a.getSaleDate()))
+                            .toList();
+                    BigDecimal totalPendingForCompany = sales.stream()
+                            .map(FinanceReceivableSaleInfo::getPendingAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    return FinanceCompanyReceivableInfo.builder()
+                            .financeCompanyId(company.getId())
+                            .financeCompanyName(company.getName())
+                            .contactNumber(company.getContactNumber())
+                            .totalPending(totalPendingForCompany)
+                            .sales(sales)
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> b.getTotalPending().compareTo(a.getTotalPending()))
+                .toList();
+        BigDecimal totalPending = items.stream()
+                .map(FinanceCompanyReceivableInfo::getTotalPending)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return FinanceReceivablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    public PayablesSummaryRs getPayablesSummary() {
+        Long tenantId = TenantContext.get();
+        // Scoped to the AP account itself, not just source=PURCHASE: a PURCHASE source can also
+        // carry RC_DUE_RECEIVABLE and VENDOR_REFUND_RECEIVABLE lines tagged to the same
+        // vendor+purchase - summing across accounts would net those receivables against the AP
+        // balance and understate what we actually still owe the vendor in cash.
+        List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
+                tenantId, JournalService.SOURCE_PURCHASE, SystemCoaRole.AP.name());
+
+        // PURCHASE sources are payable-natured (AP is CR-normal): pending = credit - debit.
+        Map<Long, BigDecimal> pendingByPurchaseId = new LinkedHashMap<>();
+        for (SourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getCredit()).subtract(safe(row.getDebit()));
+            if (pending.signum() > 0) {
+                pendingByPurchaseId.put(row.getSourceId(), pending);
+            }
+        }
+
+        List<Long> purchaseIds = new ArrayList<>(pendingByPurchaseId.keySet());
+        Map<Long, Purchase> purchasesById = purchaseRepository.findAllById(purchaseIds).stream()
+                .collect(Collectors.toMap(Purchase::getId, p -> p));
+        Map<Long, LocalDate> lastPaymentByPurchaseId = purchasePaymentRepository.findLastPaymentDatesByPurchaseIds(purchaseIds).stream()
+                .collect(Collectors.toMap(LastPaymentDateProjection::getSourceId, LastPaymentDateProjection::getLastPaymentDate));
+
+        List<PayableInfo> items = new ArrayList<>(pendingByPurchaseId.entrySet().stream()
+                .map(e -> {
+                    Purchase purchase = purchasesById.get(e.getKey());
+                    if (purchase == null) return null;
+                    String vehicleNo = purchase.getPurchaseDetails().isEmpty() ? null : purchase.getPurchaseDetails().get(0).getProductNo();
+                    return PayableInfo.builder()
+                            .purchaseId(purchase.getId())
+                            .referenceNo(purchase.getReferenceNo())
+                            .vehicleNo(vehicleNo)
+                            .purchaseDate(purchase.getOrderDate())
+                            .amount(safe(purchase.getTotalAmount()))
+                            .pendingAmount(e.getValue())
+                            .lastPaymentDate(lastPaymentByPurchaseId.get(purchase.getId()))
+                            .vendorName(purchase.getVendor() != null ? purchase.getVendor().getName() : null)
+                            .vendorMobile(purchase.getVendor() != null ? purchase.getVendor().getMobile() : null)
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList());
+
+        // Fallback: pending exchange/trade-in purchases have no PURCHASE journal at all
+        // (PurchaseService deliberately skips posting until the buyback/return decision is
+        // made), so they can never come from getOpenSourceBalances - merge them in from the
+        // entity formula directly, the one case where "ledger as primary" has no ledger data
+        // to be primary over. purchaseIds is already the full set of ledger-covered ids, so
+        // any overlap here would mean a purchase somehow has both a journal AND is still
+        // flagged trade-in-pending - shouldn't happen, but skip it defensively rather than
+        // double-count if it ever does.
+        for (PayableRow r : purchaseRepository.findPendingTradeInPurchases(tenantId)) {
+            if (pendingByPurchaseId.containsKey(r.getPurchaseId())) continue;
+            items.add(PayableInfo.builder()
+                    .purchaseId(r.getPurchaseId())
+                    .referenceNo(r.getReferenceNo())
+                    .vehicleNo(r.getVehicleNo())
+                    .purchaseDate(r.getPurchaseDate())
+                    .amount(safe(r.getAmount()))
+                    .pendingAmount(safe(r.getPendingAmount()))
+                    .lastPaymentDate(r.getLastPaymentDate())
+                    .vendorName(r.getVendorName())
+                    .vendorMobile(r.getVendorMobile())
+                    .build());
+        }
+
+        List<PayableInfo> sortedItems = items.stream()
+                .sorted((a, b) -> b.getPurchaseDate().compareTo(a.getPurchaseDate()))
+                .toList();
+        BigDecimal totalPending = sortedItems.stream()
+                .map(PayableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return PayablesSummaryRs.builder()
+                .totalCount(sortedItems.size())
+                .totalPendingAmount(totalPending)
+                .items(sortedItems)
+                .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Receivables / Payables — entity-derived (audit reference, kept per user's decision
+    //  to keep both with ledger as primary; not called from ReportController)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public ReceivablesSummaryRs getReceivablesSummaryFromEntities() {
         List<ReceivableRow> rows = saleRepository.findReceivables(TenantContext.get());
         List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
                 .saleId(r.getSaleId())
@@ -333,7 +596,7 @@ public class ReportService {
                 .build();
     }
 
-    public PayablesSummaryRs getPayablesSummary() {
+    public PayablesSummaryRs getPayablesSummaryFromEntities() {
         List<PayableRow> rows = purchaseRepository.findPayables(TenantContext.get());
         List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
                 .purchaseId(r.getPurchaseId())

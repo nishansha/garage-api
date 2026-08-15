@@ -213,12 +213,16 @@ class JournalServiceTest {
             // Part 2: AR line must be tagged with the customer for the party subledger.
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
             assertThat(line.getPartyId()).isEqualTo(1L);
+            // Part 3: also tagged with the sale as the open-item source.
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALES_REVENUE.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
-            // Revenue lines aren't a per-party balance - no party tag.
+            // Revenue lines aren't a per-party balance - no party/source tag.
             assertThat(line.getPartyType()).isNull();
+            assertThat(line.getSourceType()).isNull();
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.COGS.name());
@@ -261,6 +265,75 @@ class JournalServiceTest {
             assertThat(line.getCreditAmount()).isEqualByComparingTo("10000");
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
             assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_sale_financed_tagsFinanceReceivableWithFinanceCompanyAndSale() {
+        Sale sale = buildSale(
+                new BigDecimal("100000"), BigDecimal.ZERO, true, new BigDecimal("60000"), new BigDecimal("70000"));
+        com.triasoft.garage.entity.FinanceCompany financeCompany = new com.triasoft.garage.entity.FinanceCompany();
+        financeCompany.setId(5L);
+        financeCompany.setName("Bajaj Finance");
+        sale.setFinanceCompanyRef(financeCompany);
+        when(saleRepository.findById(1L)).thenReturn(Optional.of(sale));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.AR);
+        coaFor(SystemCoaRole.FINANCE_RECEIVABLE);
+        coaFor(SystemCoaRole.COGS);
+        coaFor(SystemCoaRole.SALES_REVENUE);
+        coaFor(SystemCoaRole.INVENTORY);
+
+        journalService.post(JournalService.REF_SALE, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        List<JournalDetail> lines = captor.getValue();
+
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.FINANCE_RECEIVABLE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("60000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_FINANCE);
+            assertThat(line.getPartyId()).isEqualTo(5L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AR.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("40000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+        });
+    }
+
+    @Test
+    void post_sale_financed_withoutFinanceCompanyRef_leavesLineUntagged() {
+        // Historical sales predating this feature won't have financeCompanyRef backfilled.
+        Sale sale = buildSale(
+                new BigDecimal("100000"), BigDecimal.ZERO, true, new BigDecimal("60000"), new BigDecimal("70000"));
+        when(saleRepository.findById(1L)).thenReturn(Optional.of(sale));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.AR);
+        coaFor(SystemCoaRole.FINANCE_RECEIVABLE);
+        coaFor(SystemCoaRole.COGS);
+        coaFor(SystemCoaRole.SALES_REVENUE);
+        coaFor(SystemCoaRole.INVENTORY);
+
+        journalService.post(JournalService.REF_SALE, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.FINANCE_RECEIVABLE.name());
+            assertThat(line.getPartyType()).isNull();
+            assertThat(line.getSourceType()).isNull();
         });
     }
 
@@ -309,6 +382,8 @@ class JournalServiceTest {
             assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
             assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
         });
     }
 
@@ -347,11 +422,14 @@ class JournalServiceTest {
             assertThat(line.getDebitAmount()).isEqualByComparingTo("5000");
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
             assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
         });
         assertThat(lines).anySatisfy(line -> {
             assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
             assertThat(line.getCreditAmount()).isEqualByComparingTo("105000"); // full cash paid to vendor
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
         });
     }
 
@@ -400,9 +478,352 @@ class JournalServiceTest {
             assertThat(line.getCreditAmount()).isEqualByComparingTo("5000");
             assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
             assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
         });
     }
 
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Party/source tagging coverage for the remaining handlers (Part 3) - each
+    //  asserts the AR/AP-relevant line traces back to the correct party AND the
+    //  correct originating Sale/Purchase, per the plan's per-handler mapping.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void post_salePayment_nonFinance_tagsCustomerAndSale() {
+        Sale sale = buildSale(new BigDecimal("100000"), BigDecimal.ZERO, false, null, BigDecimal.ZERO);
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(60L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.SalePayment payment = new com.triasoft.garage.entity.SalePayment();
+        payment.setId(1L);
+        payment.setSale(sale);
+        payment.setAmount(new BigDecimal("40000"));
+        payment.setPaymentDate(LocalDate.of(2026, 1, 15));
+        payment.setPaymentAccount(cashAccount);
+
+        when(salePaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE_PAYMENT, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.AR);
+
+        journalService.post(JournalService.REF_SALE_PAYMENT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AR.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("40000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_salePayment_financeDisbursement_tagsFinanceCompanyAndSale() {
+        Sale sale = buildSale(new BigDecimal("100000"), BigDecimal.ZERO, true, new BigDecimal("60000"), BigDecimal.ZERO);
+        com.triasoft.garage.entity.FinanceCompany financeCompany = new com.triasoft.garage.entity.FinanceCompany();
+        financeCompany.setId(5L);
+        financeCompany.setName("Bajaj Finance");
+        sale.setFinanceCompanyRef(financeCompany);
+
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(60L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.SalePayment payment = new com.triasoft.garage.entity.SalePayment();
+        payment.setId(1L);
+        payment.setSale(sale);
+        payment.setAmount(new BigDecimal("60000"));
+        payment.setPaymentDate(LocalDate.of(2026, 1, 20));
+        payment.setPaymentAccount(cashAccount);
+        payment.setPayerType(com.triasoft.garage.constants.PayerTypeEnum.FINANCE);
+
+        when(salePaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE_PAYMENT, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.FINANCE_RECEIVABLE);
+
+        journalService.post(JournalService.REF_SALE_PAYMENT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.FINANCE_RECEIVABLE.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("60000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_FINANCE);
+            assertThat(line.getPartyId()).isEqualTo(5L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_saleReturn_none_cancelsArAndTagsRefundPayableToSale() {
+        // Fully unpaid sale, no exchange: outstandingAr = saleRate, refundPayable = 0 - 0 = 0
+        // (customerPaid is 0) -> only the AR-cancel line carries a party/source tag here.
+        Sale sale = buildSale(new BigDecimal("100000"), BigDecimal.ZERO, false, null, new BigDecimal("70000"));
+        com.triasoft.garage.entity.SaleReturn sr = new com.triasoft.garage.entity.SaleReturn();
+        sr.setId(1L);
+        sr.setSale(sale);
+        sr.setReturnDate(LocalDate.of(2026, 2, 1));
+        sr.setCustomerPaidAmount(BigDecimal.ZERO);
+        sr.setExchangeHandling(com.triasoft.garage.constants.ExchangeHandlingEnum.NONE);
+
+        when(saleReturnRepository.findById(1L)).thenReturn(Optional.of(sr));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE_RETURN, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.SALES_REVENUE);
+        coaFor(SystemCoaRole.INVENTORY);
+        coaFor(SystemCoaRole.COGS);
+        coaFor(SystemCoaRole.AR);
+
+        journalService.post(JournalService.REF_SALE_RETURN, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AR.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("100000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_saleReturnRefund_tagsCustomerAndOriginalSale() {
+        Sale sale = buildSale(new BigDecimal("100000"), BigDecimal.ZERO, false, null, BigDecimal.ZERO);
+        com.triasoft.garage.entity.SaleReturn sr = new com.triasoft.garage.entity.SaleReturn();
+        sr.setId(1L);
+        sr.setSale(sale);
+
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(61L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.SaleRefundPayment refund = new com.triasoft.garage.entity.SaleRefundPayment();
+        refund.setId(1L);
+        refund.setSaleReturn(sr);
+        refund.setAmount(new BigDecimal("15000"));
+        refund.setPaymentDate(LocalDate.of(2026, 2, 5));
+        refund.setPaymentAccount(cashAccount);
+
+        when(saleRefundPaymentRepository.findById(1L)).thenReturn(Optional.of(refund));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE_RETURN_REFUND, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.CUSTOMER_REFUND_PAYABLE);
+
+        journalService.post(JournalService.REF_SALE_RETURN_REFUND, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.CUSTOMER_REFUND_PAYABLE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("15000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_purchasePayment_nonExchange_tagsVendorAndPurchase() {
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), null);
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(62L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.PurchasePayment payment = new com.triasoft.garage.entity.PurchasePayment();
+        payment.setId(1L);
+        payment.setPurchase(purchase);
+        payment.setAmount(new BigDecimal("50000"));
+        payment.setPaymentDate(LocalDate.of(2026, 1, 20));
+        payment.setPaymentAccount(cashAccount);
+
+        when(purchasePaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE_PAYMENT, 1L))
+                .thenReturn(Optional.empty());
+        when(inventoryRepository.findByPurchaseOrderDetailPurchaseId(1L)).thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.AP);
+
+        journalService.post(JournalService.REF_PURCHASE_PAYMENT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("50000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_purchasePayment_exchange_tagsCustomerAndOriginalSaleNotPurchase() {
+        // Clearing a CUSTOMER_SETTLEMENT_PAYABLE via a purchase payment (settling an exchange
+        // vehicle) must trace back to the SALE that created the liability, not this purchase.
+        Purchase purchase = buildPurchase(new BigDecimal("80000"), null);
+        purchase.setId(2L);
+
+        Sale originatingSale = buildSale(new BigDecimal("50000"), new BigDecimal("60000"), false, null, BigDecimal.ZERO);
+        originatingSale.setId(9L);
+        Inventory exchangeInv = new Inventory();
+        exchangeInv.setSourceSaleId(9L);
+
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(63L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.PurchasePayment payment = new com.triasoft.garage.entity.PurchasePayment();
+        payment.setId(2L);
+        payment.setPurchase(purchase);
+        payment.setAmount(new BigDecimal("10000"));
+        payment.setPaymentDate(LocalDate.of(2026, 1, 25));
+        payment.setPaymentAccount(cashAccount);
+
+        when(purchasePaymentRepository.findById(2L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE_PAYMENT, 2L))
+                .thenReturn(Optional.empty());
+        when(inventoryRepository.findByPurchaseOrderDetailPurchaseId(2L)).thenReturn(Optional.of(exchangeInv));
+        when(saleRepository.findById(9L)).thenReturn(Optional.of(originatingSale));
+        coaFor(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE);
+
+        journalService.post(JournalService.REF_PURCHASE_PAYMENT, 2L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE.name());
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L); // originatingSale's customer id (buildSale fixture)
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(9L); // the SALE, not the purchase (2L)
+        });
+    }
+
+    @Test
+    void post_purchaseReturn_tagsVendorAndPurchaseOnApAndReceivableLines() {
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), null);
+        Inventory inv = new Inventory();
+        inv.setUin("UIN-1");
+
+        com.triasoft.garage.entity.PurchaseReturn pr = new com.triasoft.garage.entity.PurchaseReturn();
+        pr.setId(1L);
+        pr.setPurchase(purchase);
+        pr.setInventory(inv);
+        pr.setReturnDate(LocalDate.of(2026, 2, 10));
+        pr.setReturnAmount(new BigDecimal("100000"));
+        pr.setInventoryLandedCost(new BigDecimal("100000"));
+
+        when(purchaseReturnRepository.findById(1L)).thenReturn(Optional.of(pr));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE_RETURN, 1L))
+                .thenReturn(Optional.empty());
+        when(expenseRepository.findByPurchaseId(1L)).thenReturn(List.of());
+        when(purchasePaymentRepository.sumAmountByPurchaseId(1L)).thenReturn(BigDecimal.ZERO);
+        coaFor(SystemCoaRole.AP);
+        coaFor(SystemCoaRole.INVENTORY);
+
+        journalService.post(JournalService.REF_PURCHASE_RETURN, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.AP.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("100000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_purchaseReturnReceipt_tagsVendorAndPurchase() {
+        Purchase purchase = buildPurchase(new BigDecimal("100000"), null);
+        com.triasoft.garage.entity.PurchaseReturn pr = new com.triasoft.garage.entity.PurchaseReturn();
+        pr.setId(1L);
+        pr.setPurchase(purchase);
+
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(64L);
+        cashAccount.setChartOfAccount(cashCoa);
+
+        com.triasoft.garage.entity.PurchaseReturnReceipt receipt = new com.triasoft.garage.entity.PurchaseReturnReceipt();
+        receipt.setId(1L);
+        receipt.setPurchaseReturn(pr);
+        receipt.setAmount(new BigDecimal("20000"));
+        receipt.setPaymentDate(LocalDate.of(2026, 2, 12));
+        receipt.setPaymentAccount(cashAccount);
+
+        when(purchaseReturnReceiptRepository.findById(1L)).thenReturn(Optional.of(receipt));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE_RETURN_RECEIPT, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.VENDOR_REFUND_RECEIVABLE);
+
+        journalService.post(JournalService.REF_PURCHASE_RETURN_RECEIPT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.VENDOR_REFUND_RECEIVABLE.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("20000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_VENDOR);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_PURCHASE);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void postExchangeBuybackPurchase_tagsCustomerAndOriginalSaleNotBuybackPurchase() {
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_PURCHASE, 5L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.INVENTORY);
+        coaFor(SystemCoaRole.CUSTOMER_REFUND_PAYABLE);
+
+        journalService.postExchangeBuybackPurchase(5L, new BigDecimal("60000"),
+                LocalDate.of(2026, 2, 15), "John Doe", 1L, 9L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.CUSTOMER_REFUND_PAYABLE.name());
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_CUSTOMER);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
+            assertThat(line.getSourceId()).isEqualTo(9L); // the sale, not the buyback purchase (5L)
+        });
+    }
 
     @Test
     void reverse_noActiveJournal_isNoOp() {

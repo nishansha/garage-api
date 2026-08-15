@@ -366,6 +366,8 @@ CREATE TABLE public.app_journal_detail (
     description character varying(500),
     party_type character varying(20),
     party_id bigint,
+    source_type character varying(20),
+    source_id bigint,
     created_by bigint NOT NULL,
     created_at timestamp without time zone NOT NULL,
     modified_by bigint,
@@ -958,6 +960,7 @@ CREATE TABLE public.app_sale (
     exchange_amount numeric(38,2),
     finance_amount numeric(38,2),
     finance_company character varying(255),
+    finance_company_id bigint,
     invoice_no character varying(255) NOT NULL,
     is_exchanged boolean,
     is_financed boolean,
@@ -1053,6 +1056,7 @@ CREATE TABLE public.app_sale_aud (
     rev bigint NOT NULL,
     status_id bigint,
     finance_company character varying(255),
+    finance_company_id bigint,
     invoice_no character varying(255),
     payment_status character varying(255),
     CONSTRAINT app_sale_aud_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'INACTIVE'::character varying, 'DELETED'::character varying, 'AVAILABLE'::character varying, 'OUT_OF_STOCK'::character varying, 'PENDING_DELIVERY'::character varying, 'RETURNED_TO_VENDOR'::character varying, 'PENDING'::character varying, 'RECIEVED'::character varying, 'SOLD'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying, 'PAID'::character varying, 'PARTIAL'::character varying, 'FINANCE_PENDING'::character varying, 'REFUND'::character varying, 'RETURNED'::character varying])::text[])))
@@ -1432,6 +1436,38 @@ ALTER TABLE public.app_transaction_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.app_transaction_id_seq OWNED BY public.app_transaction.id;
+
+
+--
+-- Name: app_finance_company_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_finance_company_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_finance_company_id_seq OWNER TO postgres;
+
+--
+-- Name: app_finance_company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_finance_company (
+    id bigint DEFAULT nextval('public.app_finance_company_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    contact_number character varying(255),
+    email character varying(255),
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
 
 
 --
@@ -2522,6 +2558,22 @@ ALTER TABLE ONLY public.app_vendor
 
 
 --
+-- Name: app_finance_company app_finance_company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_finance_company
+    ADD CONSTRAINT app_finance_company_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_finance_company finance_company_name_uk; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_finance_company
+    ADD CONSTRAINT finance_company_name_uk UNIQUE (tenant_id, name);
+
+
+--
 -- Name: fnd_product_brand brand_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2883,6 +2935,13 @@ CREATE INDEX idx_jdetail_party ON public.app_journal_detail USING btree (tenant_
 
 
 --
+-- Name: idx_jdetail_source; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_jdetail_source ON public.app_journal_detail USING btree (tenant_id, source_type, source_id) WHERE (source_type IS NOT NULL);
+
+
+--
 -- Name: idx_journal_date; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -3205,6 +3264,14 @@ ALTER TABLE ONLY public.app_sale
 
 
 --
+-- Name: app_sale app_sale_finance_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_sale
+    ADD CONSTRAINT app_sale_finance_company_id_fkey FOREIGN KEY (finance_company_id) REFERENCES public.app_finance_company(id);
+
+
+--
 -- Name: app_sale_amount_split app_sale_amount_split_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3258,6 +3325,14 @@ ALTER TABLE ONLY public.app_transaction
 
 ALTER TABLE ONLY public.app_vendor
     ADD CONSTRAINT app_vendor_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_finance_company app_finance_company_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_finance_company
+    ADD CONSTRAINT app_finance_company_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
 
 
 --

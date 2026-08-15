@@ -1,6 +1,7 @@
 package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.PurchasePayment;
+import com.triasoft.garage.projection.LastPaymentDateProjection;
 import com.triasoft.garage.projection.PurchasePaidProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,9 @@ public interface PurchasePaymentRepository extends JpaRepository<PurchasePayment
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PurchasePayment p WHERE p.purchase.id = :purchaseId")
     BigDecimal sumAmountByPurchaseId(@Param("purchaseId") Long purchaseId);
+
+    @Query("SELECT p.purchase.id as sourceId, MAX(p.paymentDate) as lastPaymentDate FROM PurchasePayment p WHERE p.purchase.id IN :purchaseIds GROUP BY p.purchase.id")
+    List<LastPaymentDateProjection> findLastPaymentDatesByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);
 
     @Query("SELECT p.purchase.id AS purchaseId, COALESCE(SUM(p.amount), 0) AS totalPaid FROM PurchasePayment p WHERE p.purchase.id IN :purchaseIds GROUP BY p.purchase.id")
     List<PurchasePaidProjection> getTotalPaidByPurchaseIds(@Param("purchaseIds") List<Long> purchaseIds);

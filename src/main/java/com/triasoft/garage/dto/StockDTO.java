@@ -17,6 +17,7 @@ public class StockDTO implements Serializable {
     private Long productId;
     private String vendorName;
     private String vendorMobileNo;
+    private String vendorAddress;
     private LocalDate purchaseDate;
     private String productCode;
     private String brandName;
@@ -37,5 +38,6 @@ public class StockDTO implements Serializable {
     private LocalDate soldDate;
     private String customerName;
     private String customerMobileNo;
+    private String customerAddress;
     private List<ExpenseDTO> expenses;
 }

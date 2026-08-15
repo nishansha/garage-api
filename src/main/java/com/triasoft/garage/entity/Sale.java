@@ -60,6 +60,10 @@ public class Sale extends TenantAwareAuditEntity {
     @Column(name = "finance_company")
     private String financeCompany;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "finance_company_id")
+    private FinanceCompany financeCompanyRef;
+
     @Column(name = "finance_amount")
     private BigDecimal financeAmount;
 

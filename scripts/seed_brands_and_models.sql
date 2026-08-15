@@ -591,9 +591,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('BASE_EV', 'Base', 1, 'EV'),
-    ('MID_EV',  'Mid',  2, 'EV'),
-    ('TOP_EV',  'Top',  3, 'EV')
+    ('BASE_EV', 'Base', 1, 'ELECTRIC'),
+    ('MID_EV',  'Mid',  2, 'ELECTRIC'),
+    ('TOP_EV',  'Top',  3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'EVITARA' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MARUTISUZUKI');
 
@@ -954,8 +954,8 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('PREM_EV', 'Premium',   1, 'EV'),
-    ('SIG_EV',  'Signature', 2, 'EV')
+    ('PREM_EV', 'Premium',   1, 'ELECTRIC'),
+    ('SIG_EV',  'Signature', 2, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'IONIQ' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'HYUNDAI');
 
@@ -1034,8 +1034,8 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('PREM_EV',   'Premium',    1, 'EV'),
-    ('PREMDT_EV', 'Premium DT', 2, 'EV')
+    ('PREM_EV',   'Premium',    1, 'ELECTRIC'),
+    ('PREMDT_EV', 'Premium DT', 2, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'KONA' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'HYUNDAI');
 
@@ -1076,7 +1076,7 @@ CROSS JOIN (VALUES
     ('XZP_P', 'XZ+',    5, 'PETROL'),
     ('XM_C',  'XM CNG', 6, 'CNG'),
     ('XZ_C',  'XZ CNG', 7, 'CNG'),
-    ('EV',    'EV',     8, 'EV')
+    ('EV',    'EV',     8, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'TIAGO' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'TATA');
 
@@ -1090,7 +1090,7 @@ CROSS JOIN (VALUES
     ('XZ_P',  'XZ',     4, 'PETROL'),
     ('XZP_P', 'XZ+',    5, 'PETROL'),
     ('XZ_C',  'XZ CNG', 6, 'CNG'),
-    ('EV',    'EV',     7, 'EV')
+    ('EV',    'EV',     7, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'TIGOR' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'TATA');
 
@@ -1118,7 +1118,7 @@ CROSS JOIN (VALUES
     ('ACC_P',  'Accomplished', 3, 'PETROL'),
     ('CRE_P',  'Creative',     4, 'PETROL'),
     ('PURE_C', 'Pure CNG',     5, 'CNG'),
-    ('EV',     'EV',           6, 'EV')
+    ('EV',     'EV',           6, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'PUNCH' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'TATA');
 
@@ -1134,7 +1134,7 @@ CROSS JOIN (VALUES
     ('PURE_D',   'Pure',     6, 'DIESEL'),
     ('CRE_D',    'Creative', 7, 'DIESEL'),
     ('FEAR_D',   'Fearless', 8, 'DIESEL'),
-    ('EV',       'EV',       9, 'EV')
+    ('EV',       'EV',       9, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'NEXON' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'TATA');
 
@@ -1149,7 +1149,7 @@ CROSS JOIN (VALUES
     ('SMART_D', 'Smart',        5, 'DIESEL'),
     ('PURE_D',  'Pure',         6, 'DIESEL'),
     ('CRE_D',   'Creative',     7, 'DIESEL'),
-    ('EV',      'EV',           8, 'EV')
+    ('EV',      'EV',           8, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'CURVV' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'TATA');
 
@@ -1353,9 +1353,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('PACE_EV',  'Pace',  1, 'EV'),
-    ('PLAY_EV',  'Play',  2, 'EV'),
-    ('PLUSH_EV', 'Plush', 3, 'EV')
+    ('PACE_EV',  'Pace',  1, 'ELECTRIC'),
+    ('PLAY_EV',  'Play',  2, 'ELECTRIC'),
+    ('PLUSH_EV', 'Plush', 3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'COMET' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MGMOTORS');
 
@@ -1363,9 +1363,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('EXCITE_EV', 'Excite',    1, 'EV'),
-    ('EXCL_EV',   'Exclusive', 2, 'EV'),
-    ('ESS_EV',    'Essence',   3, 'EV')
+    ('EXCITE_EV', 'Excite',    1, 'ELECTRIC'),
+    ('EXCL_EV',   'Exclusive', 2, 'ELECTRIC'),
+    ('ESS_EV',    'Essence',   3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'WINDSOR' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MGMOTORS');
 
@@ -1373,8 +1373,8 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('EXCITE_EV', 'Excite',    1, 'EV'),
-    ('EXCL_EV',   'Exclusive', 2, 'EV')
+    ('EXCITE_EV', 'Excite',    1, 'ELECTRIC'),
+    ('EXCL_EV',   'Exclusive', 2, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'ZSEV' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MGMOTORS');
 
@@ -1490,9 +1490,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('P1_EV', 'Pack 1', 1, 'EV'),
-    ('P2_EV', 'Pack 2', 2, 'EV'),
-    ('P3_EV', 'Pack 3', 3, 'EV')
+    ('P1_EV', 'Pack 1', 1, 'ELECTRIC'),
+    ('P2_EV', 'Pack 2', 2, 'ELECTRIC'),
+    ('P3_EV', 'Pack 3', 3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'BE6' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MAHINDRA');
 
@@ -1500,9 +1500,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('P1_EV', 'Pack 1', 1, 'EV'),
-    ('P2_EV', 'Pack 2', 2, 'EV'),
-    ('P3_EV', 'Pack 3', 3, 'EV')
+    ('P1_EV', 'Pack 1', 1, 'ELECTRIC'),
+    ('P2_EV', 'Pack 2', 2, 'ELECTRIC'),
+    ('P3_EV', 'Pack 3', 3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'XEV9E' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MAHINDRA');
 
@@ -1510,8 +1510,8 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('P1_EV', 'Pack 1', 1, 'EV'),
-    ('P2_EV', 'Pack 2', 2, 'EV')
+    ('P1_EV', 'Pack 1', 1, 'ELECTRIC'),
+    ('P2_EV', 'Pack 2', 2, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'XEV9S' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MAHINDRA');
 
@@ -1519,10 +1519,10 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('MX1_EV', 'MX1', 1, 'EV'),
-    ('MX2_EV', 'MX2', 2, 'EV'),
-    ('AX5_EV', 'AX5', 3, 'EV'),
-    ('AX7_EV', 'AX7', 4, 'EV')
+    ('MX1_EV', 'MX1', 1, 'ELECTRIC'),
+    ('MX2_EV', 'MX2', 2, 'ELECTRIC'),
+    ('AX5_EV', 'AX5', 3, 'ELECTRIC'),
+    ('AX7_EV', 'AX7', 4, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'XUV3XOEV' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MAHINDRA');
 
@@ -1604,9 +1604,9 @@ INSERT INTO fnd_model_varient (model_id, code, description, sort_order, active, 
 SELECT m.id, v.code, v.description, v.sort_order, true, v.type
 FROM fnd_brand_model m
 CROSS JOIN (VALUES
-    ('T0_EV', 'T0', 1, 'EV'),
-    ('T2_EV', 'T2', 2, 'EV'),
-    ('T4_EV', 'T4', 3, 'EV')
+    ('T0_EV', 'T0', 1, 'ELECTRIC'),
+    ('T2_EV', 'T2', 2, 'ELECTRIC'),
+    ('T4_EV', 'T4', 3, 'ELECTRIC')
 ) AS v(code, description, sort_order, type)
 WHERE m.code = 'E2O' AND m.brand_id = (SELECT id FROM fnd_product_brand WHERE code = 'MAHINDRA');
 

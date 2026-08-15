@@ -3,6 +3,8 @@ package com.triasoft.garage.ledger.repository;
 import com.triasoft.garage.ledger.entity.JournalDetail;
 import com.triasoft.garage.ledger.projection.AccountBalanceRow;
 import com.triasoft.garage.ledger.projection.LedgerRow;
+import com.triasoft.garage.ledger.projection.PartySourceBalanceRow;
+import com.triasoft.garage.ledger.projection.SourceBalanceRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -179,5 +181,78 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                                              @Param("partyType") String partyType,
                                              @Param("partyId") Long partyId,
                                              @Param("beforeDate") LocalDate beforeDate);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Open items (which Sale/Purchase still has a nonzero balance) - see
+    //  JournalDetail.sourceType/sourceId. Deliberately raw debit/credit, not a signed
+    //  "pending" figure - whether a nonzero balance means owed-to-us or owed-by-us
+    //  depends on which GL accounts normally back that source type (receivable vs
+    //  payable), which is domain knowledge this package doesn't have.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Query(value = """
+            SELECT
+              jd.source_id                       as sourceId,
+              COALESCE(SUM(jd.debit_amount), 0)  as debit,
+              COALESCE(SUM(jd.credit_amount), 0) as credit
+            FROM app_journal_detail jd
+            WHERE jd.tenant_id = :tenantId
+              AND jd.source_type = :sourceType
+            GROUP BY jd.source_id
+            HAVING SUM(jd.debit_amount) - SUM(jd.credit_amount) <> 0
+            """, nativeQuery = true)
+    List<SourceBalanceRow> getOpenSourceBalances(@Param("tenantId") Long tenantId, @Param("sourceType") String sourceType);
+
+    // Same shape as getOpenSourceBalances, additionally scoped to ONE control account
+    // (system_role). source_type alone is NOT a reliable subledger key: a PURCHASE source can
+    // carry AP, RC_DUE_RECEIVABLE, and VENDOR_REFUND_RECEIVABLE lines all tagged to the same
+    // vendor+purchase, and a SALE source can carry AR, FINANCE_RECEIVABLE, CUSTOMER_SETTLEMENT_
+    // PAYABLE, and CUSTOMER_REFUND_PAYABLE lines all tagged to the same customer+sale. Summing
+    // across all of them (plain getOpenSourceBalances) silently nets a receivable against a
+    // payable, or nets two different parties' receivables together. Scoping to the single
+    // control account a report actually means (AR for receivables, AP for payables, ...) is
+    // what a real subledger is, and removes this whole bug class - use this, not the unscoped
+    // version, for anything user-facing.
+    @Query(value = """
+            SELECT
+              jd.source_id                       as sourceId,
+              COALESCE(SUM(jd.debit_amount), 0)  as debit,
+              COALESCE(SUM(jd.credit_amount), 0) as credit
+            FROM app_journal_detail jd
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            WHERE jd.tenant_id = :tenantId
+              AND jd.source_type = :sourceType
+              AND coa.system_role = :systemRole
+            GROUP BY jd.source_id
+            HAVING SUM(jd.debit_amount) - SUM(jd.credit_amount) <> 0
+            """, nativeQuery = true)
+    List<SourceBalanceRow> getOpenSourceBalancesByRole(@Param("tenantId") Long tenantId,
+                                                        @Param("sourceType") String sourceType,
+                                                        @Param("systemRole") String systemRole);
+
+    // Grouped by BOTH party_id and source_id, additionally scoped to ONE control account (see
+    // getOpenSourceBalancesByRole) - needed wherever a source can carry lines for more than one
+    // party under the SAME account (e.g. a financed sale's FINANCE_RECEIVABLE line and a plain
+    // AR line share source_id but not party). Gives both the per-party total (sum across
+    // source_id) and the per-source drill-down in one query.
+    @Query(value = """
+            SELECT
+              jd.party_id                        as partyId,
+              jd.source_id                       as sourceId,
+              COALESCE(SUM(jd.debit_amount), 0)  as debit,
+              COALESCE(SUM(jd.credit_amount), 0) as credit
+            FROM app_journal_detail jd
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            WHERE jd.tenant_id = :tenantId
+              AND jd.party_type = :partyType
+              AND jd.source_type = :sourceType
+              AND coa.system_role = :systemRole
+            GROUP BY jd.party_id, jd.source_id
+            HAVING SUM(jd.debit_amount) - SUM(jd.credit_amount) <> 0
+            """, nativeQuery = true)
+    List<PartySourceBalanceRow> getOpenPartySourceBalances(@Param("tenantId") Long tenantId,
+                                                            @Param("partyType") String partyType,
+                                                            @Param("sourceType") String sourceType,
+                                                            @Param("systemRole") String systemRole);
 
 }

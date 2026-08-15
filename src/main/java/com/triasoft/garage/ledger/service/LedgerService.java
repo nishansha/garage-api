@@ -44,19 +44,25 @@ public class LedgerService {
         return journalRepository.save(journal);
     }
 
+    /** Who a line's balance belongs to (e.g. PARTY_CUSTOMER, customerId). See JournalDetail.partyType/partyId. */
+    public record Party(String type, Long id) {}
+
+    /** Which original transaction a line traces back to (e.g. "SALE", saleId), independent of
+     * which journal actually posted it. See JournalDetail.sourceType/sourceId. */
+    public record Source(String type, Long id) {}
+
     public JournalDetail debit(Journal journal, ChartOfAccount account, BigDecimal amount, String description) {
         return debit(journal, account, amount, description, null, null);
     }
 
-    public JournalDetail debit(Journal journal, ChartOfAccount account, BigDecimal amount, String description, String partyType, Long partyId) {
+    public JournalDetail debit(Journal journal, ChartOfAccount account, BigDecimal amount, String description, Party party, Source source) {
         JournalDetail d = new JournalDetail();
         d.setJournal(journal);
         d.setAccount(account);
         d.setDebitAmount(amount);
         d.setCreditAmount(BigDecimal.ZERO);
         d.setDescription(description);
-        d.setPartyType(partyType);
-        d.setPartyId(partyId);
+        applyTags(d, party, source);
         return d;
     }
 
@@ -64,16 +70,26 @@ public class LedgerService {
         return credit(journal, account, amount, description, null, null);
     }
 
-    public JournalDetail credit(Journal journal, ChartOfAccount account, BigDecimal amount, String description, String partyType, Long partyId) {
+    public JournalDetail credit(Journal journal, ChartOfAccount account, BigDecimal amount, String description, Party party, Source source) {
         JournalDetail c = new JournalDetail();
         c.setJournal(journal);
         c.setAccount(account);
         c.setDebitAmount(BigDecimal.ZERO);
         c.setCreditAmount(amount);
         c.setDescription(description);
-        c.setPartyType(partyType);
-        c.setPartyId(partyId);
+        applyTags(c, party, source);
         return c;
+    }
+
+    private void applyTags(JournalDetail line, Party party, Source source) {
+        if (party != null) {
+            line.setPartyType(party.type());
+            line.setPartyId(party.id());
+        }
+        if (source != null) {
+            line.setSourceType(source.type());
+            line.setSourceId(source.id());
+        }
     }
 
     public void saveBalanced(List<JournalDetail> lines) {
@@ -132,6 +148,8 @@ public class LedgerService {
             rev.setDescription("Reversal: " + (line.getDescription() != null ? line.getDescription() : ""));
             rev.setPartyType(line.getPartyType());
             rev.setPartyId(line.getPartyId());
+            rev.setSourceType(line.getSourceType());
+            rev.setSourceId(line.getSourceId());
             journalDetailRepository.save(rev);
         }
 

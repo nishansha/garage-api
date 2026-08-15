@@ -11,6 +11,8 @@ import com.triasoft.garage.security.tenant.TenantContext;
 import com.triasoft.garage.entity.*;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
+import com.triasoft.garage.ledger.projection.SourceBalanceRow;
+import com.triasoft.garage.ledger.repository.JournalDetailRepository;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.product.ProductRq;
 import com.triasoft.garage.model.purchase.PurchasePaymentRq;
@@ -19,7 +21,6 @@ import com.triasoft.garage.model.purchase.PurchaseRs;
 import com.triasoft.garage.model.purchase.PurchaseSummaryRs;
 import com.triasoft.garage.model.purchase.RcDueReceiptCreateRs;
 import com.triasoft.garage.model.purchase.RcDueReceiptRq;
-import com.triasoft.garage.model.report.PayableInfo;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.RcDueInfo;
 import com.triasoft.garage.model.report.RcDueSummaryRs;
@@ -58,6 +59,7 @@ public class PurchaseService {
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
     private final VendorRepository vendorRepository;
+    private final ReportService reportService;
     private final InventoryRepository inventoryRepository;
     private final WarehouseRepository warehouseRepository;
     private final LookupHelper lookupHelper;
@@ -65,6 +67,8 @@ public class PurchaseService {
     private final SaleRepository saleRepository;
     private final RcDueReceiptRepository rcDueReceiptRepository;
     private final JournalService journalService;
+    private final JournalDetailRepository journalDetailRepository;
+    private final UserProfileRepository userProfileRepository;
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
@@ -195,8 +199,10 @@ public class PurchaseService {
     }
 
     private StatusEnum derivePaymentStatus(BigDecimal paidAmount, BigDecimal totalAmount) {
-        if (paidAmount.compareTo(BigDecimal.ZERO) == 0) return StatusEnum.PENDING;
-        if (paidAmount.compareTo(totalAmount) >= 0) return StatusEnum.PAID;
+        if (paidAmount.compareTo(BigDecimal.ZERO) == 0)
+            return StatusEnum.PENDING;
+        if (paidAmount.compareTo(totalAmount) >= 0)
+            return StatusEnum.PAID;
         return StatusEnum.PARTIAL;
     }
 
@@ -390,7 +396,8 @@ public class PurchaseService {
         if (inventory == null || !StatusEnum.SOLD.equals(inventory.getStatus()))
             return true;
 
-        if (CollectionUtils.isEmpty(purchase.getPurchaseDetails())) return true;
+        if (CollectionUtils.isEmpty(purchase.getPurchaseDetails()))
+            return true;
         var category = purchase.getPurchaseDetails().get(0).getProduct().getCategory();
         if (category == null || !category.isExpenseLockEnabled() || category.getExpenseLockWindow() == null)
             return true;
@@ -762,6 +769,12 @@ public class PurchaseService {
         BigDecimal paidAmount = purchasePaymentRepository.sumAmountByPurchaseId(id);
         PurchaseDTO purchaseDTO = convertToDTO(purchase, inventory, paidAmount);
         purchaseDTO.setLandedCost(inventory != null ? inventory.getLandedCost() : null);
+        purchaseDTO.setWarehouseName(purchaseDTO.getWarehouseId() != null
+                ? warehouseRepository.findById(purchaseDTO.getWarehouseId()).map(Warehouse::getName).orElse(null)
+                : null);
+        purchaseDTO.setPickupStaffName(purchase.getPickupStaffId() != null
+                ? userProfileRepository.findById(purchase.getPickupStaffId()).map(UserProfile::getName).orElse(null)
+                : null);
         List<ExpenseDTO> expenseDTOs = purchase.getPurchaseExpenses().stream().map(this::convertToExpenseDTO).toList();
         purchaseDTO.setExpenses(expenseDTOs);
         purchaseDTO.setTotalExpenses(expenseDTOs.stream().map(ExpenseDTO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -966,27 +979,13 @@ public class PurchaseService {
         journalService.reverseOnDate(JournalService.REF_PURCHASE_PAYMENT, payment.getId(), LocalDate.now());
     }
 
+    // Delegates to the ledger-derived query (same one backing GET /reports/payables), which
+    // also merges in pending trade-in purchases that never get a PURCHASE journal at all
+    // (PurchaseService.create() defers posting until the buyback/return decision is made) -
+    // the old entity-derived purchaseRepository.findPayables() formula above missed those.
+    // See ReportService.getPayablesSummary.
     public PayablesSummaryRs getPayablesSummary() {
-        List<PayableRow> rows = purchaseRepository.findPayables(TenantContext.get());
-        List<PayableInfo> items = rows.stream().map(r -> PayableInfo.builder()
-                .purchaseId(r.getPurchaseId())
-                .referenceNo(r.getReferenceNo())
-                .vehicleNo(r.getVehicleNo())
-                .purchaseDate(r.getPurchaseDate())
-                .amount(safe(r.getAmount()))
-                .pendingAmount(safe(r.getPendingAmount()))
-                .lastPaymentDate(r.getLastPaymentDate())
-                .vendorName(r.getVendorName())
-                .vendorMobile(r.getVendorMobile())
-                .build()).toList();
-        BigDecimal totalPending = items.stream()
-                .map(PayableInfo::getPendingAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return PayablesSummaryRs.builder()
-                .totalCount(items.size())
-                .totalPendingAmount(totalPending)
-                .items(items)
-                .build();
+        return reportService.getPayablesSummary();
     }
 
     private BigDecimal safe(BigDecimal value) {
@@ -1159,7 +1158,79 @@ public class PurchaseService {
                 .build();
     }
 
+    // Ledger-derived, scoped to the RC_DUE_RECEIVABLE account (see ReportService.getPayablesSummary
+    // for why source_type/party_type alone aren't sufficient - PURCHASE sources also carry AP and
+    // VENDOR_REFUND_RECEIVABLE lines tagged to the same vendor+purchase). Deliberately NOT joined
+    // through Sale (unlike the old findPendingRcDues() formula below): RC due becomes pending as
+    // soon as the purchase posts, well before the unit sells - only the RECEIPT action itself is
+    // gated on the sale (see requireSold()), not visibility of the pending amount.
     public RcDueSummaryRs getRcDueSummary() {
+        Long tenantId = TenantContext.get();
+        List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
+                tenantId, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name());
+
+        // RC_DUE_RECEIVABLE is asset/DR-normal: pending = debit - credit.
+        Map<Long, BigDecimal> pendingByPurchaseId = new LinkedHashMap<>();
+        for (SourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getDebit()).subtract(safe(row.getCredit()));
+            if (pending.signum() > 0) {
+                pendingByPurchaseId.put(row.getSourceId(), pending);
+            }
+        }
+
+        List<Long> purchaseIds = new ArrayList<>(pendingByPurchaseId.keySet());
+        Map<Long, Purchase> purchasesById = purchaseRepository.findAllById(purchaseIds).stream()
+                .collect(Collectors.toMap(Purchase::getId, p -> p));
+        Map<Long, LocalDate> lastReceiptByPurchaseId = rcDueReceiptRepository.findLastReceiptDatesByPurchaseIds(purchaseIds).stream()
+                .collect(Collectors.toMap(LastPaymentDateProjection::getSourceId, LastPaymentDateProjection::getLastPaymentDate));
+
+        // A purchase order can have more than one line item/inventory unit; RC due is booked at
+        // the purchase level, so for display purposes (vehicle/sale lookup) we just need ONE
+        // representative unit - same "just take one" approach as getPayablesSummary's vehicleNo.
+        List<Inventory> inventories = inventoryRepository.findByPurchaseOrderDetailPurchaseIdIn(purchaseIds);
+        Map<Long, Inventory> inventoryByPurchaseId = inventories.stream()
+                .collect(Collectors.toMap(inv -> inv.getPurchaseOrderDetail().getPurchase().getId(), inv -> inv, (a, b) -> a));
+        List<Long> inventoryIds = inventories.stream().map(Inventory::getId).toList();
+        Map<Long, Sale> saleByInventoryId = saleRepository.findByInventoryIdIn(inventoryIds).stream()
+                .collect(Collectors.toMap(s -> s.getInventory().getId(), s -> s));
+
+        List<RcDueInfo> items = pendingByPurchaseId.entrySet().stream()
+                .map(e -> {
+                    Purchase purchase = purchasesById.get(e.getKey());
+                    if (purchase == null) return null; // source predates this tenant's data / was hard-deleted
+                    Inventory inv = inventoryByPurchaseId.get(purchase.getId());
+                    Sale sale = inv != null ? saleByInventoryId.get(inv.getId()) : null;
+                    return RcDueInfo.builder()
+                            .purchaseId(purchase.getId())
+                            .referenceNo(purchase.getReferenceNo())
+                            .purchaseDate(purchase.getOrderDate())
+                            .saleId(sale != null ? sale.getId() : null)
+                            .invoiceNo(sale != null ? sale.getInvoiceNo() : null)
+                            .vehicleNo(inv != null ? inv.getProductNo() : null)
+                            .saleDate(sale != null ? sale.getSaleDate() : null)
+                            .amount(safe(purchase.getRcDueAmount()))
+                            .pendingAmount(e.getValue())
+                            .lastReceiptDate(lastReceiptByPurchaseId.get(purchase.getId()))
+                            .vendorName(purchase.getVendor() != null ? purchase.getVendor().getName() : null)
+                            .vendorMobile(purchase.getVendor() != null ? purchase.getVendor().getMobile() : null)
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> b.getPurchaseDate().compareTo(a.getPurchaseDate()))
+                .toList();
+        BigDecimal totalPending = items.stream()
+                .map(RcDueInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return RcDueSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    // Audit reference / reconciliation fallback - the pre-ledger formula, joined through Sale so
+    // it only ever shows sold units. Not called from the controller.
+    public RcDueSummaryRs getRcDueSummaryFromEntities() {
         List<RcDueRow> rows = saleRepository.findPendingRcDues();
         List<RcDueInfo> items = rows.stream().map(r -> RcDueInfo.builder()
                 .purchaseId(r.getPurchaseId())

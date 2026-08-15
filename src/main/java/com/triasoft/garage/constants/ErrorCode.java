@@ -144,7 +144,10 @@ public class ErrorCode {
         RC_DUE_RECEIPT_NOT_FOUND("BUS_211", "RC due receipt not found"),
         RC_DUE_RECEIPT_EXCEEDS_REMAINING("BUS_212", "Receipt amount exceeds the remaining RC due balance"),
         RC_DUE_REDUCED_BELOW_RECEIVED("BUS_213", "RC due amount cannot be reduced below what has already been received from the vendor"),
-        RC_DUE_RECEIPT_BEFORE_SALE("BUS_214", "RC due can only be collected from the vendor after this vehicle has been sold");
+        RC_DUE_RECEIPT_BEFORE_SALE("BUS_214", "RC due can only be collected from the vendor after this vehicle has been sold"),
+        FINANCE_COMPANY_NOT_FOUND("BUS_215", "Finance company not found"),
+        FINANCE_COMPANY_NAME_EXISTS("BUS_216", "A finance company with this name already exists"),
+        FINANCE_COMPANY_IN_USE("BUS_217", "This finance company has sales referencing it and cannot be deleted");
 
         private final String code;
         private final String message;

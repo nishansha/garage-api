@@ -2,6 +2,7 @@ package com.triasoft.garage.repository;
 
 import com.triasoft.garage.constants.PayerTypeEnum;
 import com.triasoft.garage.entity.SalePayment;
+import com.triasoft.garage.projection.LastPaymentDateProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,9 @@ public interface SalePaymentRepository extends JpaRepository<SalePayment, Long> 
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM SalePayment p WHERE p.sale.id = :saleId")
     BigDecimal sumAmountBySaleId(@Param("saleId") Long saleId);
+
+    @Query("SELECT p.sale.id as sourceId, MAX(p.paymentDate) as lastPaymentDate FROM SalePayment p WHERE p.sale.id IN :saleIds GROUP BY p.sale.id")
+    List<LastPaymentDateProjection> findLastPaymentDatesBySaleIds(@Param("saleIds") List<Long> saleIds);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM SalePayment p WHERE p.sale.id = :saleId AND p.payerType = :payerType")
     BigDecimal sumAmountBySaleIdAndPayerType(@Param("saleId") Long saleId, @Param("payerType") PayerTypeEnum payerType);

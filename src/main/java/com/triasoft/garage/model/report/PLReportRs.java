@@ -37,6 +37,9 @@ public class PLReportRs implements Serializable {
     private DirectEntryTotals directEntryTotals;
 
     // ── Receivables / Payables (from this period's deals) ─
+    // Period-cohort, not the same metric as /reports/receivables and /reports/payables
+    // (which cover all-time outstanding balances) - see ReportService.getProfitAndLoss for
+    // the full explanation of why these are intentionally scoped differently.
     private BigDecimal totalReceivables;         // outstanding at month-end
     private BigDecimal totalReceivablesTillDate; // still outstanding today
     private BigDecimal totalPayables;            // outstanding at month-end

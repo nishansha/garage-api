@@ -18,6 +18,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query("SELECT s FROM Sale s WHERE s.inventory.id = :id AND s.status.code <> 'RETURNED'")
     Sale findByInventoryId(@Param("id") Long id);
 
+    @Query("SELECT s FROM Sale s WHERE s.inventory.id IN :inventoryIds AND s.status.code <> 'RETURNED'")
+    List<Sale> findByInventoryIdIn(@Param("inventoryIds") List<Long> inventoryIds);
+
+    boolean existsByFinanceCompanyRefId(Long financeCompanyId);
+
     @Query(value = """
             SELECT s FROM Sale s
             LEFT JOIN FETCH s.customer

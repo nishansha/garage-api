@@ -142,6 +142,19 @@ public interface JournalDashboardRepository extends JpaRepository<Journal, Long>
      *   otherIncome     = REVENUE CoAs excluding 4000 (sales)
      *   grossProfit     = 4000 + 4520 − 5000 (sales + return deduction income − COGS)
      *   totalExpenses   = EXPENSE CoAs excluding COGS (5000)
+     *
+     * totalReceivables/totalPayables are period-cohort (of sales/purchases whose sale_date/
+     * order_date falls in that month) - NOT the same metric as ReportService.getReceivablesSummary()/
+     * getPayablesSummary() (all-time outstanding, as of right now). Do not "fix" these to match
+     * the ledger-derived current-balance queries - that would leak every prior month's still-open
+     * balance into each month's trend point, which is a different (and wrong) thing for a
+     * per-month trend to show. Also note: unlike the P&L report's totalReceivables (which cuts
+     * payments off at period end) and totalPayables, both figures here sum ALL payments/receipts
+     * ever recorded against that month's cohort, with no cutoff - i.e. "as of today," not "as of
+     * that month's end." Verified by hand (2026-08-13): neither formula was ever exposed to the
+     * control-account blending bugs found in the ledger-derived receivables/payables queries (the
+     * sales formula never separates customer vs. finance-company debt, and the purchase formula's
+     * total_amount already includes RC due and is never netted against it).
      */
     @Query(value = """
             WITH RECURSIVE months AS (

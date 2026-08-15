@@ -22,6 +22,7 @@ public class SaleDTO implements Serializable {
     private Long stockId;
     private String customerName;
     private String customerMobileNo;
+    private String customerAddress;
     private String vehicleNo;
     private String brandName;
     private String modelName;

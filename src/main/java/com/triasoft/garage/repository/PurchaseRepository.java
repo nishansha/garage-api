@@ -122,16 +122,20 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             FROM Purchase p
             JOIN p.purchaseDetails pd
             JOIN pd.product prod
+            JOIN p.status sts
             LEFT JOIN prod.brand brand
             LEFT JOIN prod.model model
             LEFT JOIN prod.varient variant
             LEFT JOIN prod.fuelType fuel
             LEFT JOIN prod.transmissionType transmission
+            WHERE sts.code <> 'RETURNED'
             """,
             countQuery = """
             SELECT COUNT(p) FROM Purchase p
             JOIN p.purchaseDetails pd
             JOIN pd.product prod
+            JOIN p.status sts
+            WHERE sts.code <> 'RETURNED'
             """)
     Page<PurchaseListProjection> findAllWithExpenses(Pageable pageable);
 
@@ -263,6 +267,61 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
             ORDER BY po.order_date DESC
             """, nativeQuery = true)
     List<PayableRow> findPayables(@Param("tenantId") Long tenantId);
+
+    /**
+     * Same shape/formula as {@link #findPayables}, restricted to the ONE case that has no
+     * journal at all and so can never be ledger-derived: a pending exchange/trade-in purchase
+     * (source_sale_id IS NOT NULL, buyback not yet recorded) - PurchaseService deliberately
+     * skips posting a PURCHASE journal for these until the buyback/return decision is made.
+     * Used as a fallback merged into ReportService.getPayablesSummary() alongside the
+     * ledger-derived rows, which can never cover this case by construction.
+     */
+    @Query(value = """
+            SELECT
+                po.id            as purchaseId,
+                po.reference_no  as referenceNo,
+                pd_agg.vehicle_no as vehicleNo,
+                po.order_date    as purchaseDate,
+                tradein.unit_cost as amount,
+                tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0) as pendingAmount,
+                pp_sum.last_payment_date as lastPaymentDate,
+                v.name           as vendorName,
+                v.mobile         as vendorMobile,
+                (SELECT i2.warehouse_id FROM app_purchase_order_detail pod2
+                 JOIN app_inventory i2 ON i2.purchase_order_detail_id = pod2.id
+                 WHERE pod2.purchase_order_id = po.id LIMIT 1) as warehouseId
+            FROM app_purchase_order po
+            JOIN app_vendor v ON v.id = po.vendor_id
+            LEFT JOIN (
+                SELECT purchase_order_id,
+                       STRING_AGG(DISTINCT product_no, ', ') as vehicle_no
+                FROM app_purchase_order_detail
+                GROUP BY purchase_order_id
+            ) pd_agg ON pd_agg.purchase_order_id = po.id
+            LEFT JOIN (
+                SELECT purchase_order_id,
+                       SUM(amount)       as paid,
+                       MAX(payment_date) as last_payment_date
+                FROM app_purchase_payment
+                WHERE deleted = false
+                GROUP BY purchase_order_id
+            ) pp_sum ON pp_sum.purchase_order_id = po.id
+            JOIN (
+                SELECT pod.purchase_order_id, pod.unit_cost, s.sale_rate
+                FROM app_purchase_order_detail pod
+                JOIN app_inventory inv ON inv.purchase_order_detail_id = pod.id
+                JOIN app_sale s ON s.id = inv.source_sale_id
+                JOIN app_purchase_order po_x ON po_x.id = pod.purchase_order_id
+                WHERE inv.source_sale_id IS NOT NULL
+                  AND po_x.buyback_recorded_at IS NULL
+            ) tradein ON tradein.purchase_order_id = po.id
+            WHERE po.deleted = false
+              AND po.tenant_id = :tenantId
+              AND po.buyback_recorded_at IS NULL
+              AND (tradein.unit_cost - LEAST(tradein.sale_rate, tradein.unit_cost) - COALESCE(pp_sum.paid, 0)) > 0
+            ORDER BY po.order_date DESC
+            """, nativeQuery = true)
+    List<PayableRow> findPendingTradeInPurchases(@Param("tenantId") Long tenantId);
 
     @Query(value = """
             SELECT

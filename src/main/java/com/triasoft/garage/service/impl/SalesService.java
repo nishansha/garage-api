@@ -14,13 +14,11 @@ import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.helper.LookupHelper;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.purchase.PurchaseRq;
-import com.triasoft.garage.model.report.ReceivableInfo;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.sale.SalePaymentRq;
 import com.triasoft.garage.model.sale.SaleSummaryRs;
 import com.triasoft.garage.model.sale.SalesRq;
 import com.triasoft.garage.model.sale.SalesRs;
-import com.triasoft.garage.projection.ReceivableRow;
 import com.triasoft.garage.projection.SaleMetrics;
 import com.triasoft.garage.repository.*;
 import com.triasoft.garage.specifiction.SaleSpecification;
@@ -31,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -57,6 +56,8 @@ public class SalesService {
     private final LookupHelper lookupHelper;
     private final PurchaseService purchaseService;
     private final JournalService journalService;
+    private final FinanceCompanyRepository financeCompanyRepository;
+    private final ReportService reportService;
 
     public SalesRs getAll(Pageable pageable, UserDTO user) {
         Page<Sale> salePage = saleRepository.findAllWithDetails(pageable);
@@ -99,6 +100,8 @@ public class SalesService {
         return SaleDTO.builder().id(sale.getId()).version(sale.getVersion()).date(sale.getSaleDate())
                 .customerName(sale.getCustomer().getName())
                 .customerMobileNo(sale.getCustomer().getMobile())
+                .customerMobileNo(sale.getCustomer().getMobile())
+                .customerAddress(sale.getCustomer().getAddress())
                 .vehicleNo(sale.getInventory().getProductNo())
                 .brandName(sale.getInventory().getProduct().getBrand().getDescription())
                 .modelName(sale.getInventory().getProduct().getModel().getDescription())
@@ -136,6 +139,7 @@ public class SalesService {
         BigDecimal financeAmt = resolveFinanceAmount(saleRq, sale.getNetSaleAmount());
         sale.setFinanceAmount(financeAmt);
         sale.setFinanceCompany(saleRq.isFinanced() ? saleRq.getFinanceCompany() : null);
+        sale.setFinanceCompanyRef(saleRq.isFinanced() ? resolveFinanceCompany(saleRq.getFinanceCompany()) : null);
         sale.setEmiAmount(saleRq.isFinanced() ? saleRq.getEmiAmount() : null);
         sale.setLandedCostAtSale(stock.getLandedCost());
         sale.setProfitAmount(saleRq.getSaleRate().subtract(stock.getLandedCost()));
@@ -313,6 +317,7 @@ public class SalesService {
         existingSale.setExchangeAmount(exchangeAmt);
         existingSale.setFinanced(salesRq.isFinanced());
         existingSale.setFinanceCompany(salesRq.isFinanced() ? salesRq.getFinanceCompany() : null);
+        existingSale.setFinanceCompanyRef(salesRq.isFinanced() ? resolveFinanceCompany(salesRq.getFinanceCompany()) : null);
         existingSale.setFinanceAmount(newFinanceAmount);
         existingSale.setEmiAmount(salesRq.isFinanced() ? salesRq.getEmiAmount() : null);
         existingSale.setModifiedBy(user.getId());
@@ -500,6 +505,19 @@ public class SalesService {
         return financeAmount;
     }
 
+    private FinanceCompany resolveFinanceCompany(String name) {
+        if (!StringUtils.hasText(name)) {
+            return null;
+        }
+        String trimmed = name.trim();
+        return financeCompanyRepository.findByNameIgnoreCase(trimmed)
+                .orElseGet(() -> {
+                    FinanceCompany financeCompany = new FinanceCompany();
+                    financeCompany.setName(trimmed);
+                    return financeCompanyRepository.save(financeCompany);
+                });
+    }
+
     private void validatePayerBucket(Sale sale, PayerTypeEnum payerType, BigDecimal newAmount, BigDecimal excludeAmount) {
         if (payerType == PayerTypeEnum.FINANCE && !sale.isFinanced()) {
             throw new BusinessException(new ErrorCode.CustomError("SAL_420",
@@ -682,28 +700,13 @@ public class SalesService {
                 .build();
     }
 
+    // Delegates to the ledger-derived, party-scoped query (same one backing
+    // GET /reports/receivables) rather than the old entity-derived saleRepository.findReceivables
+    // formula - that formula blended customer-owed and finance-company-owed amounts under a
+    // single "pending" figure attributed entirely to the customer's name/mobile, which is
+    // actionably wrong for collections when a sale is financed. See ReportService.getReceivablesSummary.
     public ReceivablesSummaryRs getReceivablesSummary() {
-        List<ReceivableRow> rows = saleRepository.findReceivables(TenantContext.get());
-        List<ReceivableInfo> items = rows.stream().map(r -> ReceivableInfo.builder()
-                .saleId(r.getSaleId())
-                .invoiceNo(r.getInvoiceNo())
-                .paymentStatus(r.getPaymentStatus())
-                .vehicleNo(r.getVehicleNo())
-                .saleDate(r.getSaleDate())
-                .amount(safe(r.getAmount()))
-                .pendingAmount(safe(r.getPendingAmount()))
-                .lastPaymentDate(r.getLastPaymentDate())
-                .customerName(r.getCustomerName())
-                .customerMobile(r.getCustomerMobile())
-                .build()).toList();
-        BigDecimal totalPending = items.stream()
-                .map(ReceivableInfo::getPendingAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return ReceivablesSummaryRs.builder()
-                .totalCount(items.size())
-                .totalPendingAmount(totalPending)
-                .items(items)
-                .build();
+        return reportService.getReceivablesSummary();
     }
 
     private BigDecimal safe(BigDecimal value) {
