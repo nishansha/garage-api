@@ -51,7 +51,11 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
      * CoA mapping (must match codes seeded by JournalService):
      *   4000 SALES_REVENUE        — vehicle sales (net of returns; revenue is credit-balance)
      *   1200 INVENTORY            — purchase inflows (filtered to PURCHASE/EXPENSE/PURCHASE_RETURN refs)
-     *   5000 COGS                 — excluded from totalExpenses (operating expenses only)
+     *   5000 COGS                 — excluded from totalExpenses (operating expenses only); also reported
+     *                                standalone (totalCogs) for cost-of-sales ratios, since it's the
+     *                                landed cost of units SOLD this month — unlike totalPurchases, which
+     *                                is inventory ACQUIRED this month and isn't period-matched to
+     *                                totalSales (a dealership routinely sells stock bought earlier)
      *   EXPENSE-type excl 5000    — operating + return losses (5510, 5520) + general (6xxx)
      *   4000 + 4520 − 5000        — gross profit (sales + return deduction income − COGS)
      */
@@ -91,7 +95,11 @@ public interface JournalRepository extends JpaRepository<Journal, Long>, JpaSpec
               COALESCE(SUM(CASE WHEN coa.system_role IN ('SALES_REVENUE','RETURN_DEDUCTION_INCOME','COGS')
                                  AND j.journal_date >= :startOfLastMonth
                                  AND j.journal_date <  :startOfMonth
-                            THEN jd.credit_amount - jd.debit_amount ELSE 0 END), 0) as grossProfitBeforeMonth
+                            THEN jd.credit_amount - jd.debit_amount ELSE 0 END), 0) as grossProfitBeforeMonth,
+
+              COALESCE(SUM(CASE WHEN coa.system_role = 'COGS'
+                                 AND j.journal_date >= :startOfMonth
+                            THEN jd.debit_amount - jd.credit_amount ELSE 0 END), 0) as totalCogs
             FROM app_journal_detail jd
             JOIN app_journal j ON j.id = jd.journal_id
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id

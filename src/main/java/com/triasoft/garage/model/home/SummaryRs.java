@@ -20,4 +20,5 @@ public class SummaryRs implements Serializable {
     private double expensesDelta;
     private String totalProfit;
     private double profitDelta;
+    private String totalCogs;
 }
