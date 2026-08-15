@@ -14,4 +14,6 @@ public interface SummaryMetrics {
 
     BigDecimal getTotalGrossProfit();
     BigDecimal getGrossProfitBeforeMonth();
+
+    BigDecimal getTotalCogs();
 }

@@ -51,6 +51,8 @@ public class HomeService {
 
                 .totalProfit(String.valueOf(thisMonthProfit))
                 .profitDelta(CommonUtil.calculateDelta(thisMonthProfit, lastMonthProfit))
+
+                .totalCogs(String.valueOf(metrics.getTotalCogs()))
                 .build();
     }
 
