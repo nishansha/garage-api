@@ -18,6 +18,10 @@ public class SaleReturnDTO implements Serializable {
     private static final long serialVersionUID = -2373108476663992252L;
     private Long id;
     private Long saleId;
+    private String productNo;
+    private String brandName;
+    private String modelName;
+    private String variantName;
     private String invoiceNo;
     private LocalDate returnDate;
     private String reason;

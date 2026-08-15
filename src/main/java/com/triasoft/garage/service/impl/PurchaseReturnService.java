@@ -242,6 +242,7 @@ public class PurchaseReturnService {
                 .stream().map(this::toReceiptDTO).toList();
 
         Inventory inv = pr.getInventory();
+        Product product = inv.getProduct();
         return PurchaseReturnDTO.builder()
                 .id(pr.getId())
                 .purchaseId(pr.getPurchase().getId())
@@ -249,6 +250,9 @@ public class PurchaseReturnService {
                 .inventoryId(inv.getId())
                 .uin(inv.getUin())
                 .vehicleNo(inv.getProductNo())
+                .brandName(product.getBrand() != null ? product.getBrand().getDescription() : null)
+                .modelName(product.getModel() != null ? product.getModel().getDescription() : null)
+                .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
                 .vendorName(pr.getPurchase().getVendor() != null ? pr.getPurchase().getVendor().getName() : null)
                 .returnDate(pr.getReturnDate())
                 .reason(pr.getReason())
