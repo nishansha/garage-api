@@ -4,7 +4,6 @@ import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.WarehouseDTO;
 import com.triasoft.garage.entity.Warehouse;
 import com.triasoft.garage.exception.BusinessException;
-import com.triasoft.garage.locking.VersionCheck;
 import com.triasoft.garage.model.warehouse.WarehouseRq;
 import com.triasoft.garage.model.warehouse.WarehouseRs;
 import com.triasoft.garage.repository.InventoryRepository;
@@ -49,7 +48,6 @@ public class WarehouseService {
     }
 
     @Transactional
-    @VersionCheck(entity = Warehouse.class)
     public WarehouseRs update(Long id, WarehouseRq rq) {
         Warehouse warehouse = findById(id);
         String code = rq.getCode().trim().toUpperCase();
