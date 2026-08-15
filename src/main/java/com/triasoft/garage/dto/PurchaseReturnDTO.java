@@ -20,6 +20,9 @@ public class PurchaseReturnDTO implements Serializable {
     private Long inventoryId;
     private String uin;
     private String vehicleNo;
+    private String brandName;
+    private String modelName;
+    private String variantName;
     private String vendorName;
     private LocalDate returnDate;
     private String reason;

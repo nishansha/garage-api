@@ -40,6 +40,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
 
     boolean existsByPurchaseOrderDetailPurchaseIdAndStatusNot(Long purchaseId, StatusEnum status);
 
+    boolean existsByWarehouseId(Long warehouseId);
+
     boolean existsByProductNoIgnoreCaseAndStatusIn(String productNo, List<StatusEnum> statuses);
 
     boolean existsByProductNoIgnoreCaseAndStatusInAndPurchaseOrderDetailPurchaseIdNot(String productNo, List<StatusEnum> statuses, Long purchaseId);

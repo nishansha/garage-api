@@ -359,9 +359,14 @@ public class SaleReturnService {
                 .findBySaleReturnIdOrderByPaymentDateDesc(sr.getId())
                 .stream().map(this::toRefundDTO).toList();
 
+        Product product = sr.getSale().getInventory().getProduct();
         return SaleReturnDTO.builder()
                 .id(sr.getId())
                 .saleId(sr.getSale().getId())
+                .productNo(sr.getSale().getInventory().getProductNo())
+                .brandName(product.getBrand() != null ? product.getBrand().getDescription() : null)
+                .modelName(product.getModel() != null ? product.getModel().getDescription() : null)
+                .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
                 .invoiceNo(sr.getSale().getInvoiceNo())
                 .returnDate(sr.getReturnDate())
                 .reason(sr.getReason())

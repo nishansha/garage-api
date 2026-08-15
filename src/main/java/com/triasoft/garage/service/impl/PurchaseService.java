@@ -58,11 +58,13 @@ public class PurchaseService {
     private final TransactionRepository transactionRepository;
     private final VendorRepository vendorRepository;
     private final InventoryRepository inventoryRepository;
+    private final WarehouseRepository warehouseRepository;
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
     private final RcDueReceiptRepository rcDueReceiptRepository;
     private final JournalService journalService;
+    private final UserProfileRepository userProfileRepository;
 
 
     public PurchaseRs getAll(Pageable pageable, UserDTO user) {
@@ -581,7 +583,7 @@ public class PurchaseService {
             inventory.setUin(StringUtils.hasLength(purchaseRq.getCode()) ? purchaseRq.getCode() : purchaseRq.getVehicleNo());
             inventory.setMakeYear(purchaseRq.getMakeYear());
             inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
-            inventory.setWarehouseId(purchaseRq.getWarehouseId());
+            inventory.setWarehouseId(resolveWarehouseId(purchaseRq.getWarehouseId()));
             BigDecimal newLandedCost = purchaseRq.getPurchaseRate().add(totalExpenseAmt);
             inventory.setLandedCost(newLandedCost);
             if (StatusEnum.PENDING_DELIVERY.equals(inventory.getStatus()) && purchaseRq.getDeliveredDate() != null) {
@@ -760,6 +762,12 @@ public class PurchaseService {
         BigDecimal paidAmount = purchasePaymentRepository.sumAmountByPurchaseId(id);
         PurchaseDTO purchaseDTO = convertToDTO(purchase, inventory, paidAmount);
         purchaseDTO.setLandedCost(inventory != null ? inventory.getLandedCost() : null);
+        purchaseDTO.setWarehouseName(purchaseDTO.getWarehouseId() != null
+                ? warehouseRepository.findById(purchaseDTO.getWarehouseId()).map(Warehouse::getName).orElse(null)
+                : null);
+        purchaseDTO.setPickupStaffName(purchase.getPickupStaffId() != null
+                ? userProfileRepository.findById(purchase.getPickupStaffId()).map(UserProfile::getName).orElse(null)
+                : null);
         List<ExpenseDTO> expenseDTOs = purchase.getPurchaseExpenses().stream().map(this::convertToExpenseDTO).toList();
         purchaseDTO.setExpenses(expenseDTOs);
         purchaseDTO.setTotalExpenses(expenseDTOs.stream().map(ExpenseDTO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -1238,6 +1246,15 @@ public class PurchaseService {
         }
     }
 
+    private Long resolveWarehouseId(Long warehouseId) {
+        if (warehouseId == null) {
+            return null;
+        }
+        return warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND))
+                .getId();
+    }
+
 
     private void createInventoryRecord(Purchase p, PurchaseDetail d, Product prod, PurchaseRq purchaseRq, BigDecimal totalExpenses, StatusEnum status) {
         Inventory inventory = new Inventory();
@@ -1248,7 +1265,7 @@ public class PurchaseService {
         inventory.setOdometer(parseOdometer(purchaseRq.getOdometer()));
         inventory.setColor(Objects.nonNull(purchaseRq.getColorId()) ? lookupHelper.get(purchaseRq.getColorId()) : null);
         inventory.setMakeYear(purchaseRq.getMakeYear());
-        inventory.setWarehouseId(purchaseRq.getWarehouseId());
+        inventory.setWarehouseId(resolveWarehouseId(purchaseRq.getWarehouseId()));
         inventory.setStatus(status);
         if (StatusEnum.AVAILABLE.equals(status)) {
             inventory.setReceivedDate(purchaseRq.getDeliveredDate() != null

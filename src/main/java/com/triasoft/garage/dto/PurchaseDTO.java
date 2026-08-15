@@ -23,6 +23,7 @@ public class PurchaseDTO implements Serializable {
     private String vehicleNo;
     private Long inventoryId;
     private Long warehouseId; //new
+    private String warehouseName;
     private Long segmentId; //new
     private Long brandId;
     private Long modelId;
@@ -51,6 +52,7 @@ public class PurchaseDTO implements Serializable {
     private List<RcDueReceiptDTO> rcDueReceipts;
     private StatusEnum paymentStatus;
     private Long pickupStaffId;
+    private String pickupStaffName;
     private String pickupLocation;
     private String notes;
     private boolean isSold;
