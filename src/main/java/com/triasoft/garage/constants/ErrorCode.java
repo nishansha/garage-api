@@ -147,7 +147,25 @@ public class ErrorCode {
         RC_DUE_RECEIPT_BEFORE_SALE("BUS_214", "RC due can only be collected from the vendor after this vehicle has been sold"),
         FINANCE_COMPANY_NOT_FOUND("BUS_215", "Finance company not found"),
         FINANCE_COMPANY_NAME_EXISTS("BUS_216", "A finance company with this name already exists"),
-        FINANCE_COMPANY_IN_USE("BUS_217", "This finance company has sales referencing it and cannot be deleted");
+        FINANCE_COMPANY_IN_USE("BUS_217", "This finance company has sales referencing it and cannot be deleted"),
+        JOURNAL_LINES_CROSS_COMPANY("BUS_218", "Journal lines must all reference accounts from the same company"),
+        COMPANY_NOT_PROVISIONED("BUS_219", "This tenant has no company set up yet — run company provisioning first"),
+        COMPANY_AMBIGUOUS("BUS_220", "This tenant has more than one company — specify companyId"),
+        COMPANY_NOT_FOUND("BUS_221", "Company not found"),
+        COMPANY_CODE_EXISTS("BUS_222", "A company with this code already exists"),
+        COMPANY_IN_USE("BUS_223", "This company has warehouses referencing it and cannot be deleted"),
+        WAREHOUSE_BUSINESS_LINE_NOT_SUPPORTED("BUS_224", "This warehouse does not support this type of transaction"),
+        SERVICE_SALE_NOT_FOUND("BUS_225", "Service sale not found"),
+        SERVICE_OFFERING_NOT_FOUND("BUS_226", "Service not found"),
+        SERVICE_OFFERING_CODE_EXISTS("BUS_227", "A service with this code already exists in this warehouse"),
+        CUSTOMER_NOT_FOUND("BUS_228", "Customer not found"),
+        SERVICE_SALE_CUSTOMER_REQUIRED("BUS_229", "Either customerId or walkInCustomerName is required"),
+        EMPLOYEE_NOT_FOUND("BUS_230", "Employee not found"),
+        EMPLOYEE_CODE_EXISTS("BUS_231", "An employee with this code already exists in this company"),
+        SALARY_PAYMENT_NOT_FOUND("BUS_232", "Salary payment not found"),
+        SALARY_PAYMENT_ALREADY_PAID("BUS_233", "This salary payment has already been marked paid"),
+        PAYMENT_ACCOUNT_COMPANY_MISMATCH("BUS_234", "This payment account belongs to a different company than the transaction being posted"),
+        EXPENSE_WAREHOUSE_COMPANY_MISMATCH("BUS_235", "This warehouse belongs to a different company than the payment account selected");
 
         private final String code;
         private final String message;

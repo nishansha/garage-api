@@ -21,6 +21,9 @@ public class PaymentAccount extends TenantAwareAuditEntity {
     @Serial
     private static final long serialVersionUID = 4712938461029384756L;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
     @Column(name = "name", nullable = false)
     private String name;
 

@@ -11,6 +11,8 @@ public interface PaymentAccountRepository extends JpaRepository<PaymentAccount, 
 
     List<PaymentAccount> findAllByIsActiveTrue();
 
+    List<PaymentAccount> findAllByIsActiveTrueAndCompanyId(Long companyId);
+
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByAccountNoIgnoreCase(String accountNo);

@@ -11,4 +11,6 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
 
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);
 
+    boolean existsByCompanyId(Long companyId);
+
 }

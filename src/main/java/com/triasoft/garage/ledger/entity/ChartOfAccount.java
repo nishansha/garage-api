@@ -20,6 +20,9 @@ public class ChartOfAccount extends TenantAwareAuditEntity {
     @Serial
     private static final long serialVersionUID = 83123994249939691L;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
     @Column(name = "type", nullable = false)
     private String type;
 

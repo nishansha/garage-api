@@ -22,6 +22,9 @@ public class PaymentAccountRq implements Serializable, Versioned {
 
     private Long version;
 
+    @NotNull(message = "REQUIRED")
+    private Long companyId;
+
     @NotBlank(message = "REQUIRED")
     @Size(max = 100, message = "MAX_LENGTH")
     private String name;

@@ -1,7 +1,9 @@
 package com.triasoft.garage.repository;
 
 import com.triasoft.garage.entity.SaleReturn;
+import com.triasoft.garage.projection.CompanyAmountRow;
 import com.triasoft.garage.projection.SaleReturnPayableRow;
+import com.triasoft.garage.projection.WarehouseAmountRow;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -60,14 +62,51 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
             """, nativeQuery = true)
     List<SaleReturnPayableRow> findPayables(@Param("tenantId") Long tenantId);
 
+    // companyId nullable - null means "overall", see SaleRepository.getProfitReport's comment.
+    // Joins app_sale for company_id since app_sale_return has no column of its own.
     @Query(value = """
             SELECT COALESCE(SUM(
                      COALESCE(sr.sold_vehicle_deduction_amount, 0)
                    + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0)
             FROM app_sale_return sr
+            JOIN app_sale s ON s.id = sr.sale_id
             WHERE sr.deleted = false
               AND sr.tenant_id = :tenantId
               AND sr.return_date BETWEEN :startDate AND :endDate
+              AND (:companyId IS NULL OR s.company_id = :companyId)
             """, nativeQuery = true)
-    BigDecimal sumDeductionIncomeByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    BigDecimal sumDeductionIncomeByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    // Company/warehouse-scoped variants of sumDeductionIncomeByPeriod, for the comparison
+    // reports (CompanyReportService/WarehouseReportService) — these retained deductions are
+    // real profit earned on the return, same as ReportService.getProfitAndLoss already adds
+    // back tenant-wide, but the comparison reports were missing it entirely until now.
+    @Query(value = """
+            SELECT s.company_id as companyId,
+                   COALESCE(SUM(
+                       COALESCE(sr.sold_vehicle_deduction_amount, 0)
+                     + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0) as amount
+            FROM app_sale_return sr
+            JOIN app_sale s ON s.id = sr.sale_id
+            WHERE sr.deleted = false
+              AND sr.tenant_id = :tenantId
+              AND sr.return_date BETWEEN :startDate AND :endDate
+            GROUP BY s.company_id
+            """, nativeQuery = true)
+    List<CompanyAmountRow> sumDeductionIncomeByCompany(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query(value = """
+            SELECT i.warehouse_id as warehouseId,
+                   COALESCE(SUM(
+                       COALESCE(sr.sold_vehicle_deduction_amount, 0)
+                     + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0) as amount
+            FROM app_sale_return sr
+            JOIN app_sale s ON s.id = sr.sale_id
+            JOIN app_inventory i ON i.id = s.inventory_id
+            WHERE sr.deleted = false
+              AND sr.tenant_id = :tenantId
+              AND sr.return_date BETWEEN :startDate AND :endDate
+            GROUP BY i.warehouse_id
+            """, nativeQuery = true)
+    List<WarehouseAmountRow> sumDeductionIncomeByWarehouse(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

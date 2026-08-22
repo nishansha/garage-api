@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.company.service.CompanyResolver;
 import com.triasoft.garage.dto.SaleDTO;
 import com.triasoft.garage.dto.SaleReturnDTO;
 import com.triasoft.garage.model.common.ApiResponse;
@@ -33,6 +34,7 @@ public class SalesController {
 
     private final SalesService salesService;
     private final SaleReturnService saleReturnService;
+    private final CompanyResolver companyResolver;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<SalesRs>> getAll(@RequestParam("page") int page, @RequestParam("size") int size, HttpServletRequest request) {
@@ -93,8 +95,8 @@ public class SalesController {
     }
 
     @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
-        return ResponseEntity.ok(ApiResponse.success(salesService.getReceivablesSummary()));
+    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(salesService.getReceivablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
     @GetMapping(value = "/{id}/return/form-data", produces = MediaType.APPLICATION_JSON_VALUE)

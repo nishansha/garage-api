@@ -1,17 +1,22 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.constants.SystemCoaRole;
+import com.triasoft.garage.ledger.repository.JournalDetailRepository;
 import com.triasoft.garage.model.report.WarehouseComparisonRs;
 import com.triasoft.garage.model.report.WarehousePerformanceInfo;
-import com.triasoft.garage.projection.PLExpenseMetrics;
 import com.triasoft.garage.projection.PayableRow;
 import com.triasoft.garage.projection.PurchaseLineRow;
+import com.triasoft.garage.projection.WarehouseAmountRow;
 import com.triasoft.garage.projection.WarehouseSalesMetrics;
+import com.triasoft.garage.projection.WarehouseServiceSaleMetrics;
 import com.triasoft.garage.projection.WarehouseStockMetrics;
 import com.triasoft.garage.repository.ExpenseRepository;
 import com.triasoft.garage.repository.InventoryRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
 import com.triasoft.garage.repository.SaleRepository;
+import com.triasoft.garage.repository.SaleReturnRepository;
 import com.triasoft.garage.security.tenant.TenantContext;
+import com.triasoft.garage.servicesale.repository.ServiceSaleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +46,9 @@ public class WarehouseReportService {
     private final SaleRepository saleRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
+    private final ServiceSaleRepository serviceSaleRepository;
+    private final SaleReturnRepository saleReturnRepository;
+    private final JournalDetailRepository journalDetailRepository;
 
     private record PurchaseAgg(long count, BigDecimal purchaseCost, BigDecimal landedCost, BigDecimal purchaseExpenses) {
     }
@@ -60,10 +68,12 @@ public class WarehouseReportService {
 
         List<WarehouseStockMetrics> stockRows = inventoryRepository.getStockSummaryByWarehouse(tenantId, currentMonthStart);
         List<WarehouseSalesMetrics> salesRows = saleRepository.getSalesPerformanceByWarehouse(tenantId, startDate, endDate);
+        List<WarehouseServiceSaleMetrics> serviceSalesRows = serviceSaleRepository.getServiceSalePerformanceByWarehouse(tenantId, startDate, endDate);
 
         // Same "exclude returned rows from cost totals" rule ReportService.PurchaseTotals
         // already applies to /reports/pl, mirrored here for reconciliation.
-        Map<Long, PurchaseAgg> purchaseByWarehouse = purchaseRepository.getPurchaseLinesByPeriod(tenantId, startDate, endDate).stream()
+        // null companyId = every company's warehouses, since this report spans all of them.
+        Map<Long, PurchaseAgg> purchaseByWarehouse = purchaseRepository.getPurchaseLinesByPeriod(tenantId, null, startDate, endDate).stream()
                 .filter(r -> !Boolean.TRUE.equals(r.getReturned()))
                 .collect(Collectors.groupingBy(r -> key(r.getWarehouseId()), LinkedHashMap::new, Collectors.collectingAndThen(Collectors.toList(), rows -> new PurchaseAgg(
                         rows.size(),
@@ -83,27 +93,67 @@ public class WarehouseReportService {
             salesByWarehouse.put(key(row.getWarehouseId()), row);
         }
 
+        Map<Long, WarehouseServiceSaleMetrics> serviceSalesByWarehouse = new LinkedHashMap<>();
+        for (WarehouseServiceSaleMetrics row : serviceSalesRows) {
+            serviceSalesByWarehouse.put(key(row.getWarehouseId()), row);
+        }
+
+        // Retained deductions + exchange gains on sale returns are real profit earned on the
+        // return itself, netted out of the plain sales figures above (same gap ReportService.
+        // getProfitAndLoss already closes tenant-wide) - add them back here too. Symmetrically,
+        // LOSS_RETURNED_EXCHANGE and LOSS_PURCHASE_RETURN are the loss-side counterparts and
+        // must be subtracted, or profit is systematically overstated. GAIN_ON_EXCHANGE_ADJ is
+        // posted on BOTH a SALE_RETURN journal AND a PURCHASE_RETURN journal (see
+        // JournalDetailRepository's comment), so it needs both warehouse-trace queries, summed.
+        Map<Long, BigDecimal> returnDeductionByWarehouse = toAmountMap(saleReturnRepository.sumDeductionIncomeByWarehouse(tenantId, startDate, endDate));
+        Map<Long, BigDecimal> exchangeGainByWarehouse = mergeAmountMaps(
+                toAmountMap(journalDetailRepository.sumSaleReturnRoleByWarehouse(tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ.name(), startDate, endDate)),
+                toAmountMap(journalDetailRepository.sumPurchaseReturnRoleByWarehouse(tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ.name(), startDate, endDate)));
+        Map<Long, BigDecimal> exchangeReturnLossByWarehouse = toAmountMap(journalDetailRepository.sumSaleReturnRoleByWarehouse(tenantId, SystemCoaRole.LOSS_RETURNED_EXCHANGE.name(), startDate, endDate));
+        Map<Long, BigDecimal> purchaseReturnLossByWarehouse = toAmountMap(journalDetailRepository.sumPurchaseReturnRoleByWarehouse(tenantId, SystemCoaRole.LOSS_PURCHASE_RETURN.name(), startDate, endDate));
+
+        // General expenses explicitly tagged to a warehouse (Expense.warehouseId) are broken out
+        // per warehouse below; whatever's left untagged remains the tenant-wide
+        // unallocatedGeneralExpenses figure, now genuinely "unallocated" rather than "all".
+        Map<Long, BigDecimal> generalExpensesByWarehouse = toAmountMap(expenseRepository.getGeneralExpensesByWarehouse(tenantId, startDate, endDate));
+
         List<WarehousePerformanceInfo> warehouses = stockRows.stream()
                 .map(stock -> toInfo(stock,
                         salesByWarehouse.get(key(stock.getWarehouseId())),
                         purchaseByWarehouse.get(key(stock.getWarehouseId())),
-                        payablesByWarehouse.get(key(stock.getWarehouseId()))))
+                        payablesByWarehouse.get(key(stock.getWarehouseId())),
+                        serviceSalesByWarehouse.get(key(stock.getWarehouseId())),
+                        returnDeductionByWarehouse.getOrDefault(key(stock.getWarehouseId()), BigDecimal.ZERO),
+                        exchangeGainByWarehouse.getOrDefault(key(stock.getWarehouseId()), BigDecimal.ZERO),
+                        exchangeReturnLossByWarehouse.getOrDefault(key(stock.getWarehouseId()), BigDecimal.ZERO),
+                        purchaseReturnLossByWarehouse.getOrDefault(key(stock.getWarehouseId()), BigDecimal.ZERO),
+                        generalExpensesByWarehouse.getOrDefault(key(stock.getWarehouseId()), BigDecimal.ZERO)))
                 .filter(info -> warehouseId == null || warehouseId.equals(info.getWarehouseId()))
                 .toList();
 
-        PLExpenseMetrics expenseMetrics = expenseRepository.getExpensesByPeriod(tenantId, startDate, endDate);
+        BigDecimal unallocatedGeneralExpenses = expenseRepository.getUnallocatedGeneralExpensesByPeriod(tenantId, startDate, endDate);
 
         return WarehouseComparisonRs.builder()
                 .month(yearMonth.format(MONTH_DISPLAY))
                 .warehouses(warehouses)
-                .unallocatedGeneralExpenses(safe(expenseMetrics.getGeneralExpenses()))
+                .unallocatedGeneralExpenses(safe(unallocatedGeneralExpenses))
                 .build();
     }
 
-    private WarehousePerformanceInfo toInfo(WarehouseStockMetrics stock, WarehouseSalesMetrics sales, PurchaseAgg purchase, PayableAgg payable) {
+    private WarehousePerformanceInfo toInfo(WarehouseStockMetrics stock, WarehouseSalesMetrics sales, PurchaseAgg purchase, PayableAgg payable, WarehouseServiceSaleMetrics serviceSales,
+                                             BigDecimal returnDeductionIncome, BigDecimal exchangeGain, BigDecimal exchangeReturnLoss, BigDecimal purchaseReturnLoss,
+                                             BigDecimal generalExpenses) {
         BigDecimal stockValue = safe(stock.getTotalStockValue());
         BigDecimal salesRevenue = sales != null ? safe(sales.getTotalRevenue()) : BigDecimal.ZERO;
-        BigDecimal grossProfit = sales != null ? safe(sales.getGrossProfit()) : BigDecimal.ZERO;
+        // exchangeReturnLoss/purchaseReturnLoss come from sumSaleReturnRoleByWarehouse/
+        // sumPurchaseReturnRoleByWarehouse, which compute credit - debit - already negative for
+        // these debit-normal loss accounts, so a plain .add() both credits the gains and
+        // correctly debits (subtracts) the losses.
+        BigDecimal grossProfit = (sales != null ? safe(sales.getGrossProfit()) : BigDecimal.ZERO)
+                .add(safe(returnDeductionIncome))
+                .add(safe(exchangeGain))
+                .add(safe(exchangeReturnLoss))
+                .add(safe(purchaseReturnLoss));
         return WarehousePerformanceInfo.builder()
                 .warehouseId(stock.getWarehouseId())
                 .warehouseCode(stock.getWarehouseCode())
@@ -114,17 +164,34 @@ public class WarehouseReportService {
                 .salesRevenue(salesRevenue)
                 .grossProfit(grossProfit)
                 .grossMarginPct(pct(grossProfit, salesRevenue))
+                .serviceSalesCount(serviceSales != null && serviceSales.getServiceSaleCount() != null ? serviceSales.getServiceSaleCount() : 0L)
+                .serviceRevenue(serviceSales != null ? safe(serviceSales.getServiceRevenue()) : BigDecimal.ZERO)
                 .purchaseCount(purchase != null ? purchase.count() : 0L)
                 .purchaseCost(purchase != null ? purchase.purchaseCost() : BigDecimal.ZERO)
                 .landedCost(purchase != null ? purchase.landedCost() : BigDecimal.ZERO)
                 .purchaseExpenses(purchase != null ? purchase.purchaseExpenses() : BigDecimal.ZERO)
                 .payablesCount(payable != null ? payable.count() : 0L)
                 .totalPayables(payable != null ? payable.totalPending() : BigDecimal.ZERO)
+                .generalExpenses(safe(generalExpenses))
                 .build();
     }
 
     private Long key(Long warehouseId) {
         return warehouseId != null ? warehouseId : UNASSIGNED_KEY;
+    }
+
+    private Map<Long, BigDecimal> toAmountMap(List<WarehouseAmountRow> rows) {
+        Map<Long, BigDecimal> map = new LinkedHashMap<>();
+        for (WarehouseAmountRow row : rows) {
+            map.merge(key(row.getWarehouseId()), safe(row.getAmount()), BigDecimal::add);
+        }
+        return map;
+    }
+
+    private Map<Long, BigDecimal> mergeAmountMaps(Map<Long, BigDecimal> a, Map<Long, BigDecimal> b) {
+        Map<Long, BigDecimal> merged = new LinkedHashMap<>(a);
+        b.forEach((k, v) -> merged.merge(k, v, BigDecimal::add));
+        return merged;
     }
 
     private <T> BigDecimal sumBd(List<T> rows, Function<T, BigDecimal> extractor) {

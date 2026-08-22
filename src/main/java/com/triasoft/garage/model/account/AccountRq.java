@@ -3,6 +3,7 @@ package com.triasoft.garage.model.account;
 import com.triasoft.garage.locking.Versioned;
 import com.triasoft.garage.validation.NullOrNotBlank;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +23,9 @@ public class AccountRq implements Serializable, Versioned {
 
     private Long id;
     private Long version;
+
+    @NotNull(message = "REQUIRED")
+    private Long companyId;
 
     @NotBlank(message = "REQUIRED")
     private String type;

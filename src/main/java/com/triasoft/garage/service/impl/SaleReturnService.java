@@ -213,7 +213,7 @@ public class SaleReturnService {
                 exchPurchase.setBuybackRecordedAt(returnDate);
                 purchaseRepository.save(exchPurchase);
                 journalService.postExchangeBuybackPurchase(
-                        exchPurchase.getId(), buyback, returnDate, customerName, sale.getCustomer().getId(), sale.getId());
+                        exchPurchase.getId(), exchPurchase.getCompanyId(), buyback, returnDate, customerName, sale.getCustomer().getId(), sale.getId());
             });
         }
 
@@ -368,6 +368,7 @@ public class SaleReturnService {
                 .brandName(product.getBrand() != null ? product.getBrand().getDescription() : null)
                 .modelName(product.getModel() != null ? product.getModel().getDescription() : null)
                 .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
+                .warehouseId(sr.getSale().getInventory().getWarehouseId())
                 .invoiceNo(sr.getSale().getInvoiceNo())
                 .returnDate(sr.getReturnDate())
                 .reason(sr.getReason())

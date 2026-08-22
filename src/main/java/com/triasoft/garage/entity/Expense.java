@@ -51,4 +51,9 @@ public class Expense extends TenantAwareAuditEntity {
     @JoinColumn(name = "payment_account_id")
     private PaymentAccount paymentAccount;
 
+    // Optional - lets a company-wide expense be attributed to one warehouse for
+    // warehouse-comparison reporting. Null means genuinely unallocated/company-wide.
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
 }

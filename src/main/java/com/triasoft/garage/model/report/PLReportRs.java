@@ -26,6 +26,8 @@ public class PLReportRs implements Serializable {
     private BigDecimal exchangeGain;          // GAIN_ON_EXCHANGE_ADJ (income)
     private BigDecimal exchangeReturnLoss;    // LOSS_RETURNED_EXCHANGE (expense/loss)
     private BigDecimal purchaseReturnLoss;    // LOSS_PURCHASE_RETURN (expense/loss)
+    private BigDecimal serviceRevenue;        // SERVICE_REVENUE (income) — summary-level only, no detail list yet
+    private BigDecimal payrollExpense;        // SALARY_EXPENSE (expense) — summary-level only, no detail list yet
     private BigDecimal totalOperatingExpenses;
     private BigDecimal netProfit;
     private double netMarginPct;

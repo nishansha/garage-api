@@ -1,5 +1,8 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.company.entity.WarehouseBusinessLine;
+import com.triasoft.garage.company.repository.CompanyRepository;
+import com.triasoft.garage.company.repository.WarehouseBusinessLineRepository;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.dto.WarehouseDTO;
 import com.triasoft.garage.entity.Warehouse;
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +26,8 @@ public class WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
     private final InventoryRepository inventoryRepository;
+    private final CompanyRepository companyRepository;
+    private final WarehouseBusinessLineRepository warehouseBusinessLineRepository;
 
     public WarehouseRs getAll() {
         List<WarehouseDTO> warehouses = warehouseRepository.findAll().stream()
@@ -39,12 +46,17 @@ public class WarehouseService {
         if (warehouseRepository.existsByCodeIgnoreCase(code)) {
             throw new BusinessException(ErrorCode.Business.WAREHOUSE_CODE_EXISTS);
         }
+        if (!companyRepository.existsById(rq.getCompanyId())) {
+            throw new BusinessException(ErrorCode.Business.COMPANY_NOT_FOUND);
+        }
         Warehouse warehouse = new Warehouse();
+        warehouse.setCompanyId(rq.getCompanyId());
         warehouse.setCode(code);
         warehouse.setName(rq.getName());
         warehouse.setAddress(rq.getAddress());
         warehouse.setLocation(rq.getLocation());
         warehouseRepository.save(warehouse);
+        saveBusinessLines(warehouse.getId(), rq.getBusinessLines());
         return WarehouseRs.builder().id(warehouse.getId()).build();
     }
 
@@ -61,6 +73,9 @@ public class WarehouseService {
         warehouse.setAddress(rq.getAddress());
         warehouse.setLocation(rq.getLocation());
         warehouseRepository.save(warehouse);
+        warehouseBusinessLineRepository.deleteByWarehouseId(id);
+        warehouseBusinessLineRepository.flush();
+        saveBusinessLines(id, rq.getBusinessLines());
         return WarehouseRs.builder().id(warehouse.getId()).build();
     }
 
@@ -70,7 +85,18 @@ public class WarehouseService {
         if (inventoryRepository.existsByWarehouseId(id)) {
             throw new BusinessException(ErrorCode.Business.WAREHOUSE_IN_USE);
         }
+        warehouseBusinessLineRepository.deleteByWarehouseId(id);
         warehouseRepository.delete(warehouse);
+    }
+
+    private void saveBusinessLines(Long warehouseId, Set<com.triasoft.garage.company.constants.BusinessLine> businessLines) {
+        List<WarehouseBusinessLine> rows = businessLines.stream().map(bl -> {
+            WarehouseBusinessLine row = new WarehouseBusinessLine();
+            row.setWarehouseId(warehouseId);
+            row.setBusinessLine(bl);
+            return row;
+        }).toList();
+        warehouseBusinessLineRepository.saveAll(rows);
     }
 
     private Warehouse findById(Long id) {
@@ -78,9 +104,13 @@ public class WarehouseService {
     }
 
     private WarehouseDTO toDTO(Warehouse warehouse) {
+        Set<com.triasoft.garage.company.constants.BusinessLine> businessLines = warehouseBusinessLineRepository.findByWarehouseId(warehouse.getId())
+                .stream().map(WarehouseBusinessLine::getBusinessLine).collect(Collectors.toSet());
         return WarehouseDTO.builder()
                 .id(warehouse.getId())
                 .version(warehouse.getVersion())
+                .companyId(warehouse.getCompanyId())
+                .businessLines(businessLines)
                 .code(warehouse.getCode())
                 .name(warehouse.getName())
                 .address(warehouse.getAddress())

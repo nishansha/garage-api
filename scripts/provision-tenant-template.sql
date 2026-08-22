@@ -17,6 +17,12 @@
 -- Any valid bcrypt hash works regardless of strength (the cost factor is
 -- encoded in the hash itself); the app's SecurityConfig uses the default
 -- BCryptPasswordEncoder() (strength 10).
+--
+-- This script provisions the tenant/roles/first user only. The Chart of
+-- Accounts and default warehouse moved to provision-company-template.sql
+-- (books are company-scoped, not tenant-scoped, since the multi-company
+-- layer landed) — run that script immediately after this one, passing the
+-- tenant_id it prints, before the tenant's SUPERADMIN logs in.
 -- ============================================================================
 
 BEGIN;
@@ -37,35 +43,7 @@ INSERT INTO fnd_role (tenant_id, code, name, description, is_system, created_by,
   (:tenant_id, 'ADMIN', 'Admin', 'Administrative access; privileges granted explicitly like any other role', true, 0, now(), 0),
   (:tenant_id, 'STAFF', 'Staff', 'Standard operational access', true, 0, now(), 0);
 
--- 3. System-role Chart of Accounts ----------------------------------------
--- REQUIRED, not optional: JournalService/ReportService look these up by
--- system_role (SystemCoaRole enum) by name. Every tenant must have exactly
--- these 14 rows or postings/reports for that tenant will fail immediately.
-INSERT INTO fnd_chart_of_accounts
-  (tenant_id, code, name, description, type, is_control_account, label, is_direct_postable, system_role, created_by, created_at, version) VALUES
-  (:tenant_id, '1100', 'A-ACR',         'Money owed to the company by customers. (Control Account)',                                'ASSET',     true,  'Accounts Receivable (A/R)',                                    false, 'AR',                          0, now(), 0),
-  (:tenant_id, '1150', 'A-FR',          'Amount due from finance companies for financed vehicle sales.',                            'ASSET',     false, 'Finance Receivable',                                           false, 'FINANCE_RECEIVABLE',          0, now(), 0),
-  (:tenant_id, '1170', 'VND-REF-REC',   'Vendor Refund Receivable',                                                                 'ASSET',     true,  'Money owed to us by vendors for returned purchases',           false, 'VENDOR_REFUND_RECEIVABLE',    0, now(), 0),
-  (:tenant_id, '1200', 'A-INV',         'Total cost of all vehicles in stock. (Control Account)',                                   'ASSET',     true,  'Inventory - Vehicles',                                         false, 'INVENTORY',                   0, now(), 0),
-  (:tenant_id, '2000', 'L-ACP',         'Money owed by the company to vendors/suppliers. (Control Account)',                        'LIABILITY', true,  'Accounts Payable (A/P)',                                       false, 'AP',                          0, now(), 0),
-  (:tenant_id, '2400', 'L-CSP',         'Amounts owed to customers from trade-in exchanges where exchange value exceeds sale value.','LIABILITY', false, 'Customer Settlement Payable',                                  false, 'CUSTOMER_SETTLEMENT_PAYABLE', 0, now(), 0),
-  (:tenant_id, '2410', 'CUST-REF-PAY',  'Customer Refund Payable',                                                                  'LIABILITY', true,  'Money owed to customers for returned sales, pending refund',   false, 'CUSTOMER_REFUND_PAYABLE',     0, now(), 0),
-  (:tenant_id, '3900', 'E-OBE',         'Temporary clearing account for opening balances during initial setup.',                    'EQUITY',    false, 'Opening Balance Equity',                                       false, 'OPENING_BALANCE_EQUITY',      0, now(), 0),
-  (:tenant_id, '4000', 'R-IN',          'Gross revenue from the sale of new and used vehicles.',                                     'REVENUE',   false, 'Sales Revenue - Vehicles',                                     false, 'SALES_REVENUE',               0, now(), 0),
-  (:tenant_id, '4520', 'RTN-INC-DED',   'Return Deduction Income',                                                                  'REVENUE',   true,  'Return Deduction Income',                                       false, 'RETURN_DEDUCTION_INCOME',     0, now(), 0),
-  (:tenant_id, '4530', 'RTN-INC-EXGAIN','Gain on Exchange Adjustment',                                                              'REVENUE',   true,  'Gain on Exchange Adjustment',                                   false, 'GAIN_ON_EXCHANGE_ADJ',        0, now(), 0),
-  (:tenant_id, '5000', 'CGOS-IN',       'The landed cost of vehicles that have been sold.',                                         'EXPENSE',   false, 'COGS - Vehicles',                                              false, 'COGS',                        0, now(), 0),
-  (:tenant_id, '5510', 'RTN-EXP-EXCH',  'Loss on Returned Exchange Vehicle',                                                        'EXPENSE',   true,  'Loss on Returned Exchange Vehicle',                            false, 'LOSS_RETURNED_EXCHANGE',      0, now(), 0),
-  (:tenant_id, '5520', 'RTN-EXP-PUR',   'Loss on Purchase Return',                                                                  'EXPENSE',   true,  'Loss on Purchase Return',                                      false, 'LOSS_PURCHASE_RETURN',        0, now(), 0);
-
--- 4. Default warehouse ------------------------------------------------------
--- Warehouse is a real tenant-scoped entity (inf_warehouse), managed afterward
--- via the Warehouses screen/API. Seed one so purchases have somewhere to
--- assign inventory to without requiring warehouse management to happen first.
-INSERT INTO inf_warehouse (tenant_id, code, name, created_by, created_at, version)
-VALUES (:tenant_id, 'MAIN', 'Main Warehouse', 0, now(), 0);
-
--- 5. First user (this tenant's own SUPERADMIN) -----------------------------
+-- 3. First user (this tenant's own SUPERADMIN) -----------------------------
 INSERT INTO user_profile (tenant_id, username, password, name, designation, deleted)
 VALUES (:tenant_id, 'USERNAME', 'PASSWORD_BCRYPT_HASH', 'Full Name', 'Owner', false)
 RETURNING id AS user_id \gset
@@ -78,7 +56,10 @@ COMMIT;
 -- Sanity check after running:
 --   SELECT * FROM fnd_tenant WHERE id = :tenant_id;
 --   SELECT * FROM fnd_role WHERE tenant_id = :tenant_id;
---   SELECT * FROM fnd_chart_of_accounts WHERE tenant_id = :tenant_id ORDER BY code;
 --   SELECT up.username, r.code FROM user_profile up
 --     JOIN user_role ur ON ur.user_id = up.id JOIN fnd_role r ON r.id = ur.role_id
 --     WHERE up.tenant_id = :tenant_id;
+--
+-- Next step (required): run provision-company-template.sql with :tenant_id
+-- set to the id printed above — this tenant has no Chart of Accounts or
+-- warehouse until that runs, so nothing can be posted or sold yet.

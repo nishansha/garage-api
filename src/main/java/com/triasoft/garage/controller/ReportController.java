@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.company.service.CompanyResolver;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.report.BalanceSheetRs;
@@ -9,6 +10,7 @@ import com.triasoft.garage.model.report.PLFromJournalRs;
 import com.triasoft.garage.model.report.PLReportRs;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
+import com.triasoft.garage.model.report.ServiceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
 import com.triasoft.garage.model.report.WarehouseComparisonRs;
 import com.triasoft.garage.ledger.service.LedgerQueryService;
@@ -43,17 +45,22 @@ public class ReportController {
     private final WarehouseReportService warehouseReportService;
     private final PLReportCsvWriter plReportCsvWriter;
     private final JournalReportCsvWriter journalReportCsvWriter;
+    private final CompanyResolver companyResolver;
 
+    // companyId omitted = overall report combining every company's books (ReportService.
+    // getProfitAndLoss aggregates across all companies when passed null) - unlike most other
+    // report endpoints below, which still require disambiguating once there's more than one
+    // company (see CompanyResolver.resolveCompanyId).
     @GetMapping(value = "/pl", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(@RequestParam(value = "month", required = false) String month) {
+    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId) {
         YearMonth yearMonth = parseMonth(month);
-        return ResponseEntity.ok(ApiResponse.success(reportService.getProfitAndLoss(yearMonth)));
+        return ResponseEntity.ok(ApiResponse.success(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId))));
     }
 
     @GetMapping(value = "/pl/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadProfitAndLossCsv(@RequestParam(value = "month", required = false) String month) {
+    ResponseEntity<byte[]> downloadProfitAndLossCsv(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId) {
         YearMonth yearMonth = parseMonth(month);
-        String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth));
+        String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId)));
         return csvResponse(csv, "business-summary-" + yearMonth + ".csv");
     }
 
@@ -94,18 +101,23 @@ public class ReportController {
     }
 
     @GetMapping(value = "/receivables", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary() {
-        return ResponseEntity.ok(ApiResponse.success(reportService.getReceivablesSummary()));
+    ResponseEntity<ApiResponse<ReceivablesSummaryRs>> getReceivablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getReceivablesSummary(companyResolver.resolveCompanyId(companyId))));
+    }
+
+    @GetMapping(value = "/service-receivables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<ServiceReceivablesSummaryRs>> getServiceReceivablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getServiceReceivablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
     @GetMapping(value = "/finance-receivables", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<FinanceReceivablesSummaryRs>> getFinanceReceivablesSummary() {
-        return ResponseEntity.ok(ApiResponse.success(reportService.getFinanceReceivablesSummary()));
+    ResponseEntity<ApiResponse<FinanceReceivablesSummaryRs>> getFinanceReceivablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getFinanceReceivablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
     @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary() {
-        return ResponseEntity.ok(ApiResponse.success(reportService.getPayablesSummary()));
+    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getPayablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
     @GetMapping(value = "/pl-from-journal", produces = MediaType.APPLICATION_JSON_VALUE)

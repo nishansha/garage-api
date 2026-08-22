@@ -20,6 +20,9 @@ public class Journal extends TenantAwareAuditEntity {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
     @Column(name = "journal_date", nullable = false)
     private LocalDate journalDate;
 

@@ -31,6 +31,9 @@ public class Sale extends TenantAwareAuditEntity {
     @Column(name = "invoice_no", unique = true, nullable = false)
     private String invoiceNo;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;

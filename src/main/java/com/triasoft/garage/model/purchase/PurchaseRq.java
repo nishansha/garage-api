@@ -47,6 +47,7 @@ public class PurchaseRq extends GenericRq implements Versioned {
     @Pattern(regexp = "^[A-Za-z0-9-]+$", message = "INVALID_CHARS")
     private String code;
 
+    @NotNull(message = "REQUIRED")
     private Long warehouseId;
     private Long segmentId;
 

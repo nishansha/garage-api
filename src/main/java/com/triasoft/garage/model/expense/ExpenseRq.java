@@ -53,4 +53,7 @@ public class ExpenseRq extends GenericRq implements Versioned {
 
     @NotNull(message = "REQUIRED")
     private Long paymentAccountId;
+
+    // Optional - if set, must belong to the same company as paymentAccountId.
+    private Long warehouseId;
 }

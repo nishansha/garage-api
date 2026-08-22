@@ -11,6 +11,7 @@ import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.account.AccountRq;
 import com.triasoft.garage.model.account.AccountRs;
 import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
+import com.triasoft.garage.company.repository.CompanyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class AccountService {
     private static final Set<String> ALLOWED_TYPES = Set.of("ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE");
 
     private final ChartOfAccountRepository chatOfAccountRepository;
+    private final CompanyRepository companyRepository;
 
     public AccountRs getAccounts(AccountRq accountRq) {
         boolean filterByDirectPostable = Boolean.TRUE.equals(accountRq.getDirectPostable());
@@ -50,26 +52,27 @@ public class AccountService {
         return chatOfAccountDTO;
     }
 
-    public ChartOfAccount getOrCreateExpenseAccount(ExpenseDTO exDto, UserDTO user) {
+    public ChartOfAccount getOrCreateExpenseAccount(ExpenseDTO exDto, Long companyId, UserDTO user) {
         if (Objects.nonNull(exDto.getTypeId())) {
             return chatOfAccountRepository.findById(exDto.getTypeId()).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));
         } else {
-            return chatOfAccountRepository.findByTypeAndLabelIgnoreCase("EXPENSE", exDto.getTitle().trim())
+            return chatOfAccountRepository.findByTypeAndLabelIgnoreCaseAndCompanyId("EXPENSE", exDto.getTitle().trim(), companyId)
                     .orElseGet(() -> createChartOfAccount(ChatOfAccountDTO.builder()
                             .type("EXPENSE")
                             .label(exDto.getTitle())
                             .description(exDto.getDescription())
-                            .build(), user));
+                            .build(), companyId, user));
         }
     }
 
-    private ChartOfAccount createChartOfAccount(ChatOfAccountDTO accountDTO, UserDTO user) {
-        Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeOrderByCodeDesc(accountDTO.getType())
+    private ChartOfAccount createChartOfAccount(ChatOfAccountDTO accountDTO, Long companyId, UserDTO user) {
+        Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeAndCompanyIdOrderByCodeDesc(accountDTO.getType(), companyId)
                 .map(c -> Long.parseLong(c.getCode()))
                 .orElseGet(() -> getDefaultCodes(accountDTO.getType()));
 
         Long nextCode = ++lastInsertedCode;
         ChartOfAccount chartOfAccount = new ChartOfAccount();
+        chartOfAccount.setCompanyId(companyId);
         chartOfAccount.setType(accountDTO.getType());
         chartOfAccount.setName(StringUtils.hasLength(accountDTO.getName()) ? accountDTO.getName() : (accountDTO.getType().charAt(0) + " - " + nextCode));
         chartOfAccount.setLabel(accountDTO.getLabel().trim());
@@ -100,12 +103,15 @@ public class AccountService {
 
     public AccountRs create(AccountRq accountRq, UserDTO user) {
         validateType(accountRq.getType());
-        ChartOfAccount chartOfAccount = chatOfAccountRepository.findByTypeAndLabelIgnoreCase(accountRq.getType(), accountRq.getLabel()).orElse(null);
+        if (!companyRepository.existsById(accountRq.getCompanyId())) {
+            throw new BusinessException(ErrorCode.Business.COMPANY_NOT_FOUND);
+        }
+        ChartOfAccount chartOfAccount = chatOfAccountRepository.findByTypeAndLabelIgnoreCaseAndCompanyId(accountRq.getType(), accountRq.getLabel(), accountRq.getCompanyId()).orElse(null);
         if (Objects.nonNull(chartOfAccount)) throw new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_EXIST);
 
         ChatOfAccountDTO accountDTO = new ChatOfAccountDTO();
         BeanUtils.copyProperties(accountRq, accountDTO);
-        ChartOfAccount newAccount = createChartOfAccount(accountDTO, user);
+        ChartOfAccount newAccount = createChartOfAccount(accountDTO, accountRq.getCompanyId(), user);
         return AccountRs.builder().account(this.toAccountDTO(newAccount)).build();
     }
 
@@ -118,13 +124,14 @@ public class AccountService {
     public AccountRs update(Long id, AccountRq accountRq, UserDTO user) {
         validateType(accountRq.getType());
         ChartOfAccount chartOfAccount = chatOfAccountRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_NOT_FOUND));
-        // Reject renaming this account to a (type, label) already used by another account
-        chatOfAccountRepository.findByTypeAndLabelIgnoreCaseAndIdNot(accountRq.getType(), accountRq.getLabel(), id)
+        // Reject renaming this account to a (type, label) already used by another account in the same company.
+        // companyId itself is immutable post-creation (not editable via this endpoint), same as PaymentAccountRq.
+        chatOfAccountRepository.findByTypeAndLabelIgnoreCaseAndIdNotAndCompanyId(accountRq.getType(), accountRq.getLabel(), id, chartOfAccount.getCompanyId())
                 .ifPresent(existing -> { throw new BusinessException(ErrorCode.Business.CHART_OF_ACCOUNT_EXIST); });
         chartOfAccount.setLabel(accountRq.getLabel());
         chartOfAccount.setDescription(accountRq.getDescription());
         if (!chartOfAccount.getType().equalsIgnoreCase(accountRq.getType())) {
-            Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeOrderByCodeDesc(accountRq.getType())
+            Long lastInsertedCode = chatOfAccountRepository.findFirstByTypeAndCompanyIdOrderByCodeDesc(accountRq.getType(), chartOfAccount.getCompanyId())
                     .map(c -> Long.parseLong(c.getCode()))
                     .orElseGet(() -> getDefaultCodes(accountRq.getType()));
             Long nextCode = ++lastInsertedCode;

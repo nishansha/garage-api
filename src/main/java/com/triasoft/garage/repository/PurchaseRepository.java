@@ -366,8 +366,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, JpaSp
               AND inv.source_sale_id IS NULL
               AND po.buyback_recorded_at IS NULL
               AND po.order_date BETWEEN :startDate AND :endDate
+              AND (:companyId IS NULL OR po.company_id = :companyId)
             ORDER BY po.order_date, po.id
             """, nativeQuery = true)
-    List<PurchaseLineRow> getPurchaseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<PurchaseLineRow> getPurchaseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

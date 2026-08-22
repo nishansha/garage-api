@@ -37,4 +37,5 @@ public class SaleReturnDTO implements Serializable {
     private BigDecimal remainingRefund;
     private List<DeductionDTO> deductions;
     private List<RefundPaymentDTO> refunds;
+    private Long warehouseId;
 }

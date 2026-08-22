@@ -1,5 +1,6 @@
 package com.triasoft.garage.controller;
 
+import com.triasoft.garage.company.service.CompanyResolver;
 import com.triasoft.garage.dto.PurchaseDTO;
 import com.triasoft.garage.model.common.ApiResponse;
 import com.triasoft.garage.model.common.FilterRq;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
+    private final CompanyResolver companyResolver;
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<ApiResponse<PurchaseSummaryRs>> summary(HttpServletRequest request) {
@@ -91,8 +93,8 @@ public class PurchaseController {
     }
 
     @GetMapping(value = "/payables", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary() {
-        return ResponseEntity.ok(ApiResponse.success(purchaseService.getPayablesSummary()));
+    ResponseEntity<ApiResponse<PayablesSummaryRs>> getPayablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.getPayablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
     @PostMapping(value = "/{id}/rc-due-receipts", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -115,7 +117,7 @@ public class PurchaseController {
     }
 
     @GetMapping(value = "/rc-due-summary", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<RcDueSummaryRs>> getRcDueSummary() {
-        return ResponseEntity.ok(ApiResponse.success(purchaseService.getRcDueSummary()));
+    ResponseEntity<ApiResponse<RcDueSummaryRs>> getRcDueSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(purchaseService.getRcDueSummary(companyResolver.resolveCompanyId(companyId))));
     }
 }

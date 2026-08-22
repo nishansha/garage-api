@@ -33,6 +33,9 @@ import com.triasoft.garage.repository.SalePaymentRepository;
 import com.triasoft.garage.repository.SaleRefundPaymentRepository;
 import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.repository.SaleReturnRepository;
+import com.triasoft.garage.servicesale.repository.ServiceSalePaymentRepository;
+import com.triasoft.garage.servicesale.repository.ServiceSaleRepository;
+import com.triasoft.garage.hrm.repository.SalaryPaymentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,6 +88,9 @@ class JournalServiceTest {
     @Mock private PurchaseReturnRepository purchaseReturnRepository;
     @Mock private PurchaseReturnReceiptRepository purchaseReturnReceiptRepository;
     @Mock private RcDueReceiptRepository rcDueReceiptRepository;
+    @Mock private ServiceSaleRepository serviceSaleRepository;
+    @Mock private ServiceSalePaymentRepository serviceSalePaymentRepository;
+    @Mock private SalaryPaymentRepository salaryPaymentRepository;
 
     private JournalService journalService;
 
@@ -96,7 +102,8 @@ class JournalServiceTest {
                 saleRepository, salePaymentRepository, purchaseRepository, purchasePaymentRepository,
                 expenseRepository, directEntryRepository, paymentAccountRepository, inventoryRepository,
                 saleReturnRepository, saleRefundPaymentRepository, purchaseReturnRepository,
-                purchaseReturnReceiptRepository, rcDueReceiptRepository);
+                purchaseReturnReceiptRepository, rcDueReceiptRepository,
+                serviceSaleRepository, serviceSalePaymentRepository, salaryPaymentRepository);
 
         AtomicLong journalIdSeq = new AtomicLong(1);
         lenient().when(journalRepository.save(any(Journal.class))).thenAnswer(inv -> {
@@ -115,7 +122,7 @@ class JournalServiceTest {
         coa.setId((long) (role.ordinal() + 1));
         coa.setLabel(role.name());
         coa.setSystemRole(role.name());
-        when(chartOfAccountRepository.findBySystemRole(role.name())).thenReturn(Optional.of(coa));
+        when(chartOfAccountRepository.findBySystemRoleAndCompanyId(org.mockito.ArgumentMatchers.eq(role.name()), any())).thenReturn(Optional.of(coa));
         return coa;
     }
 
@@ -343,7 +350,7 @@ class JournalServiceTest {
         when(saleRepository.findById(1L)).thenReturn(Optional.of(sale));
         when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE, 1L))
                 .thenReturn(Optional.empty());
-        when(chartOfAccountRepository.findBySystemRole(anyString())).thenReturn(Optional.empty());
+        when(chartOfAccountRepository.findBySystemRoleAndCompanyId(anyString(), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> journalService.post(JournalService.REF_SALE, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -810,7 +817,7 @@ class JournalServiceTest {
         coaFor(SystemCoaRole.INVENTORY);
         coaFor(SystemCoaRole.CUSTOMER_REFUND_PAYABLE);
 
-        journalService.postExchangeBuybackPurchase(5L, new BigDecimal("60000"),
+        journalService.postExchangeBuybackPurchase(5L, 1L, new BigDecimal("60000"),
                 LocalDate.of(2026, 2, 15), "John Doe", 1L, 9L);
 
         @SuppressWarnings("unchecked")

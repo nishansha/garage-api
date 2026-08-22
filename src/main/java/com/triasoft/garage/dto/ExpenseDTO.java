@@ -43,4 +43,5 @@ public class ExpenseDTO implements Serializable {
 
     private Long paymentAccountId;
     private Long purchaseId;
+    private Long warehouseId;
 }

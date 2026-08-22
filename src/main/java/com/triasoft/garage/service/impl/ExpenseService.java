@@ -15,6 +15,7 @@ import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Purchase;
 import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.entity.Transaction;
+import com.triasoft.garage.entity.Warehouse;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.expense.ExpenseRq;
@@ -28,6 +29,7 @@ import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.PurchaseRepository;
 import com.triasoft.garage.repository.SaleRepository;
 import com.triasoft.garage.repository.TransactionRepository;
+import com.triasoft.garage.repository.WarehouseRepository;
 import com.triasoft.garage.specifiction.ExpenseSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
@@ -57,6 +59,7 @@ public class ExpenseService {
     private final InventoryRepository inventoryRepository;
     private final SaleRepository saleRepository;
     private final JournalService journalService;
+    private final WarehouseRepository warehouseRepository;
 
     public ExpenseRs getAll(Pageable pageable, UserDTO user) {
         Page<Expense> expensePage = expenseRepository.findByPurchaseIsNull(pageable);
@@ -110,15 +113,13 @@ public class ExpenseService {
         expense.setAmount(expenseRq.getAmount());
         expense.setDescription(expenseRq.getDescription());
 
+        PaymentAccount paymentAccount = resolveAndValidateAccount(expenseRq.getPaymentAccountId(), expenseRq.getAmount());
+        expense.setPaymentAccount(paymentAccount);
+        expense.setWarehouseId(validateWarehouse(expenseRq.getWarehouseId(), paymentAccount.getCompanyId()));
+
         ExpenseDTO exDto = new ExpenseDTO();
         BeanUtils.copyProperties(expenseRq, exDto);
-        expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
-
-        PaymentAccount paymentAccount = null;
-        if (expenseRq.getPaymentAccountId() != null) {
-            paymentAccount = resolveAndValidateAccount(expenseRq.getPaymentAccountId(), expenseRq.getAmount());
-            expense.setPaymentAccount(paymentAccount);
-        }
+        expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, paymentAccount.getCompanyId(), user));
 
         if (expenseRq.getPurchaseId() != null) {
             Purchase purchase = purchaseRepository.findById(expenseRq.getPurchaseId())
@@ -182,24 +183,20 @@ public class ExpenseService {
         expense.setAmount(expenseRq.getAmount());
         expense.setDescription(expenseRq.getDescription());
 
+        PaymentAccount newPaymentAccount = resolveAndValidateAccount(expenseRq.getPaymentAccountId(), expenseRq.getAmount());
+        expense.setPaymentAccount(newPaymentAccount);
+        expense.setWarehouseId(validateWarehouse(expenseRq.getWarehouseId(), newPaymentAccount.getCompanyId()));
+
         Long currentExpenseAccountId = expense.getExpenseAccount() != null ? expense.getExpenseAccount().getId() : null;
         if (!Objects.equals(currentExpenseAccountId, expenseRq.getTypeId())) {
             ExpenseDTO exDto = new ExpenseDTO();
             BeanUtils.copyProperties(expenseRq, exDto);
-            expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
+            expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, newPaymentAccount.getCompanyId(), user));
         }
 
         if (amountChanged || accountChanged) {
             reverseTransaction(expense);
             journalService.reverse(JournalService.REF_EXPENSE, id);
-        }
-
-        PaymentAccount newPaymentAccount = null;
-        if (expenseRq.getPaymentAccountId() != null) {
-            newPaymentAccount = resolveAndValidateAccount(expenseRq.getPaymentAccountId(), expenseRq.getAmount());
-            expense.setPaymentAccount(newPaymentAccount);
-        } else {
-            expense.setPaymentAccount(null);
         }
 
         expenseRepository.save(expense);
@@ -298,6 +295,21 @@ public class ExpenseService {
         return account;
     }
 
+    // Optional warehouse tag, for warehouse-comparison reporting - must belong to the same
+    // company as the resolved payment account, same guard as PAYMENT_ACCOUNT_COMPANY_MISMATCH
+    // enforces elsewhere for the reverse direction (account vs. transaction's own company).
+    private Long validateWarehouse(Long warehouseId, Long companyId) {
+        if (warehouseId == null) {
+            return null;
+        }
+        Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND));
+        if (!warehouse.getCompanyId().equals(companyId)) {
+            throw new BusinessException(ErrorCode.Business.EXPENSE_WAREHOUSE_COMPANY_MISMATCH);
+        }
+        return warehouseId;
+    }
+
     private void createTransaction(Expense expense, TransactionTypeEnum type, String referenceType,
                                    String description, PaymentAccount paymentAccount, TransactionDirectionEnum direction) {
         Transaction transaction = new Transaction();
@@ -345,6 +357,7 @@ public class ExpenseService {
                 .typeDesc(Objects.nonNull(expense.getExpenseAccount()) ? expense.getExpenseAccount().getLabel() : null)
                 .paymentAccountId(expense.getPaymentAccount() != null ? expense.getPaymentAccount().getId() : null)
                 .purchaseId(expense.getPurchase() != null ? expense.getPurchase().getId() : null)
+                .warehouseId(expense.getWarehouseId())
                 .build();
     }
 }

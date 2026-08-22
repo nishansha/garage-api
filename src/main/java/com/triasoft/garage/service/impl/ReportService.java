@@ -9,6 +9,7 @@ import com.triasoft.garage.entity.Sale;
 import com.triasoft.garage.ledger.projection.PartySourceBalanceRow;
 import com.triasoft.garage.ledger.projection.SourceBalanceRow;
 import com.triasoft.garage.ledger.repository.JournalDetailRepository;
+import com.triasoft.garage.projection.CompanyAmountRow;
 import com.triasoft.garage.projection.LastPaymentDateProjection;
 import com.triasoft.garage.repository.JournalDashboardRepository;
 import com.triasoft.garage.model.report.AccountBalanceInfo;
@@ -28,6 +29,8 @@ import com.triasoft.garage.model.report.FinanceCompanyReceivableInfo;
 import com.triasoft.garage.model.report.FinanceReceivableSaleInfo;
 import com.triasoft.garage.model.report.FinanceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivableInfo;
+import com.triasoft.garage.model.report.ServiceReceivableInfo;
+import com.triasoft.garage.model.report.ServiceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
 import com.triasoft.garage.model.report.SaleLineInfo;
 import com.triasoft.garage.projection.MonthlyTrendMetrics;
@@ -73,53 +76,67 @@ public class ReportService {
     private final SalePaymentRepository salePaymentRepository;
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final FinanceCompanyRepository financeCompanyRepository;
+    private final com.triasoft.garage.servicesale.repository.ServiceSaleRepository serviceSaleRepository;
+    private final com.triasoft.garage.servicesale.repository.ServiceSalePaymentRepository serviceSalePaymentRepository;
 
-    public PLReportRs getProfitAndLoss(YearMonth yearMonth) {
+    public PLReportRs getProfitAndLoss(YearMonth yearMonth, Long companyId) {
         var startDate = yearMonth.atDay(1);
         var endDate = yearMonth.atEndOfMonth();
         Long tenantId = TenantContext.get();
 
+        // companyId is nullable throughout this method - null means "overall" (every company
+        // combined). Every term below is now company-scoped (or genuinely tenant-wide by
+        // nature, like nothing left here) - this used to be a mix, which meant ?companyId=1 and
+        // ?companyId=4 showed identical sales/direct-entry/expense figures and disagreed with
+        // /companies/comparison. Fixed by threading companyId into every query below.
         // ── 1. Sales ─────────────────────────────────────────────────────────
-        ProfitMetrics sales = saleRepository.getProfitReport(tenantId, startDate, endDate);
+        ProfitMetrics sales = saleRepository.getProfitReport(tenantId, companyId, startDate, endDate);
         BigDecimal vehicleSalesRevenue = safe(sales.getTotalSales());
         BigDecimal grossProfit       = safe(sales.getNetProfit());
 
         // ── 2. Direct Entries ─────────────────────────────────────────────────
-        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(tenantId, startDate, endDate);
+        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(tenantId, companyId, startDate, endDate);
         BigDecimal otherIncome      = safe(de.getTotalIn());
         BigDecimal directAdjustments = safe(de.getTotalOut());
 
         // Retained deductions on sale returns are real income (RETURN_DEDUCTION_INCOME
         // in the ledger) but are netted out of the sales figures above, so add them back.
-        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(tenantId, startDate, endDate));
+        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(tenantId, companyId, startDate, endDate));
 
         // Exchange/return gains & losses live only in the ledger (no operational entity),
         // so pull them from their system-role journal accounts for the period. This closes
         // the remaining entity-vs-journal P&L gap (only manual journals remain uncaptured).
-        BigDecimal exchangeGain       = ledgerRevenue(tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
-        BigDecimal exchangeReturnLoss = ledgerExpense(tenantId, SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
-        BigDecimal purchaseReturnLoss = ledgerExpense(tenantId, SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+        BigDecimal exchangeGain       = ledgerRevenue(tenantId, companyId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
+        BigDecimal exchangeReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
+        BigDecimal purchaseReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+        // Service-sale revenue and payroll expense — summary-level only for now (no
+        // per-invoice/per-employee detail list yet, unlike sales/purchases/expenses below).
+        BigDecimal serviceRevenue = ledgerRevenue(tenantId, companyId, SystemCoaRole.SERVICE_REVENUE, startDate, endDate);
+        BigDecimal payrollExpense = ledgerExpense(tenantId, companyId, SystemCoaRole.SALARY_EXPENSE, startDate, endDate);
 
         // ── 3. Revenue totals ─────────────────────────────────────────────────
         BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome)
-                .add(returnDeductionIncome).add(exchangeGain);
+                .add(returnDeductionIncome).add(exchangeGain).add(serviceRevenue);
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
-        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(tenantId, startDate, endDate);
+        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(tenantId, companyId, startDate, endDate);
         BigDecimal generalExpenses  = safe(exp.getGeneralExpenses());
         BigDecimal totalOpEx = generalExpenses.add(directAdjustments)
-                .add(exchangeReturnLoss).add(purchaseReturnLoss);
+                .add(exchangeReturnLoss).add(purchaseReturnLoss).add(payrollExpense);
 
         // ── 5. Net profit ─────────────────────────────────────────────────────
         BigDecimal netProfit = grossProfit.add(otherIncome).add(returnDeductionIncome)
-                .add(exchangeGain).subtract(totalOpEx);
+                .add(exchangeGain).add(serviceRevenue).subtract(totalOpEx);
 
         // ── 6. Margin percentages ─────────────────────────────────────────────
         double grossMarginPct = pct(grossProfit, vehicleSalesRevenue);
         double netMarginPct   = pct(netProfit, totalRevenue);
 
         // ── 7. Cash & bank position (as of month-end) ─────────────────────────
-        List<AccountBalanceInfo> cashPosition = paymentAccountRepository.findAllByIsActiveTrue()
+        List<PaymentAccount> paymentAccounts = companyId == null
+                ? paymentAccountRepository.findAllByIsActiveTrue()
+                : paymentAccountRepository.findAllByIsActiveTrueAndCompanyId(companyId);
+        List<AccountBalanceInfo> cashPosition = paymentAccounts
                 .stream()
                 .map(account -> toAccountBalance(account, endDate))
                 .toList();
@@ -128,7 +145,7 @@ public class ReportService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // ── 9. Per-vehicle sales breakdown for the period ─────────────────────
-        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(tenantId, startDate, endDate);
+        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(tenantId, companyId, startDate, endDate);
         List<SaleLineInfo> saleLines = saleRows.stream()
                 .map(r -> SaleLineInfo.builder()
                         .saleId(r.getSaleId())
@@ -146,7 +163,7 @@ public class ReportService {
                 .toList();
 
         // ── 10. Per-vehicle purchases breakdown for the period ────────────────
-        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(tenantId, startDate, endDate);
+        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(tenantId, companyId, startDate, endDate);
         List<PurchaseLineInfo> purchaseLines = purchaseRows.stream()
                 .map(r -> PurchaseLineInfo.builder()
                         .purchaseId(r.getPurchaseId())
@@ -164,7 +181,7 @@ public class ReportService {
                 .toList();
 
         // ── 11. General expenses breakdown (excludes purchase expenses) ────────
-        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(tenantId, startDate, endDate)
+        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(tenantId, companyId, startDate, endDate)
                 .stream()
                 .map(r -> ExpenseLineInfo.builder()
                         .date(r.getDate())
@@ -175,7 +192,7 @@ public class ReportService {
                 .toList();
 
         // ── 12. Direct entries breakdown (income / expense / other) ────────────
-        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(tenantId, startDate, endDate)
+        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(tenantId, companyId, startDate, endDate)
                 .stream()
                 .map(r -> DirectEntryLineInfo.builder()
                         .date(r.getDate())
@@ -281,6 +298,8 @@ public class ReportService {
                 .exchangeGain(exchangeGain)
                 .exchangeReturnLoss(exchangeReturnLoss)
                 .purchaseReturnLoss(purchaseReturnLoss)
+                .serviceRevenue(serviceRevenue)
+                .payrollExpense(payrollExpense)
                 .totalOperatingExpenses(totalOpEx)
                 .netProfit(netProfit)
                 .netMarginPct(netMarginPct)
@@ -349,7 +368,7 @@ public class ReportService {
     // reference these are reconciled against.
     // ─────────────────────────────────────────────────────────────────────────
 
-    public ReceivablesSummaryRs getReceivablesSummary() {
+    public ReceivablesSummaryRs getReceivablesSummary(Long companyId) {
         Long tenantId = TenantContext.get();
         // Scoped to the AR account itself, not just party=CUSTOMER: a SALE source can also carry
         // FINANCE_RECEIVABLE, CUSTOMER_SETTLEMENT_PAYABLE, and CUSTOMER_REFUND_PAYABLE lines
@@ -357,7 +376,7 @@ public class ReportService {
         // party) would still net a payable-type line against the true AR balance. See
         // getFinanceReceivablesSummary() for the finance-company portion.
         List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
-                tenantId, JournalService.SOURCE_SALE, SystemCoaRole.AR.name());
+                tenantId, companyId, JournalService.SOURCE_SALE, SystemCoaRole.AR.name());
 
         // SALE sources are receivable-natured (AR is DR-normal): pending = debit - credit.
         Map<Long, BigDecimal> pendingBySaleId = new LinkedHashMap<>();
@@ -374,7 +393,7 @@ public class ReportService {
         Map<Long, LocalDate> lastPaymentBySaleId = salePaymentRepository.findLastPaymentDatesBySaleIds(saleIds).stream()
                 .collect(Collectors.toMap(LastPaymentDateProjection::getSourceId, LastPaymentDateProjection::getLastPaymentDate));
 
-        List<ReceivableInfo> items = pendingBySaleId.entrySet().stream()
+        List<ReceivableInfo> saleItems = pendingBySaleId.entrySet().stream()
                 .map(e -> {
                     Sale sale = salesById.get(e.getKey());
                     if (sale == null) return null; // source predates this tenant's data / was hard-deleted
@@ -392,6 +411,9 @@ public class ReportService {
                             .build();
                 })
                 .filter(java.util.Objects::nonNull)
+                .toList();
+
+        List<ReceivableInfo> items = saleItems.stream()
                 .sorted((a, b) -> b.getSaleDate().compareTo(a.getSaleDate()))
                 .toList();
         BigDecimal totalPending = items.stream()
@@ -400,7 +422,7 @@ public class ReportService {
         // Combined KPI figure: what customers owe (above) plus what finance companies haven't
         // yet disbursed - deliberately kept as separate fields rather than folded into
         // totalPendingAmount/items, which stay customer-only (see field comments on the DTO).
-        BigDecimal financePending = getFinanceReceivablesSummary().getTotalPendingAmount();
+        BigDecimal financePending = getFinanceReceivablesSummary(companyId).getTotalPendingAmount();
         return ReceivablesSummaryRs.builder()
                 .totalCount(items.size())
                 .totalPendingAmount(totalPending)
@@ -414,10 +436,10 @@ public class ReportService {
     // FINANCE_RECEIVABLE account itself (see getOpenSourceBalancesByRole) - a financed sale can
     // carry both a CUSTOMER-tagged AR line and a FINANCE-tagged FINANCE_RECEIVABLE line under
     // the same source_id, so both party AND account scoping matter here.
-    public FinanceReceivablesSummaryRs getFinanceReceivablesSummary() {
+    public FinanceReceivablesSummaryRs getFinanceReceivablesSummary(Long companyId) {
         Long tenantId = TenantContext.get();
         List<PartySourceBalanceRow> balances = journalDetailRepository.getOpenPartySourceBalances(
-                tenantId, JournalService.PARTY_FINANCE, JournalService.SOURCE_SALE, SystemCoaRole.FINANCE_RECEIVABLE.name());
+                tenantId, companyId, JournalService.PARTY_FINANCE, JournalService.SOURCE_SALE, SystemCoaRole.FINANCE_RECEIVABLE.name());
 
         // FINANCE_RECEIVABLE is receivable-natured (asset, DR-normal): pending = debit - credit.
         Map<Long, Map<Long, BigDecimal>> pendingByCompanyThenSale = new LinkedHashMap<>();
@@ -487,14 +509,14 @@ public class ReportService {
                 .build();
     }
 
-    public PayablesSummaryRs getPayablesSummary() {
+    public PayablesSummaryRs getPayablesSummary(Long companyId) {
         Long tenantId = TenantContext.get();
         // Scoped to the AP account itself, not just source=PURCHASE: a PURCHASE source can also
         // carry RC_DUE_RECEIVABLE and VENDOR_REFUND_RECEIVABLE lines tagged to the same
         // vendor+purchase - summing across accounts would net those receivables against the AP
         // balance and understate what we actually still owe the vendor in cash.
         List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
-                tenantId, JournalService.SOURCE_PURCHASE, SystemCoaRole.AP.name());
+                tenantId, companyId, JournalService.SOURCE_PURCHASE, SystemCoaRole.AP.name());
 
         // PURCHASE sources are payable-natured (AP is CR-normal): pending = credit - debit.
         Map<Long, BigDecimal> pendingByPurchaseId = new LinkedHashMap<>();
@@ -623,15 +645,82 @@ public class ReportService {
         return value != null ? value : BigDecimal.ZERO;
     }
 
-    // Revenue accounts carry a normal credit balance → gain = credit − debit.
-    private BigDecimal ledgerRevenue(Long tenantId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
-        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, role.name(), from, to);
+    // Own endpoint/DTO, deliberately not merged into getReceivablesSummary() — vehicle and
+    // service receivables are different operational workflows (finance/RC-due-linked vs
+    // walk-in/quick-turnover); see [[service_sale_cost_gap]]-adjacent memory for the split
+    // rationale. A service sale posts to the same AR account as a vehicle sale (see
+    // JournalService.handleServiceSale), so this must independently derive its own balances,
+    // not read anything off getReceivablesSummary().
+    public ServiceReceivablesSummaryRs getServiceReceivablesSummary(Long companyId) {
+        Long tenantId = TenantContext.get();
+        List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
+                tenantId, companyId, JournalService.SOURCE_SERVICE_SALE, SystemCoaRole.AR.name());
+
+        Map<Long, BigDecimal> pendingByServiceSaleId = new LinkedHashMap<>();
+        for (SourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getDebit()).subtract(safe(row.getCredit()));
+            if (pending.signum() > 0) {
+                pendingByServiceSaleId.put(row.getSourceId(), pending);
+            }
+        }
+
+        List<Long> serviceSaleIds = new ArrayList<>(pendingByServiceSaleId.keySet());
+        Map<Long, com.triasoft.garage.servicesale.entity.ServiceSale> salesById = serviceSaleRepository.findAllById(serviceSaleIds)
+                .stream().collect(Collectors.toMap(com.triasoft.garage.servicesale.entity.ServiceSale::getId, s -> s));
+        Map<Long, LocalDate> lastPaymentByServiceSaleId = serviceSalePaymentRepository.findLastPaymentDatesByServiceSaleIds(serviceSaleIds).stream()
+                .collect(Collectors.toMap(LastPaymentDateProjection::getSourceId, LastPaymentDateProjection::getLastPaymentDate));
+
+        List<ServiceReceivableInfo> items = pendingByServiceSaleId.entrySet().stream()
+                .map(e -> {
+                    var sale = salesById.get(e.getKey());
+                    if (sale == null) return null;
+                    return ServiceReceivableInfo.builder()
+                            .serviceSaleId(sale.getId())
+                            .invoiceNo(sale.getInvoiceNo())
+                            .paymentStatus(sale.getPaymentStatus() != null ? sale.getPaymentStatus().name() : null)
+                            .saleDate(sale.getSaleDate())
+                            .amount(safe(sale.getTotalAmount()))
+                            .pendingAmount(e.getValue())
+                            .lastPaymentDate(lastPaymentByServiceSaleId.get(sale.getId()))
+                            .customerName(sale.customerDisplayName())
+                            .customerMobile(sale.getCustomer() != null ? sale.getCustomer().getMobile() : null)
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> b.getSaleDate().compareTo(a.getSaleDate()))
+                .toList();
+
+        BigDecimal totalPending = items.stream()
+                .map(ServiceReceivableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return ServiceReceivablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
+    // Revenue accounts carry a normal credit balance → gain = credit − debit. companyId == null
+    // means "overall" (all companies combined) - sumBySystemRoleByCompany already computes
+    // credit - debit per company with no reference-type join needed (see CompanyReportService),
+    // so summing its rows across every company gives the tenant-wide total directly.
+    private BigDecimal ledgerRevenue(Long tenantId, Long companyId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        if (companyId == null) {
+            return sumBd(journalDetailRepository.sumBySystemRoleByCompany(tenantId, role.name(), from, to), CompanyAmountRow::getAmount);
+        }
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, companyId, role.name(), from, to);
         return r == null ? BigDecimal.ZERO : safe(r.getCredit()).subtract(safe(r.getDebit()));
     }
 
-    // Expense/loss accounts carry a normal debit balance → loss = debit − credit.
-    private BigDecimal ledgerExpense(Long tenantId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
-        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, role.name(), from, to);
+    // Expense/loss accounts carry a normal debit balance → loss = debit − credit. sumBySystem
+    // RoleByCompany's amount is credit - debit, so the all-companies total needs negating to
+    // match this method's debit - credit convention.
+    private BigDecimal ledgerExpense(Long tenantId, Long companyId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
+        if (companyId == null) {
+            return sumBd(journalDetailRepository.sumBySystemRoleByCompany(tenantId, role.name(), from, to), CompanyAmountRow::getAmount).negate();
+        }
+        var r = journalDetailRepository.sumBySystemRoleInPeriod(tenantId, companyId, role.name(), from, to);
         return r == null ? BigDecimal.ZERO : safe(r.getDebit()).subtract(safe(r.getCredit()));
     }
 

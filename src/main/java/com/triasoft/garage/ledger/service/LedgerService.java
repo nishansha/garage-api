@@ -34,8 +34,9 @@ public class LedgerService {
     private final JournalDetailRepository journalDetailRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
 
-    public Journal createJournal(String referenceType, Long referenceId, LocalDate date, String description) {
+    public Journal createJournal(String referenceType, Long referenceId, Long companyId, LocalDate date, String description) {
         Journal journal = new Journal();
+        journal.setCompanyId(companyId);
         journal.setJournalDate(date != null ? date : LocalDate.now());
         journal.setReferenceType(referenceType);
         journal.setReferenceId(referenceId);
@@ -103,8 +104,8 @@ public class LedgerService {
         journalDetailRepository.saveAll(lines);
     }
 
-    public ChartOfAccount findAccountBySystemRole(String systemRole) {
-        return chartOfAccountRepository.findBySystemRole(systemRole)
+    public ChartOfAccount findAccountBySystemRole(String systemRole, Long companyId) {
+        return chartOfAccountRepository.findBySystemRoleAndCompanyId(systemRole, companyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.JOURNAL_COA_MISSING));
     }
 
@@ -131,6 +132,7 @@ public class LedgerService {
         List<JournalDetail> originalLines = journalDetailRepository.findByJournalId(original.getId());
 
         Journal reversal = new Journal();
+        reversal.setCompanyId(original.getCompanyId());
         reversal.setJournalDate(reversalDate != null ? reversalDate : original.getJournalDate());
         reversal.setReferenceType(referenceType);
         reversal.setReferenceId(referenceId);
@@ -183,7 +185,19 @@ public class LedgerService {
             throw new BusinessException(ErrorCode.Business.JOURNAL_NOT_BALANCED);
         }
 
+        // Every line's account must belong to the same company — a manual journal can't
+        // straddle two companies' separate books.
+        List<ChartOfAccount> accounts = rq.getLines().stream()
+                .map(lineRq -> chartOfAccountRepository.findById(lineRq.getAccountId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.Business.JOURNAL_COA_MISSING)))
+                .toList();
+        Long companyId = accounts.get(0).getCompanyId();
+        if (accounts.stream().anyMatch(a -> !java.util.Objects.equals(companyId, a.getCompanyId()))) {
+            throw new BusinessException(ErrorCode.Business.JOURNAL_LINES_CROSS_COMPANY);
+        }
+
         Journal journal = new Journal();
+        journal.setCompanyId(companyId);
         journal.setJournalDate(rq.getJournalDate() != null ? rq.getJournalDate() : LocalDate.now());
         journal.setReferenceType("MANUAL_JOURNAL");
         journal.setReferenceId(0L); // placeholder, set to own id after save
@@ -194,9 +208,9 @@ public class LedgerService {
         journal = journalRepository.save(journal);
 
         List<JournalDetail> lines = new ArrayList<>();
-        for (var lineRq : rq.getLines()) {
-            ChartOfAccount account = chartOfAccountRepository.findById(lineRq.getAccountId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.Business.JOURNAL_COA_MISSING));
+        for (int i = 0; i < rq.getLines().size(); i++) {
+            var lineRq = rq.getLines().get(i);
+            ChartOfAccount account = accounts.get(i);
             JournalDetail line = new JournalDetail();
             line.setJournal(journal);
             line.setAccount(account);

@@ -20,6 +20,7 @@ public class SaleDTO implements Serializable {
     private String invoiceNo;
     private LocalDate date;
     private Long stockId;
+    private Long warehouseId;
     private String customerName;
     private String customerMobileNo;
     private String customerAddress;

@@ -22,6 +22,9 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
 
     Page<DirectEntry> findAllByChartOfAccount_TypeAndChartOfAccount_IsDirectPostableTrueOrderByEntryDateDescCreatedAtDesc(String type, Pageable pageable);
 
+    // DirectEntry has no company_id column of its own (same as Expense) - derives it via its
+    // (required) coa_id, same trick JournalService.handleExpense/AccountService use elsewhere.
+    // companyId nullable - null means "overall", see SaleRepository.getProfitReport's comment.
     @Query(value = """
             SELECT
               COALESCE(SUM(CASE WHEN d.direction = 'IN' AND coa.type = 'REVENUE'
@@ -33,8 +36,9 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
             WHERE d.deleted = false
               AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
+              AND (:companyId IS NULL OR coa.company_id = :companyId)
             """, nativeQuery = true)
-    PLDirectEntryMetrics getDirectEntryMetrics(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    PLDirectEntryMetrics getDirectEntryMetrics(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -55,8 +59,9 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
             WHERE d.deleted = false
               AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
+              AND (:companyId IS NULL OR coa.company_id = :companyId)
             ORDER BY d.entry_date, d.id
             """, nativeQuery = true)
-    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

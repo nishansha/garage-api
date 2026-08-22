@@ -17,6 +17,7 @@ import com.triasoft.garage.model.payment.PaymentAccountRs;
 import com.triasoft.garage.model.payment.ReconcileRq;
 import com.triasoft.garage.model.payment.ReconcileRs;
 import com.triasoft.garage.model.payment.TransactionRs;
+import com.triasoft.garage.company.repository.CompanyRepository;
 import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
@@ -39,22 +40,33 @@ public class PaymentAccountService {
     private final PaymentAccountRepository paymentAccountRepository;
     private final TransactionRepository transactionRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
+    private final CompanyRepository companyRepository;
     private final JournalService journalService;
 
-    public PaymentAccountRs getAll() {
-        List<PaymentAccountDTO> accounts = paymentAccountRepository.findAllByIsActiveTrue()
+    // companyId is an optional filter, not a required scope like on report endpoints — omitted,
+    // this returns every active account tenant-wide (each DTO carries its own companyId for
+    // client-side grouping); passed, it narrows to that company's accounts, e.g. for a
+    // payment-account picker on a company-specific transaction form.
+    public PaymentAccountRs getAll(Long companyId) {
+        List<PaymentAccountDTO> accounts = accountsFor(companyId)
                 .stream()
                 .map(a -> toDTO(a, null))
                 .toList();
         return PaymentAccountRs.builder().accounts(accounts).build();
     }
 
-    public PaymentAccountRs getAllWithBalance() {
-        List<PaymentAccountDTO> accounts = paymentAccountRepository.findAllByIsActiveTrue()
+    public PaymentAccountRs getAllWithBalance(Long companyId) {
+        List<PaymentAccountDTO> accounts = accountsFor(companyId)
                 .stream()
                 .map(a -> toDTO(a, computeBalance(a)))
                 .toList();
         return PaymentAccountRs.builder().accounts(accounts).build();
+    }
+
+    private List<PaymentAccount> accountsFor(Long companyId) {
+        return companyId != null
+                ? paymentAccountRepository.findAllByIsActiveTrueAndCompanyId(companyId)
+                : paymentAccountRepository.findAllByIsActiveTrue();
     }
 
     public PaymentAccountDTO get(Long id) {
@@ -70,7 +82,11 @@ public class PaymentAccountService {
         if (StringUtils.hasText(rq.getAccountNo()) && paymentAccountRepository.existsByAccountNoIgnoreCase(rq.getAccountNo())) {
             throw new BusinessException(ErrorCode.Business.PAYMENT_ACCOUNT_NO_EXISTS);
         }
+        if (!companyRepository.existsById(rq.getCompanyId())) {
+            throw new BusinessException(ErrorCode.Business.COMPANY_NOT_FOUND);
+        }
         PaymentAccount account = new PaymentAccount();
+        account.setCompanyId(rq.getCompanyId());
         account.setName(rq.getName());
         account.setBankName(rq.getBankName());
         account.setAccountNo(rq.getAccountNo());
@@ -218,6 +234,7 @@ public class PaymentAccountService {
         boolean isBank = AccountTypeEnum.BANK.equals(account.getAccountType());
         long nextCode = chartOfAccountRepository.findMaxNumericCodeByType(TenantContext.get(), "ASSET") + 1;
         ChartOfAccount coa = new ChartOfAccount();
+        coa.setCompanyId(account.getCompanyId());
         coa.setType("ASSET");
         coa.setName(isBank ? "A-BNK-" + account.getId() : "A-CSH-" + account.getId());
         coa.setCode(String.valueOf(nextCode));
@@ -243,6 +260,7 @@ public class PaymentAccountService {
         return PaymentAccountDTO.builder()
                 .id(account.getId())
                 .version(account.getVersion())
+                .companyId(account.getCompanyId())
                 .name(account.getName())
                 .bankName(account.getBankName())
                 .accountNo(account.getAccountNo())

@@ -32,6 +32,12 @@ public class Purchase extends TenantAwareAuditEntity {
     @Column(name = "reference_no", unique = true, nullable = false)
     private String referenceNo;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
+    @Column(name = "warehouse_id", nullable = false)
+    private Long warehouseId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;

@@ -255,6 +255,7 @@ CREATE TABLE public.app_expense (
     date date NOT NULL,
     deleted boolean DEFAULT false NOT NULL,
     payment_account_id bigint,
+    warehouse_id bigint,
     version bigint DEFAULT 0 NOT NULL
 );
 
@@ -277,6 +278,7 @@ CREATE TABLE public.app_expense_aud (
     modified_by bigint,
     payment_account_id bigint,
     purchase_order_id bigint,
+    warehouse_id bigint,
     rev bigint NOT NULL,
     description character varying(255),
     other_expense character varying(255)
@@ -336,6 +338,7 @@ ALTER TABLE public.app_inventory OWNER TO postgres;
 CREATE TABLE public.app_journal (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
     journal_date date NOT NULL,
     reference_type character varying(50) NOT NULL,
     reference_id bigint NOT NULL,
@@ -442,6 +445,7 @@ ALTER SEQUENCE public.app_journal_id_seq1 OWNED BY public.app_journal.id;
 CREATE TABLE public.app_payment_account (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
     name character varying(100) NOT NULL,
     bank_name character varying(100),
     account_no character varying(50),
@@ -576,6 +580,8 @@ ALTER TABLE public.app_purchase_order_id_seq OWNER TO postgres;
 CREATE TABLE public.app_purchase_order (
     id bigint DEFAULT nextval('public.app_purchase_order_id_seq'::regclass) NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
+    warehouse_id bigint NOT NULL,
     reference_no character varying(255) NOT NULL,
     vendor_id bigint NOT NULL,
     order_date date NOT NULL,
@@ -618,6 +624,8 @@ CREATE TABLE public.app_purchase_order_aud (
     rev bigint NOT NULL,
     status_id bigint,
     vendor_id bigint,
+    company_id bigint,
+    warehouse_id bigint,
     notes character varying(255),
     pickup_location character varying(255),
     reference_no character varying(255)
@@ -952,6 +960,7 @@ ALTER SEQUENCE public.app_rc_due_receipt_id_seq OWNED BY public.app_rc_due_recei
 CREATE TABLE public.app_sale (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     created_by bigint NOT NULL,
     modified_at timestamp(6) without time zone,
@@ -1055,6 +1064,7 @@ CREATE TABLE public.app_sale_aud (
     modified_by bigint,
     rev bigint NOT NULL,
     status_id bigint,
+    company_id bigint,
     finance_company character varying(255),
     finance_company_id bigint,
     invoice_no character varying(255),
@@ -1439,6 +1449,331 @@ ALTER SEQUENCE public.app_transaction_id_seq OWNED BY public.app_transaction.id;
 
 
 --
+-- Name: app_company_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_company_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_company_id_seq OWNER TO postgres;
+
+--
+-- Name: app_company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_company (
+    id bigint DEFAULT nextval('public.app_company_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    code character varying(50) NOT NULL,
+    name character varying(255) NOT NULL,
+    registration_no character varying(255),
+    address character varying(255),
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: user_company_access_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.user_company_access_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.user_company_access_id_seq OWNER TO postgres;
+
+--
+-- Name: user_company_access; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.user_company_access (
+    id bigint DEFAULT nextval('public.user_company_access_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    company_id bigint NOT NULL
+);
+
+
+--
+-- Name: warehouse_business_line_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.warehouse_business_line_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.warehouse_business_line_id_seq OWNER TO postgres;
+
+--
+-- Name: warehouse_business_line; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.warehouse_business_line (
+    id bigint DEFAULT nextval('public.warehouse_business_line_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    warehouse_id bigint NOT NULL,
+    business_line character varying(20) NOT NULL
+);
+
+
+--
+-- Name: sso_ref_no_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.sso_ref_no_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.sso_ref_no_seq OWNER TO postgres;
+
+--
+-- Name: app_service_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_service_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_service_id_seq OWNER TO postgres;
+
+--
+-- Name: app_service; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_service (
+    id bigint DEFAULT nextval('public.app_service_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    warehouse_id bigint NOT NULL,
+    code character varying(50) NOT NULL,
+    name character varying(255) NOT NULL,
+    default_rate numeric(15,2) NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: app_service_sale_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_service_sale_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_service_sale_id_seq OWNER TO postgres;
+
+--
+-- Name: app_service_sale; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_service_sale (
+    id bigint DEFAULT nextval('public.app_service_sale_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
+    warehouse_id bigint NOT NULL,
+    invoice_no character varying(255) NOT NULL,
+    customer_id bigint,
+    walk_in_customer_name character varying(255),
+    sale_date date NOT NULL,
+    total_amount numeric(15,2) NOT NULL,
+    payment_status character varying(20) NOT NULL,
+    notes character varying(500),
+    deleted boolean DEFAULT false NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: app_service_sale_item_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_service_sale_item_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_service_sale_item_id_seq OWNER TO postgres;
+
+--
+-- Name: app_service_sale_item; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_service_sale_item (
+    id bigint DEFAULT nextval('public.app_service_sale_item_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    service_sale_id bigint NOT NULL,
+    service_offering_id bigint,
+    description character varying(255) NOT NULL,
+    qty numeric(10,2) NOT NULL,
+    rate numeric(15,2) NOT NULL,
+    amount numeric(15,2) NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: app_service_sale_payment_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_service_sale_payment_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_service_sale_payment_id_seq OWNER TO postgres;
+
+--
+-- Name: app_service_sale_payment; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_service_sale_payment (
+    id bigint DEFAULT nextval('public.app_service_sale_payment_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    service_sale_id bigint NOT NULL,
+    amount numeric(15,2) NOT NULL,
+    payment_date date NOT NULL,
+    payment_method character varying(20) NOT NULL,
+    reference_no character varying(255),
+    notes character varying(500),
+    payment_account_id bigint NOT NULL,
+    deleted boolean DEFAULT false NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: app_employee_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_employee_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_employee_id_seq OWNER TO postgres;
+
+--
+-- Name: app_employee; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_employee (
+    id bigint DEFAULT nextval('public.app_employee_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
+    employee_code character varying(50) NOT NULL,
+    name character varying(255) NOT NULL,
+    designation character varying(100),
+    join_date date NOT NULL,
+    termination_date date,
+    salary_amount numeric(15,2) NOT NULL,
+    bank_name character varying(100),
+    bank_account_no character varying(50),
+    payment_account_id bigint NOT NULL,
+    user_profile_id bigint,
+    active boolean DEFAULT true NOT NULL,
+    deleted boolean DEFAULT false NOT NULL,
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: app_salary_payment_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.app_salary_payment_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.app_salary_payment_id_seq OWNER TO postgres;
+
+--
+-- Name: app_salary_payment; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.app_salary_payment (
+    id bigint DEFAULT nextval('public.app_salary_payment_id_seq'::regclass) NOT NULL,
+    tenant_id bigint NOT NULL,
+    employee_id bigint NOT NULL,
+    pay_period_month integer NOT NULL,
+    pay_period_year integer NOT NULL,
+    gross_amount numeric(15,2) NOT NULL,
+    net_amount numeric(15,2) NOT NULL,
+    payment_date date,
+    payment_account_id bigint,
+    status character varying(20) NOT NULL,
+    notes character varying(500),
+    created_at timestamp without time zone,
+    created_by bigint,
+    modified_at timestamp without time zone,
+    modified_by bigint,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+
+--
 -- Name: app_finance_company_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -1558,6 +1893,7 @@ ALTER TABLE public.fnd_chart_of_accounts_id_seq OWNER TO postgres;
 CREATE TABLE public.fnd_chart_of_accounts (
     id bigint DEFAULT nextval('public.fnd_chart_of_accounts_id_seq'::regclass) NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
     code character varying(255) NOT NULL,
     name character varying(255) NOT NULL,
     description character varying(255) NOT NULL,
@@ -1914,6 +2250,7 @@ ALTER TABLE public.inf_warehouse_id_seq OWNER TO postgres;
 CREATE TABLE public.inf_warehouse (
     id bigint DEFAULT nextval('public.inf_warehouse_id_seq'::regclass) NOT NULL,
     tenant_id bigint NOT NULL,
+    company_id bigint NOT NULL,
     code character varying(50) NOT NULL,
     name character varying NOT NULL,
     address character varying,
@@ -2047,7 +2384,8 @@ CREATE TABLE public.user_profile (
     deleted boolean DEFAULT false,
     role character varying,
     name character varying,
-    designation character varying
+    designation character varying,
+    default_company_id bigint
 );
 
 
@@ -2555,6 +2893,134 @@ ALTER TABLE ONLY public.app_transaction
 
 ALTER TABLE ONLY public.app_vendor
     ADD CONSTRAINT app_vendor_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_employee app_employee_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_employee app_employee_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_uk1 UNIQUE (tenant_id, company_id, employee_code);
+
+
+--
+-- Name: app_salary_payment app_salary_payment_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_salary_payment
+    ADD CONSTRAINT app_salary_payment_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_salary_payment app_salary_payment_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_salary_payment
+    ADD CONSTRAINT app_salary_payment_uk1 UNIQUE (employee_id, pay_period_month, pay_period_year);
+
+
+--
+-- Name: app_service app_service_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service
+    ADD CONSTRAINT app_service_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_service app_service_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service
+    ADD CONSTRAINT app_service_uk1 UNIQUE (tenant_id, warehouse_id, code);
+
+
+--
+-- Name: app_service_sale app_service_sale_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_service_sale app_service_sale_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_uk1 UNIQUE (tenant_id, invoice_no);
+
+
+--
+-- Name: app_service_sale_item app_service_sale_item_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_item
+    ADD CONSTRAINT app_service_sale_item_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_service_sale_payment app_service_sale_payment_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_payment
+    ADD CONSTRAINT app_service_sale_payment_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_company app_company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_company
+    ADD CONSTRAINT app_company_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: app_company app_company_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_company
+    ADD CONSTRAINT app_company_uk1 UNIQUE (tenant_id, code);
+
+
+--
+-- Name: user_company_access user_company_access_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_company_access
+    ADD CONSTRAINT user_company_access_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_company_access user_company_access_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_company_access
+    ADD CONSTRAINT user_company_access_uk1 UNIQUE (tenant_id, user_id, company_id);
+
+
+--
+-- Name: warehouse_business_line warehouse_business_line_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.warehouse_business_line
+    ADD CONSTRAINT warehouse_business_line_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: warehouse_business_line warehouse_business_line_uk1; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.warehouse_business_line
+    ADD CONSTRAINT warehouse_business_line_uk1 UNIQUE (tenant_id, warehouse_id, business_line);
 
 
 --
@@ -3141,7 +3607,7 @@ CREATE INDEX ix_user_refresh_token_user_id ON public.user_refresh_token USING bt
 -- Name: uq_coa_system_role; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE UNIQUE INDEX uq_coa_system_role ON public.fnd_chart_of_accounts USING btree (tenant_id, system_role) WHERE (system_role IS NOT NULL);
+CREATE UNIQUE INDEX uq_coa_system_role ON public.fnd_chart_of_accounts USING btree (tenant_id, company_id, system_role) WHERE (system_role IS NOT NULL);
 
 
 --
@@ -3176,6 +3642,14 @@ ALTER TABLE ONLY public.app_expense
 
 
 --
+-- Name: app_expense app_expense_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_expense
+    ADD CONSTRAINT app_expense_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
+
+
+--
 -- Name: app_inventory app_inventory_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3189,6 +3663,14 @@ ALTER TABLE ONLY public.app_inventory
 
 ALTER TABLE ONLY public.app_journal
     ADD CONSTRAINT app_journal_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_journal app_journal_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_journal
+    ADD CONSTRAINT app_journal_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
 
 
 --
@@ -3206,6 +3688,9 @@ ALTER TABLE ONLY public.app_journal_detail
 ALTER TABLE ONLY public.app_payment_account
     ADD CONSTRAINT app_payment_account_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
 
+ALTER TABLE ONLY public.app_payment_account
+    ADD CONSTRAINT app_payment_account_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
 
 --
 -- Name: app_product app_product_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
@@ -3221,6 +3706,22 @@ ALTER TABLE ONLY public.app_product
 
 ALTER TABLE ONLY public.app_purchase_order
     ADD CONSTRAINT app_purchase_order_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_purchase_order app_purchase_order_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_purchase_order
+    ADD CONSTRAINT app_purchase_order_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
+
+--
+-- Name: app_purchase_order app_purchase_order_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_purchase_order
+    ADD CONSTRAINT app_purchase_order_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
 
 
 --
@@ -3261,6 +3762,14 @@ ALTER TABLE ONLY public.app_purchase_return_receipt
 
 ALTER TABLE ONLY public.app_sale
     ADD CONSTRAINT app_sale_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_sale app_sale_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_sale
+    ADD CONSTRAINT app_sale_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
 
 
 --
@@ -3336,6 +3845,206 @@ ALTER TABLE ONLY public.app_finance_company
 
 
 --
+-- Name: app_employee app_employee_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_employee app_employee_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
+
+--
+-- Name: app_employee app_employee_payment_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_payment_account_id_fkey FOREIGN KEY (payment_account_id) REFERENCES public.app_payment_account(id);
+
+
+--
+-- Name: app_employee app_employee_user_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_employee
+    ADD CONSTRAINT app_employee_user_profile_id_fkey FOREIGN KEY (user_profile_id) REFERENCES public.user_profile(id);
+
+
+--
+-- Name: app_salary_payment app_salary_payment_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_salary_payment
+    ADD CONSTRAINT app_salary_payment_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_salary_payment app_salary_payment_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_salary_payment
+    ADD CONSTRAINT app_salary_payment_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.app_employee(id);
+
+
+--
+-- Name: app_salary_payment app_salary_payment_payment_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_salary_payment
+    ADD CONSTRAINT app_salary_payment_payment_account_id_fkey FOREIGN KEY (payment_account_id) REFERENCES public.app_payment_account(id);
+
+
+--
+-- Name: app_service app_service_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service
+    ADD CONSTRAINT app_service_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_service app_service_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service
+    ADD CONSTRAINT app_service_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
+
+
+--
+-- Name: app_service_sale app_service_sale_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_service_sale app_service_sale_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
+
+--
+-- Name: app_service_sale app_service_sale_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
+
+
+--
+-- Name: app_service_sale app_service_sale_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale
+    ADD CONSTRAINT app_service_sale_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.app_customer(id);
+
+
+--
+-- Name: app_service_sale_item app_service_sale_item_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_item
+    ADD CONSTRAINT app_service_sale_item_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_service_sale_item app_service_sale_item_service_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_item
+    ADD CONSTRAINT app_service_sale_item_service_sale_id_fkey FOREIGN KEY (service_sale_id) REFERENCES public.app_service_sale(id);
+
+
+--
+-- Name: app_service_sale_item app_service_sale_item_service_offering_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_item
+    ADD CONSTRAINT app_service_sale_item_service_offering_id_fkey FOREIGN KEY (service_offering_id) REFERENCES public.app_service(id);
+
+
+--
+-- Name: app_service_sale_payment app_service_sale_payment_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_payment
+    ADD CONSTRAINT app_service_sale_payment_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_service_sale_payment app_service_sale_payment_service_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_payment
+    ADD CONSTRAINT app_service_sale_payment_service_sale_id_fkey FOREIGN KEY (service_sale_id) REFERENCES public.app_service_sale(id);
+
+
+--
+-- Name: app_service_sale_payment app_service_sale_payment_payment_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_service_sale_payment
+    ADD CONSTRAINT app_service_sale_payment_payment_account_id_fkey FOREIGN KEY (payment_account_id) REFERENCES public.app_payment_account(id);
+
+
+--
+-- Name: app_company app_company_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_company
+    ADD CONSTRAINT app_company_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: user_company_access user_company_access_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_company_access
+    ADD CONSTRAINT user_company_access_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: user_company_access user_company_access_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_company_access
+    ADD CONSTRAINT user_company_access_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profile(id);
+
+
+--
+-- Name: user_company_access user_company_access_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_company_access
+    ADD CONSTRAINT user_company_access_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
+
+--
+-- Name: warehouse_business_line warehouse_business_line_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.warehouse_business_line
+    ADD CONSTRAINT warehouse_business_line_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: warehouse_business_line warehouse_business_line_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.warehouse_business_line
+    ADD CONSTRAINT warehouse_business_line_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
+
+
+--
 -- Name: inf_warehouse inf_warehouse_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3344,11 +4053,27 @@ ALTER TABLE ONLY public.inf_warehouse
 
 
 --
+-- Name: inf_warehouse inf_warehouse_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.inf_warehouse
+    ADD CONSTRAINT inf_warehouse_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
+
+
+--
 -- Name: fnd_chart_of_accounts fnd_chart_of_accounts_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.fnd_chart_of_accounts
     ADD CONSTRAINT fnd_chart_of_accounts_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: fnd_chart_of_accounts fnd_chart_of_accounts_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.fnd_chart_of_accounts
+    ADD CONSTRAINT fnd_chart_of_accounts_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.app_company(id);
 
 
 --
@@ -3373,6 +4098,14 @@ ALTER TABLE ONLY public.fnd_role_privilege
 
 ALTER TABLE ONLY public.user_profile
     ADD CONSTRAINT user_profile_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: user_profile user_profile_default_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_profile
+    ADD CONSTRAINT user_profile_default_company_id_fkey FOREIGN KEY (default_company_id) REFERENCES public.app_company(id);
 
 
 --

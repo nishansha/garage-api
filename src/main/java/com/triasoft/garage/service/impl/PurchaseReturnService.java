@@ -254,6 +254,7 @@ public class PurchaseReturnService {
                 .brandName(product.getBrand() != null ? product.getBrand().getDescription() : null)
                 .modelName(product.getModel() != null ? product.getModel().getDescription() : null)
                 .variantName(product.getVarient() != null ? product.getVarient().getDescription() : null)
+                .warehouseId(inv.getWarehouseId())
                 .vendorName(pr.getPurchase().getVendor() != null ? pr.getPurchase().getVendor().getName() : null)
                 .returnDate(pr.getReturnDate())
                 .reason(pr.getReason())

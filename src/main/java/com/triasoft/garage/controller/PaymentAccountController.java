@@ -29,13 +29,13 @@ public class PaymentAccountController {
     private final PaymentAccountService paymentAccountService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PaymentAccountRs>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.getAll()));
+    ResponseEntity<ApiResponse<PaymentAccountRs>> getAll(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.getAll(companyId)));
     }
 
     @GetMapping(value = "/balance", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PaymentAccountRs>> getAllWithBalance() {
-        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.getAllWithBalance()));
+    ResponseEntity<ApiResponse<PaymentAccountRs>> getAllWithBalance(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(paymentAccountService.getAllWithBalance(companyId)));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

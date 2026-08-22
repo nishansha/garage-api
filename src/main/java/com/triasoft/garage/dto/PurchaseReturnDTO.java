@@ -23,6 +23,7 @@ public class PurchaseReturnDTO implements Serializable {
     private String brandName;
     private String modelName;
     private String variantName;
+    private Long warehouseId;
     private String vendorName;
     private LocalDate returnDate;
     private String reason;

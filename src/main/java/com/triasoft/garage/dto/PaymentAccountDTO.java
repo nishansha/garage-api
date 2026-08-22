@@ -17,6 +17,7 @@ public class PaymentAccountDTO implements Serializable {
 
     private Long id;
     private Long version;
+    private Long companyId;
     private String name;
     private String bankName;
     private String accountNo;

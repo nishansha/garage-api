@@ -58,6 +58,7 @@ public class SalesService {
     private final JournalService journalService;
     private final FinanceCompanyRepository financeCompanyRepository;
     private final ReportService reportService;
+    private final WarehouseRepository warehouseRepository;
 
     public SalesRs getAll(Pageable pageable, UserDTO user) {
         Page<Sale> salePage = saleRepository.findAllWithDetails(pageable);
@@ -115,6 +116,7 @@ public class SalesService {
                 .paymentStatus(sale.getPaymentStatus())
                 .statusId(sale.getStatus() != null ? sale.getStatus().getId() : null)
                 .statusName(sale.getStatus() != null ? sale.getStatus().getDescription() : null)
+                .warehouseId(sale.getInventory().getWarehouseId())
                 .build();
     }
 
@@ -126,6 +128,7 @@ public class SalesService {
             throw new BusinessException(ErrorCode.Business.ALREADY_SOLD);
         }
         Sale sale = new Sale();
+        sale.setCompanyId(resolveCompanyIdForWarehouse(stock.getWarehouseId()));
         sale.setInvoiceNo("SO-" + saleRepository.getNextReferenceNumber());
         sale.setCustomer(customer);
         sale.setInventory(stock);
@@ -222,6 +225,15 @@ public class SalesService {
         exchangePurchaseRq.setDate(saleRq.getDate());
         exchangePurchaseRq.setExpenses(details.getExpenses());
         purchaseService.update(exchangeInv.getPurchaseOrderDetail().getPurchase().getId(), exchangePurchaseRq, user);
+    }
+
+    private Long resolveCompanyIdForWarehouse(Long warehouseId) {
+        if (warehouseId == null) {
+            throw new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND);
+        }
+        return warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND))
+                .getCompanyId();
     }
 
     private Customer createCustomer(SalesRq saleRq, UserDTO user) {
@@ -705,8 +717,8 @@ public class SalesService {
     // formula - that formula blended customer-owed and finance-company-owed amounts under a
     // single "pending" figure attributed entirely to the customer's name/mobile, which is
     // actionably wrong for collections when a sale is financed. See ReportService.getReceivablesSummary.
-    public ReceivablesSummaryRs getReceivablesSummary() {
-        return reportService.getReceivablesSummary();
+    public ReceivablesSummaryRs getReceivablesSummary(Long companyId) {
+        return reportService.getReceivablesSummary(companyId);
     }
 
     private BigDecimal safe(BigDecimal value) {

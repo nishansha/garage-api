@@ -36,4 +36,8 @@ public class UserProfile extends TenantScopedEntity {
     @Column(name = "designation")
     private String designation;
 
+    /** UX-only default for pre-filling forms — never an access boundary; see UserCompanyAccess. */
+    @Column(name = "default_company_id")
+    private Long defaultCompanyId;
+
 }

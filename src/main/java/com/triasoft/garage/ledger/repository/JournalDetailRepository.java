@@ -5,6 +5,8 @@ import com.triasoft.garage.ledger.projection.AccountBalanceRow;
 import com.triasoft.garage.ledger.projection.LedgerRow;
 import com.triasoft.garage.ledger.projection.PartySourceBalanceRow;
 import com.triasoft.garage.ledger.projection.SourceBalanceRow;
+import com.triasoft.garage.projection.CompanyAmountRow;
+import com.triasoft.garage.projection.WarehouseAmountRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -114,13 +116,84 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             JOIN app_journal j ON j.id = jd.journal_id
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
             WHERE jd.tenant_id = :tenantId
+              AND coa.company_id = :companyId
               AND coa.system_role = :systemRole
               AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
             """, nativeQuery = true)
     OpeningBalanceRow sumBySystemRoleInPeriod(@Param("tenantId") Long tenantId,
+                                              @Param("companyId") Long companyId,
                                               @Param("systemRole") String systemRole,
                                               @Param("fromDate") LocalDate fromDate,
                                               @Param("toDate") LocalDate toDate);
+
+    // All-companies variant of sumBySystemRoleInPeriod, for comparison reports (e.g. exchange
+    // gain per company in CompanyReportService) - grouped by the journal's own company_id
+    // rather than filtered to one, since we want every company's total in one query.
+    @Query(value = """
+            SELECT
+              j.company_id                       as companyId,
+              COALESCE(SUM(jd.credit_amount - jd.debit_amount), 0) as amount
+            FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            WHERE jd.tenant_id = :tenantId
+              AND coa.system_role = :systemRole
+              AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
+            GROUP BY j.company_id
+            """, nativeQuery = true)
+    List<CompanyAmountRow> sumBySystemRoleByCompany(@Param("tenantId") Long tenantId,
+                                                     @Param("systemRole") String systemRole,
+                                                     @Param("fromDate") LocalDate fromDate,
+                                                     @Param("toDate") LocalDate toDate);
+
+    // Warehouse-scoped totals for return/exchange system-role accounts - ledger entries in
+    // general aren't warehouse-tagged, so each of these traces a specific role back to a
+    // warehouse via the ONE journal reference type it's always posted on:
+    //   - GAIN_ON_EXCHANGE_ADJ is posted on BOTH a SALE_RETURN journal (KEEP_AND_BUYBACK
+    //     renegotiation gain) AND a PURCHASE_RETURN journal (purchase-return gain) -
+    //     JournalService.java:419 and :510 - so it needs BOTH queries below, summed.
+    //   - LOSS_RETURNED_EXCHANGE is SALE_RETURN-only (JournalService.java:405).
+    //   - LOSS_PURCHASE_RETURN is PURCHASE_RETURN-only (JournalService.java:507).
+    // sumBySystemRoleByCompany above doesn't need this split - company_id lives directly on
+    // app_journal regardless of reference type, only the warehouse trace requires it.
+    @Query(value = """
+            SELECT
+              i.warehouse_id                     as warehouseId,
+              COALESCE(SUM(jd.credit_amount - jd.debit_amount), 0) as amount
+            FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            JOIN app_sale_return sr ON sr.id = j.reference_id AND j.reference_type = 'SALE_RETURN'
+            JOIN app_sale s ON s.id = sr.sale_id
+            JOIN app_inventory i ON i.id = s.inventory_id
+            WHERE jd.tenant_id = :tenantId
+              AND coa.system_role = :systemRole
+              AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
+            GROUP BY i.warehouse_id
+            """, nativeQuery = true)
+    List<WarehouseAmountRow> sumSaleReturnRoleByWarehouse(@Param("tenantId") Long tenantId,
+                                                           @Param("systemRole") String systemRole,
+                                                           @Param("fromDate") LocalDate fromDate,
+                                                           @Param("toDate") LocalDate toDate);
+
+    @Query(value = """
+            SELECT
+              po.warehouse_id                    as warehouseId,
+              COALESCE(SUM(jd.credit_amount - jd.debit_amount), 0) as amount
+            FROM app_journal_detail jd
+            JOIN app_journal j ON j.id = jd.journal_id
+            JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
+            JOIN app_purchase_return pr ON pr.id = j.reference_id AND j.reference_type = 'PURCHASE_RETURN'
+            JOIN app_purchase_order po ON po.id = pr.purchase_id
+            WHERE jd.tenant_id = :tenantId
+              AND coa.system_role = :systemRole
+              AND j.journal_date BETWEEN CAST(:fromDate AS DATE) AND CAST(:toDate AS DATE)
+            GROUP BY po.warehouse_id
+            """, nativeQuery = true)
+    List<WarehouseAmountRow> sumPurchaseReturnRoleByWarehouse(@Param("tenantId") Long tenantId,
+                                                               @Param("systemRole") String systemRole,
+                                                               @Param("fromDate") LocalDate fromDate,
+                                                               @Param("toDate") LocalDate toDate);
 
     @Query(value = """
             SELECT
@@ -221,12 +294,14 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             FROM app_journal_detail jd
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
             WHERE jd.tenant_id = :tenantId
+              AND coa.company_id = :companyId
               AND jd.source_type = :sourceType
               AND coa.system_role = :systemRole
             GROUP BY jd.source_id
             HAVING SUM(jd.debit_amount) - SUM(jd.credit_amount) <> 0
             """, nativeQuery = true)
     List<SourceBalanceRow> getOpenSourceBalancesByRole(@Param("tenantId") Long tenantId,
+                                                        @Param("companyId") Long companyId,
                                                         @Param("sourceType") String sourceType,
                                                         @Param("systemRole") String systemRole);
 
@@ -244,6 +319,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             FROM app_journal_detail jd
             JOIN fnd_chart_of_accounts coa ON coa.id = jd.account_id
             WHERE jd.tenant_id = :tenantId
+              AND coa.company_id = :companyId
               AND jd.party_type = :partyType
               AND jd.source_type = :sourceType
               AND coa.system_role = :systemRole
@@ -251,6 +327,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             HAVING SUM(jd.debit_amount) - SUM(jd.credit_amount) <> 0
             """, nativeQuery = true)
     List<PartySourceBalanceRow> getOpenPartySourceBalances(@Param("tenantId") Long tenantId,
+                                                            @Param("companyId") Long companyId,
                                                             @Param("partyType") String partyType,
                                                             @Param("sourceType") String sourceType,
                                                             @Param("systemRole") String systemRole);

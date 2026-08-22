@@ -1188,6 +1188,11 @@ INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (33, 9, 'RECYCLE_
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (34, 7, 'OTHER_INCOME', 'Other Incomes', 40, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (35, 4, 'WAREHOUSE', 'Warehouses', 20, true);
 INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (36, 6, 'FINANCE_COMPANY', 'Finance Companies', 30, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (37, 9, 'COMPANY', 'Companies', 15, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (38, 2, 'SERVICE_OFFERING', 'Services Catalog', 30, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (39, 2, 'SERVICE_SALE', 'Service Sales', 40, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (40, 9, 'EMPLOYEE', 'Employees', 16, true);
+INSERT INTO public.fnd_resource OVERRIDING SYSTEM VALUE VALUES (41, 9, 'SALARY_PAYMENT', 'Payroll', 17, true);
 
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (1, 'SUPERADMIN', 'Super Admin', 'Unrestricted access; bypasses privilege checks entirely', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
 INSERT INTO public.fnd_role OVERRIDING SYSTEM VALUE VALUES (2, 'ADMIN', 'Admin', 'Administrative access; privileges granted explicitly like any other role', true, false, NULL, '2026-07-22 01:17:07.875997', NULL, NULL, 0);
@@ -1366,6 +1371,6 @@ SELECT pg_catalog.setval('public.user_profile_id_seq', 3, true);
 SELECT pg_catalog.setval('public.user_refresh_token_id_seq', 1, true);
 SELECT pg_catalog.setval('public.user_session_id_seq', 1, true);
 SELECT pg_catalog.setval('public.fnd_module_id_seq', 9, true);
-SELECT pg_catalog.setval('public.fnd_resource_id_seq', 36, true);
+SELECT pg_catalog.setval('public.fnd_resource_id_seq', 41, true);
 SELECT pg_catalog.setval('public.fnd_role_id_seq', 4, true);
 SELECT pg_catalog.setval('public.fnd_role_privilege_id_seq', 228, true);

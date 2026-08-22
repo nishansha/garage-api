@@ -3,6 +3,8 @@ spring:
     name: garage
   profiles:
     default: dev
+  modulith:
+    detection-strategy: explicitly-annotated
   datasource:
     driver-class-name: org.postgresql.Driver
     type: com.zaxxer.hikari.HikariDataSource

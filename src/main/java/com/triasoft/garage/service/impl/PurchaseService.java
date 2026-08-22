@@ -1,6 +1,8 @@
 package com.triasoft.garage.service.impl;
 
 import com.triasoft.garage.locking.VersionCheck;
+import com.triasoft.garage.company.constants.BusinessLine;
+import com.triasoft.garage.company.repository.WarehouseBusinessLineRepository;
 import com.triasoft.garage.constants.*;
 import com.triasoft.garage.dto.ExpenseDTO;
 import com.triasoft.garage.dto.PurchaseDTO;
@@ -62,6 +64,7 @@ public class PurchaseService {
     private final ReportService reportService;
     private final InventoryRepository inventoryRepository;
     private final WarehouseRepository warehouseRepository;
+    private final WarehouseBusinessLineRepository warehouseBusinessLineRepository;
     private final LookupHelper lookupHelper;
     private final ExpenseRepository expenseRepository;
     private final SaleRepository saleRepository;
@@ -474,6 +477,12 @@ public class PurchaseService {
         Vendor vendor = vendorRepository.findByMobile(purchaseRq.getOwnerMobileNo()).orElseGet(() -> createVendor(purchaseRq, user));
         Product product = findOrCreateProduct(purchaseRq);
         Purchase purchase = new Purchase();
+        Warehouse warehouse = resolveWarehouse(purchaseRq.getWarehouseId());
+        if (!warehouseBusinessLineRepository.existsByWarehouseIdAndBusinessLine(warehouse.getId(), BusinessLine.VEHICLE_SALES)) {
+            throw new BusinessException(ErrorCode.Business.WAREHOUSE_BUSINESS_LINE_NOT_SUPPORTED);
+        }
+        purchase.setWarehouseId(warehouse.getId());
+        purchase.setCompanyId(warehouse.getCompanyId());
         purchase.setVendor(vendor);
         purchase.setReferenceNo("PO-" + purchaseRepository.getNextReferenceNumber());
         purchase.setOrderDate(purchaseRq.getDate());
@@ -613,7 +622,7 @@ public class PurchaseService {
         expense.setAmount(exDto.getAmount());
         expense.setDescription(exDto.getDescription());
         expense.setPurchase(purchase);
-        expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
+        expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, purchase.getCompanyId(), user));
         expense.setPaymentAccount(paymentAccount);
         return expense;
     }
@@ -695,7 +704,7 @@ public class PurchaseService {
                 expense.setDate(exDto.getDate());
                 expense.setAmount(exDto.getAmount());
                 expense.setDescription(exDto.getDescription());
-                expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, user));
+                expense.setExpenseAccount(accountService.getOrCreateExpenseAccount(exDto, purchase.getCompanyId(), user));
                 if (accountChanged) {
                     PaymentAccount newAccount = resolveAndValidateAccount(exDto.getPaymentAccountId(), exDto.getAmount());
                     expense.setPaymentAccount(newAccount);
@@ -984,8 +993,8 @@ public class PurchaseService {
     // (PurchaseService.create() defers posting until the buyback/return decision is made) -
     // the old entity-derived purchaseRepository.findPayables() formula above missed those.
     // See ReportService.getPayablesSummary.
-    public PayablesSummaryRs getPayablesSummary() {
-        return reportService.getPayablesSummary();
+    public PayablesSummaryRs getPayablesSummary(Long companyId) {
+        return reportService.getPayablesSummary(companyId);
     }
 
     private BigDecimal safe(BigDecimal value) {
@@ -1164,10 +1173,10 @@ public class PurchaseService {
     // through Sale (unlike the old findPendingRcDues() formula below): RC due becomes pending as
     // soon as the purchase posts, well before the unit sells - only the RECEIPT action itself is
     // gated on the sale (see requireSold()), not visibility of the pending amount.
-    public RcDueSummaryRs getRcDueSummary() {
+    public RcDueSummaryRs getRcDueSummary(Long companyId) {
         Long tenantId = TenantContext.get();
         List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
-                tenantId, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name());
+                tenantId, companyId, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name());
 
         // RC_DUE_RECEIVABLE is asset/DR-normal: pending = debit - credit.
         Map<Long, BigDecimal> pendingByPurchaseId = new LinkedHashMap<>();
@@ -1315,9 +1324,12 @@ public class PurchaseService {
         if (warehouseId == null) {
             return null;
         }
+        return resolveWarehouse(warehouseId).getId();
+    }
+
+    private Warehouse resolveWarehouse(Long warehouseId) {
         return warehouseRepository.findById(warehouseId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND))
-                .getId();
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND));
     }
 
 

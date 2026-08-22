@@ -15,17 +15,17 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     Optional<ChartOfAccount> findByCode(String code);
 
-    Optional<ChartOfAccount> findBySystemRole(String systemRole);
+    Optional<ChartOfAccount> findBySystemRoleAndCompanyId(String systemRole, Long companyId);
 
     List<ChartOfAccount> findByIsDirectPostableTrue();
 
     List<ChartOfAccount> findByTypeAndIsDirectPostableTrue(String type);
 
-    Optional<ChartOfAccount> findFirstByTypeOrderByCodeDesc(String type);
+    Optional<ChartOfAccount> findFirstByTypeAndCompanyIdOrderByCodeDesc(String type, Long companyId);
 
-    Optional<ChartOfAccount> findByTypeAndLabelIgnoreCase(String type, String label);
+    Optional<ChartOfAccount> findByTypeAndLabelIgnoreCaseAndCompanyId(String type, String label, Long companyId);
 
-    Optional<ChartOfAccount> findByTypeAndLabelIgnoreCaseAndIdNot(String type, String label, Long id);
+    Optional<ChartOfAccount> findByTypeAndLabelIgnoreCaseAndIdNotAndCompanyId(String type, String label, Long id, Long companyId);
 
     @Query(value = "SELECT COALESCE(MAX(CAST(code AS BIGINT)), 1599) FROM fnd_chart_of_accounts WHERE tenant_id = :tenantId AND type = :type AND code ~ '^[0-9]+$'", nativeQuery = true)
     Long findMaxNumericCodeByType(@Param("tenantId") Long tenantId, @Param("type") String type);

@@ -19,6 +19,9 @@ public class Warehouse extends TenantAwareAuditEntity {
     @Serial
     private static final long serialVersionUID = -3184756209481625730L;
 
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
     @Column(name = "code", nullable = false, length = 50)
     private String code;
 

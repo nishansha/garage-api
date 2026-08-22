@@ -1,20 +1,29 @@
 package com.triasoft.garage;
 
+import com.triasoft.garage.company.entity.Company;
+import com.triasoft.garage.company.entity.UserCompanyAccess;
+import com.triasoft.garage.company.repository.CompanyRepository;
+import com.triasoft.garage.company.repository.UserCompanyAccessRepository;
+import com.triasoft.garage.company.service.CompanyReportService;
 import com.triasoft.garage.constants.Privilege;
-import com.triasoft.garage.ledger.entity.ChartOfAccount;
+import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.FndModule;
 import com.triasoft.garage.entity.Resource;
 import com.triasoft.garage.entity.Role;
 import com.triasoft.garage.entity.RolePrivilege;
 import com.triasoft.garage.entity.Tenant;
+import com.triasoft.garage.entity.UserProfile;
 import com.triasoft.garage.entity.Vendor;
 import com.triasoft.garage.entity.Warehouse;
+import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
+import com.triasoft.garage.ledger.service.LedgerService;
 import com.triasoft.garage.repository.FndModuleRepository;
 import com.triasoft.garage.repository.ResourceRepository;
 import com.triasoft.garage.repository.RolePrivilegeRepository;
 import com.triasoft.garage.repository.RoleRepository;
 import com.triasoft.garage.repository.TenantRepository;
+import com.triasoft.garage.repository.UserProfileRepository;
 import com.triasoft.garage.repository.VendorRepository;
 import com.triasoft.garage.repository.WarehouseRepository;
 import com.triasoft.garage.security.rbac.PrivilegeCache;
@@ -113,6 +122,16 @@ class TenantIsolationIT {
     private FndModuleRepository fndModuleRepository;
     @Autowired
     private PrivilegeCache privilegeCache;
+    @Autowired
+    private CompanyRepository companyRepository;
+    @Autowired
+    private UserCompanyAccessRepository userCompanyAccessRepository;
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+    @Autowired
+    private LedgerService ledgerService;
+    @Autowired
+    private CompanyReportService companyReportService;
 
     private Long createTenant(String code) {
         Tenant tenant = new Tenant();
@@ -122,6 +141,17 @@ class TenantIsolationIT {
         tenant.setCreatedBy(0L);
         tenant.setCreatedAt(java.time.LocalDateTime.now());
         return tenantRepository.save(tenant).getId();
+    }
+
+    // Caller must have TenantContext already set — Company is @TenantId-scoped.
+    private Long createCompany(String code) {
+        Company company = new Company();
+        company.setCode(code);
+        company.setName(code);
+        company.setActive(true);
+        company.setCreatedBy(0L);
+        company.setCreatedAt(java.time.LocalDateTime.now());
+        return companyRepository.save(company).getId();
     }
 
     /**
@@ -135,12 +165,14 @@ class TenantIsolationIT {
         Long tenantB = createTenant("ORM_TENANT_B");
 
         TenantContext.set(tenantA);
-        ChartOfAccount coaA = newCoa("SAME_CODE", "Tenant A Cash");
+        Long companyA = createCompany("MAIN");
+        ChartOfAccount coaA = newCoa("SAME_CODE", "Tenant A Cash", companyA);
         chartOfAccountRepository.save(coaA);
         TenantContext.clear();
 
         TenantContext.set(tenantB);
-        ChartOfAccount coaB = newCoa("SAME_CODE", "Tenant B Cash");
+        Long companyB = createCompany("MAIN");
+        ChartOfAccount coaB = newCoa("SAME_CODE", "Tenant B Cash", companyB);
         chartOfAccountRepository.save(coaB);
         TenantContext.clear();
 
@@ -164,11 +196,13 @@ class TenantIsolationIT {
         Long tenantB = createTenant("WAREHOUSE_TENANT_B");
 
         TenantContext.set(tenantA);
-        warehouseRepository.save(newWarehouse("MAIN", "Tenant A Warehouse"));
+        Long companyA = createCompany("MAIN");
+        warehouseRepository.save(newWarehouse("MAIN", "Tenant A Warehouse", companyA));
         TenantContext.clear();
 
         TenantContext.set(tenantB);
-        warehouseRepository.save(newWarehouse("MAIN", "Tenant B Warehouse"));
+        Long companyB = createCompany("MAIN");
+        warehouseRepository.save(newWarehouse("MAIN", "Tenant B Warehouse", companyB));
         TenantContext.clear();
 
         TenantContext.set(tenantA);
@@ -256,8 +290,113 @@ class TenantIsolationIT {
         assertThat(tenantBGranted).isFalse();
     }
 
-    private ChartOfAccount newCoa(String code, String name) {
+    /**
+     * ORM path (Hibernate @TenantId): Company itself, same shape as the CoA/Warehouse
+     * checks above — two tenants each create a Company with the SAME code (allowed since
+     * the unique constraint is (tenant_id, code)), and each tenant's findAll() must see
+     * only its own row.
+     */
+    @Test
+    void companyOrmPathIsolatesFindAllAcrossTenants() {
+        Long tenantA = createTenant("COMPANY_TENANT_A");
+        Long tenantB = createTenant("COMPANY_TENANT_B");
+
+        TenantContext.set(tenantA);
+        companyRepository.save(newCompany("MAIN", "Tenant A Company"));
+        TenantContext.clear();
+
+        TenantContext.set(tenantB);
+        companyRepository.save(newCompany("MAIN", "Tenant B Company"));
+        TenantContext.clear();
+
+        TenantContext.set(tenantA);
+        List<Company> seenByA = companyRepository.findAllByOrderByIdAsc();
+        TenantContext.clear();
+
+        assertThat(seenByA).extracting(Company::getName).containsExactly("Tenant A Company");
+    }
+
+    /**
+     * Company-level scoping (application-managed, NOT a second Hibernate @TenantId — see the
+     * multi-company plan for why): within a SINGLE tenant, two companies each get their own
+     * AR-role ChartOfAccount row with a different name. LedgerService.findAccountBySystemRole
+     * must resolve the correct company's row, never the other company's — this is the load-
+     * bearing check for the whole "books never blend across companies" guarantee, since this
+     * scoping is plain application code, not something Hibernate enforces automatically the
+     * way @TenantId does for tenant_id.
+     */
+    @Test
+    void chartOfAccountSystemRoleScopedByCompanyWithinSameTenant() {
+        Long tenant = createTenant("COA_COMPANY_TENANT");
+        TenantContext.set(tenant);
+        Long companyA = createCompany("COMPANY_A");
+        Long companyB = createCompany("COMPANY_B");
+
+        ChartOfAccount arA = newCoa("1100", "Company A AR", companyA);
+        arA.setSystemRole("AR");
+        chartOfAccountRepository.save(arA);
+
+        ChartOfAccount arB = newCoa("1100", "Company B AR", companyB);
+        arB.setSystemRole("AR");
+        chartOfAccountRepository.save(arB);
+
+        ChartOfAccount resolvedForA = ledgerService.findAccountBySystemRole("AR", companyA);
+        ChartOfAccount resolvedForB = ledgerService.findAccountBySystemRole("AR", companyB);
+        TenantContext.clear();
+
+        assertThat(resolvedForA.getName()).isEqualTo("Company A AR");
+        assertThat(resolvedForB.getName()).isEqualTo("Company B AR");
+    }
+
+    /**
+     * Access-grant gating: a non-SUPERADMIN user granted access to only ONE of a tenant's two
+     * companies must not see the other company in the cross-company comparison report — the
+     * whole point of user_company_access.
+     */
+    @Test
+    void companyReportServiceOnlyIncludesGrantedCompanies() {
+        Long tenant = createTenant("REPORT_ACCESS_TENANT");
+        TenantContext.set(tenant);
+        Long companyA = createCompany("REPORT_A");
+        Long companyB = createCompany("REPORT_B");
+
+        UserProfile user = new UserProfile();
+        user.setTenantId(tenant); // TenantScopedEntity — plain column, not @TenantId, must set explicitly
+        user.setName("Report Tester");
+        user.setUsername("report_tester_" + System.nanoTime());
+        user.setPassword("x");
+        user.setRole("STAFF");
+        user = userProfileRepository.save(user);
+
+        UserCompanyAccess access = new UserCompanyAccess();
+        access.setUserId(user.getId());
+        access.setCompanyId(companyA);
+        userCompanyAccessRepository.save(access);
+
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(user.getId());
+        userDTO.setTenantId(tenant);
+        userDTO.setRoles(List.of("STAFF"));
+
+        var result = companyReportService.compare(java.time.YearMonth.now(), userDTO);
+        TenantContext.clear();
+
+        assertThat(result.getCompanies()).extracting("companyId").containsExactly(companyA);
+    }
+
+    private Company newCompany(String code, String name) {
+        Company company = new Company();
+        company.setCode(code);
+        company.setName(name);
+        company.setActive(true);
+        company.setCreatedBy(0L);
+        company.setCreatedAt(java.time.LocalDateTime.now());
+        return company;
+    }
+
+    private ChartOfAccount newCoa(String code, String name, Long companyId) {
         ChartOfAccount coa = new ChartOfAccount();
+        coa.setCompanyId(companyId);
         coa.setCode(code);
         coa.setName(name);
         coa.setLabel(name);
@@ -279,8 +418,9 @@ class TenantIsolationIT {
         return vendor;
     }
 
-    private Warehouse newWarehouse(String code, String name) {
+    private Warehouse newWarehouse(String code, String name, Long companyId) {
         Warehouse warehouse = new Warehouse();
+        warehouse.setCompanyId(companyId);
         warehouse.setCode(code);
         warehouse.setName(name);
         warehouse.setCreatedBy(0L);
