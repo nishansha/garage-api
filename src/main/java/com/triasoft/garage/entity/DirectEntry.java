@@ -46,6 +46,9 @@ public class DirectEntry extends TenantAwareAuditEntity {
     @JoinColumn(name = "payment_account_id", nullable = false)
     private PaymentAccount paymentAccount;
 
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
     @Column(name = "party_name")
     private String partyName;
 

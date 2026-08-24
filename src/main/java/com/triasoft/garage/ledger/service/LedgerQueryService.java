@@ -223,9 +223,9 @@ public class LedgerQueryService {
     //  Trial Balance
     // ─────────────────────────────────────────────────────────────────────────
 
-    public TrialBalanceRs getTrialBalance(LocalDate asOfDate, boolean includeZeroBalance) {
+    public TrialBalanceRs getTrialBalance(LocalDate asOfDate, boolean includeZeroBalance, Long companyId) {
         LocalDate effDate = asOfDate != null ? asOfDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), effDate);
+        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), companyId, effDate);
 
         List<TrialBalanceLineDTO> lines = new ArrayList<>();
         BigDecimal totalDr = BigDecimal.ZERO;
@@ -266,9 +266,9 @@ public class LedgerQueryService {
     //  Balance Sheet
     // ─────────────────────────────────────────────────────────────────────────
 
-    public BalanceSheetRs getBalanceSheet(LocalDate asOfDate) {
+    public BalanceSheetRs getBalanceSheet(LocalDate asOfDate, Long companyId) {
         LocalDate effDate = asOfDate != null ? asOfDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), effDate);
+        List<AccountBalanceRow> rows = journalDetailRepository.getTrialBalance(TenantContext.get(), companyId, effDate);
 
         List<AccountBalanceLineDTO> assetLines = new ArrayList<>();
         List<AccountBalanceLineDTO> liabilityLines = new ArrayList<>();
@@ -338,10 +338,10 @@ public class LedgerQueryService {
     //  P&L from Journal
     // ─────────────────────────────────────────────────────────────────────────
 
-    public PLFromJournalRs getPLFromJournal(LocalDate fromDate, LocalDate toDate) {
+    public PLFromJournalRs getPLFromJournal(LocalDate fromDate, LocalDate toDate, Long companyId) {
         LocalDate effFrom = fromDate != null ? fromDate : LocalDate.now().withDayOfMonth(1);
         LocalDate effTo = toDate != null ? toDate : LocalDate.now();
-        List<AccountBalanceRow> rows = journalDetailRepository.getPLAccountBalances(TenantContext.get(), effFrom, effTo);
+        List<AccountBalanceRow> rows = journalDetailRepository.getPLAccountBalances(TenantContext.get(), companyId, effFrom, effTo);
 
         List<AccountBalanceLineDTO> revenueLines = new ArrayList<>();
         List<AccountBalanceLineDTO> expenseLines = new ArrayList<>();

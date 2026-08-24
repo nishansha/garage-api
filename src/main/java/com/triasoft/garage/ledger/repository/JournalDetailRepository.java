@@ -21,6 +21,8 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
     @Query("SELECT jd FROM JournalDetail jd WHERE jd.journal.id = :journalId ORDER BY jd.id ASC")
     List<JournalDetail> findByJournalId(@Param("journalId") Long journalId);
 
+    // companyId nullable - null means "overall" (every company's accounts combined), same
+    // convention as SaleRepository.getProfitReport for the entity-derived reports.
     @Query(value = """
             SELECT
               coa.id              as accountId,
@@ -34,6 +36,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             LEFT JOIN app_journal_detail jd ON jd.account_id = coa.id
             LEFT JOIN app_journal j ON j.id = jd.journal_id
             WHERE coa.tenant_id = :tenantId
+              AND (:companyId IS NULL OR coa.company_id = :companyId)
               AND (
                 CAST(:asOfDate AS DATE) IS NULL
                 OR j.journal_date <= CAST(:asOfDate AS DATE)
@@ -42,7 +45,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             GROUP BY coa.id, coa.code, coa.name, coa.label, coa.type
             ORDER BY coa.code
             """, nativeQuery = true)
-    List<AccountBalanceRow> getTrialBalance(@Param("tenantId") Long tenantId, @Param("asOfDate") LocalDate asOfDate);
+    List<AccountBalanceRow> getTrialBalance(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("asOfDate") LocalDate asOfDate);
 
     @Query(value = """
             SELECT
@@ -60,10 +63,12 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
             LEFT JOIN app_journal j ON j.id = jd.journal_id
             WHERE coa.tenant_id = :tenantId
               AND coa.type IN ('REVENUE', 'EXPENSE')
+              AND (:companyId IS NULL OR coa.company_id = :companyId)
             GROUP BY coa.id, coa.code, coa.name, coa.label, coa.type
             ORDER BY coa.code
             """, nativeQuery = true)
     List<AccountBalanceRow> getPLAccountBalances(@Param("tenantId") Long tenantId,
+                                                 @Param("companyId") Long companyId,
                                                  @Param("fromDate") LocalDate fromDate,
                                                  @Param("toDate") LocalDate toDate);
 

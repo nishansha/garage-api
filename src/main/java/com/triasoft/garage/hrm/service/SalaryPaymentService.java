@@ -39,7 +39,9 @@ public class SalaryPaymentService {
 
     /** Generates PENDING rows for every active employee in the given company who doesn't
      * already have one for this pay period — idempotent, safe to call more than once
-     * (used by both SalaryRunScheduler and a manual "generate this month" trigger). */
+     * (used by both SalaryRunScheduler and a manual "generate this month" trigger). Each
+     * new row immediately accrues its salary expense (Dr SALARY_EXPENSE / Cr SALARIES_PAYABLE,
+     * dated period end) — see JournalService.handleSalaryAccrual; markPaid later settles it. */
     @Transactional
     public int generateForCompany(Long companyId, YearMonth period) {
         int created = 0;
@@ -56,6 +58,7 @@ public class SalaryPaymentService {
             payment.setNetAmount(employee.getSalaryAmount());
             payment.setStatus(StatusEnum.PENDING);
             salaryPaymentRepository.save(payment);
+            journalService.post(JournalService.REF_SALARY_ACCRUAL, payment.getId());
             created++;
         }
         return created;
@@ -84,6 +87,10 @@ public class SalaryPaymentService {
         if (payment.getStatus() == StatusEnum.PAID) {
             journalService.reverseOnDate(JournalService.REF_SALARY_PAYMENT, id, LocalDate.now());
         }
+        // Every row (PENDING or PAID) carries an accrual posted at generateForCompany —
+        // reverse it on its original (period-end) date, a correction rather than a
+        // cancellation. No-ops harmlessly for pre-accrual legacy rows with nothing posted.
+        journalService.reverse(JournalService.REF_SALARY_ACCRUAL, id);
         salaryPaymentRepository.delete(payment);
     }
 

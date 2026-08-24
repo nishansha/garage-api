@@ -164,6 +164,23 @@ class JournalServiceTest {
         return value != null ? value : BigDecimal.ZERO;
     }
 
+    private com.triasoft.garage.hrm.entity.SalaryPayment buildSalaryPayment(BigDecimal netAmount) {
+        com.triasoft.garage.hrm.entity.Employee employee = new com.triasoft.garage.hrm.entity.Employee();
+        employee.setId(1L);
+        employee.setCompanyId(1L);
+        employee.setName("Jane Doe");
+        employee.setEmployeeCode("EMP-1");
+
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = new com.triasoft.garage.hrm.entity.SalaryPayment();
+        payment.setId(1L);
+        payment.setEmployee(employee);
+        payment.setPayPeriodMonth(7);
+        payment.setPayPeriodYear(2026);
+        payment.setGrossAmount(netAmount);
+        payment.setNetAmount(netAmount);
+        return payment;
+    }
+
     @Test
     void post_throwsWhenJournalAlreadyPostedForReference() {
         when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALE, 1L))
@@ -730,6 +747,129 @@ class JournalServiceTest {
             assertThat(line.getPartyId()).isEqualTo(1L); // originatingSale's customer id (buildSale fixture)
             assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALE);
             assertThat(line.getSourceId()).isEqualTo(9L); // the SALE, not the purchase (2L)
+        });
+    }
+
+    @Test
+    void post_salaryAccrual_postsExpenseAndPayableDatedAtPeriodEnd() {
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = buildSalaryPayment(new BigDecimal("50000"));
+        when(salaryPaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_ACCRUAL, 1L))
+                .thenReturn(Optional.empty());
+
+        coaFor(SystemCoaRole.SALARY_EXPENSE);
+        coaFor(SystemCoaRole.SALARIES_PAYABLE);
+
+        journalService.post(JournalService.REF_SALARY_ACCRUAL, 1L);
+
+        ArgumentCaptor<Journal> journalCaptor = ArgumentCaptor.forClass(Journal.class);
+        verify(journalRepository).save(journalCaptor.capture());
+        assertThat(journalCaptor.getValue().getJournalDate()).isEqualTo(LocalDate.of(2026, 7, 31)); // pay period end, not today
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        List<JournalDetail> lines = captor.getValue();
+
+        BigDecimal totalDebit = lines.stream().map(JournalDetail::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = lines.stream().map(JournalDetail::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(totalDebit).isEqualByComparingTo(totalCredit);
+        assertThat(totalDebit).isEqualByComparingTo("50000");
+
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALARY_EXPENSE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("50000");
+            assertThat(line.getPartyType()).isNull(); // tag lives on the payable line, not the expense line
+        });
+        assertThat(lines).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALARIES_PAYABLE.name());
+            assertThat(line.getCreditAmount()).isEqualByComparingTo("50000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_EMPLOYEE);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALARY_PAYMENT);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_salaryAccrual_missingChartOfAccount_throwsJournalCoaMissing() {
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = buildSalaryPayment(new BigDecimal("50000"));
+        when(salaryPaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_ACCRUAL, 1L))
+                .thenReturn(Optional.empty());
+        when(chartOfAccountRepository.findBySystemRoleAndCompanyId(anyString(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> journalService.post(JournalService.REF_SALARY_ACCRUAL, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getCode())
+                .isEqualTo("BUS_130"); // JOURNAL_COA_MISSING
+    }
+
+    @Test
+    void post_salaryPayment_withAccrual_clearsSalariesPayable() {
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = buildSalaryPayment(new BigDecimal("50000"));
+        payment.setPaymentDate(LocalDate.of(2026, 8, 5));
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        cashAccount.setName("Cash");
+        cashAccount.setCompanyId(1L); // must match payment.getEmployee().getCompanyId() or paymentAccountCoa throws PAYMENT_ACCOUNT_COMPANY_MISMATCH
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(70L);
+        cashAccount.setChartOfAccount(cashCoa);
+        payment.setPaymentAccount(cashAccount);
+
+        when(salaryPaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_PAYMENT, 1L))
+                .thenReturn(Optional.empty());
+        // An accrual was already posted for this row (the normal, post-migration case).
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_ACCRUAL, 1L))
+                .thenReturn(Optional.of(new Journal()));
+        coaFor(SystemCoaRole.SALARIES_PAYABLE);
+
+        journalService.post(JournalService.REF_SALARY_PAYMENT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALARIES_PAYABLE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("50000");
+            assertThat(line.getPartyType()).isEqualTo(JournalService.PARTY_EMPLOYEE);
+            assertThat(line.getPartyId()).isEqualTo(1L);
+            assertThat(line.getSourceType()).isEqualTo(JournalService.SOURCE_SALARY_PAYMENT);
+            assertThat(line.getSourceId()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void post_salaryPayment_legacyRowWithoutAccrual_fallsBackToDirectExpense() {
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = buildSalaryPayment(new BigDecimal("50000"));
+        payment.setPaymentDate(LocalDate.of(2026, 8, 5));
+        PaymentAccount cashAccount = new PaymentAccount();
+        cashAccount.setId(1L);
+        cashAccount.setName("Cash");
+        cashAccount.setCompanyId(1L); // must match payment.getEmployee().getCompanyId() or paymentAccountCoa throws PAYMENT_ACCOUNT_COMPANY_MISMATCH
+        ChartOfAccount cashCoa = new ChartOfAccount();
+        cashCoa.setId(71L);
+        cashAccount.setChartOfAccount(cashCoa);
+        payment.setPaymentAccount(cashAccount);
+
+        when(salaryPaymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_PAYMENT, 1L))
+                .thenReturn(Optional.empty());
+        // No accrual exists for this row — a PENDING row generated before the accrual change.
+        when(journalRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SALARY_ACCRUAL, 1L))
+                .thenReturn(Optional.empty());
+        coaFor(SystemCoaRole.SALARY_EXPENSE);
+
+        journalService.post(JournalService.REF_SALARY_PAYMENT, 1L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<JournalDetail>> captor = ArgumentCaptor.forClass(List.class);
+        verify(journalDetailRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).anySatisfy(line -> {
+            assertThat(line.getAccount().getLabel()).isEqualTo(SystemCoaRole.SALARY_EXPENSE.name());
+            assertThat(line.getDebitAmount()).isEqualByComparingTo("50000");
         });
     }
 

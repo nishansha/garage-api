@@ -8,6 +8,7 @@ import com.triasoft.garage.ledger.entity.ChartOfAccount;
 import com.triasoft.garage.entity.DirectEntry;
 import com.triasoft.garage.entity.PaymentAccount;
 import com.triasoft.garage.entity.Transaction;
+import com.triasoft.garage.entity.Warehouse;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.model.entry.DirectEntryRq;
@@ -16,6 +17,7 @@ import com.triasoft.garage.ledger.repository.ChartOfAccountRepository;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
+import com.triasoft.garage.repository.WarehouseRepository;
 import com.triasoft.garage.specifiction.DirectEntrySpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +38,7 @@ public class DirectEntryService {
     private final TransactionRepository transactionRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
     private final JournalService journalService;
+    private final WarehouseRepository warehouseRepository;
 
     public DirectEntryRs getAll(Pageable pageable) {
         Page<DirectEntry> page = directEntryRepository.findAllByOrderByEntryDateDescCreatedAtDesc(pageable);
@@ -129,6 +132,7 @@ public class DirectEntryService {
         entry.setDirection(rq.getDirection());
         entry.setAmount(rq.getAmount());
         entry.setPaymentAccount(account);
+        entry.setWarehouseId(validateWarehouse(rq.getWarehouseId(), coa.getCompanyId()));
         entry.setPartyName(rq.getPartyName());
         entry.setReferenceNo(rq.getReferenceNo());
         entry.setDescription(rq.getDescription());
@@ -170,6 +174,18 @@ public class DirectEntryService {
                 });
     }
 
+    private Long validateWarehouse(Long warehouseId, Long companyId) {
+        if (warehouseId == null) {
+            return null;
+        }
+        Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.WAREHOUSE_NOT_FOUND));
+        if (!warehouse.getCompanyId().equals(companyId)) {
+            throw new BusinessException(ErrorCode.Business.DIRECT_ENTRY_WAREHOUSE_COMPANY_MISMATCH);
+        }
+        return warehouseId;
+    }
+
     private String buildDescription(DirectEntry entry) {
         String label = entry.getChartOfAccount().getLabel();
         return entry.getPartyName() != null
@@ -193,6 +209,7 @@ public class DirectEntryService {
                 .amount(e.getAmount())
                 .paymentAccountId(e.getPaymentAccount() != null ? e.getPaymentAccount().getId() : null)
                 .paymentAccountName(e.getPaymentAccount() != null ? e.getPaymentAccount().getName() : null)
+                .warehouseId(e.getWarehouseId())
                 .partyName(e.getPartyName())
                 .referenceNo(e.getReferenceNo())
                 .description(e.getDescription())

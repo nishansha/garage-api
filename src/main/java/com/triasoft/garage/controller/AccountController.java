@@ -23,8 +23,8 @@ public class AccountController {
     private final AccountService accountService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<AccountRs>> getChartOfAccounts(@RequestParam(name = "type", required = false) String type, @RequestParam(name = "directPostable", required = false) Boolean directPostable) {
-        return ResponseEntity.ok(ApiResponse.success(accountService.getAccounts(AccountRq.builder().type(type).directPostable(directPostable).build())));
+    ResponseEntity<ApiResponse<AccountRs>> getChartOfAccounts(@RequestParam(name = "type", required = false) String type, @RequestParam(name = "directPostable", required = false) Boolean directPostable, @RequestParam(name = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(accountService.getAccounts(AccountRq.builder().type(type).directPostable(directPostable).companyId(companyId).build())));
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)

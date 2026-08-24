@@ -17,6 +17,11 @@ public class PLReportRs implements Serializable {
 
     private String month;
     private String period;
+    private Long warehouseId; // echoes the requested filter, null = every warehouse
+    // Set only when warehouseId is non-null: payrollExpense and cashPosition/totalCashPosition
+    // aren't warehouse-attributable (employees and payment accounts are company-level, not
+    // warehouse-level) and are therefore omitted/zeroed above, not computed for this warehouse.
+    private String warehouseScopeNote;
 
     // ── Revenue & Bottom Line ─────────────────────
     private BigDecimal totalRevenue;

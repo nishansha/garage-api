@@ -26,6 +26,7 @@ public class DirectEntryDTO implements Serializable {
     private BigDecimal amount;
     private Long paymentAccountId;
     private String paymentAccountName;
+    private Long warehouseId;
     private String partyName;
     private String referenceNo;
     private String description;

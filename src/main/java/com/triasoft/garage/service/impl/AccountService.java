@@ -33,13 +33,23 @@ public class AccountService {
     public AccountRs getAccounts(AccountRq accountRq) {
         boolean filterByDirectPostable = Boolean.TRUE.equals(accountRq.getDirectPostable());
         boolean filterByType = StringUtils.hasLength(accountRq.getType());
+        Long companyId = accountRq.getCompanyId();
+        boolean filterByCompany = companyId != null;
         List<ChartOfAccount> accounts;
         if (filterByType && filterByDirectPostable) {
-            accounts = chatOfAccountRepository.findByTypeAndIsDirectPostableTrue(accountRq.getType());
+            accounts = filterByCompany
+                    ? chatOfAccountRepository.findByTypeAndIsDirectPostableTrueAndCompanyId(accountRq.getType(), companyId)
+                    : chatOfAccountRepository.findByTypeAndIsDirectPostableTrue(accountRq.getType());
         } else if (filterByDirectPostable) {
-            accounts = chatOfAccountRepository.findByIsDirectPostableTrue();
+            accounts = filterByCompany
+                    ? chatOfAccountRepository.findByIsDirectPostableTrueAndCompanyId(companyId)
+                    : chatOfAccountRepository.findByIsDirectPostableTrue();
         } else if (filterByType) {
-            accounts = chatOfAccountRepository.findByType(accountRq.getType());
+            accounts = filterByCompany
+                    ? chatOfAccountRepository.findByTypeAndCompanyId(accountRq.getType(), companyId)
+                    : chatOfAccountRepository.findByType(accountRq.getType());
+        } else if (filterByCompany) {
+            accounts = chatOfAccountRepository.findByCompanyId(companyId);
         } else {
             accounts = chatOfAccountRepository.findAll();
         }

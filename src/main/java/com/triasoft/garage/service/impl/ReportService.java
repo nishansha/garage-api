@@ -22,6 +22,8 @@ import com.triasoft.garage.model.report.DirectEntryTotals;
 import com.triasoft.garage.model.report.ExpenseTotals;
 import com.triasoft.garage.model.report.PayableInfo;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
+import com.triasoft.garage.model.report.SalaryPayableInfo;
+import com.triasoft.garage.model.report.SalaryPayablesSummaryRs;
 import com.triasoft.garage.model.report.PurchaseLineInfo;
 import com.triasoft.garage.model.report.PurchaseTotals;
 import com.triasoft.garage.model.report.SalesTotals;
@@ -78,8 +80,9 @@ public class ReportService {
     private final FinanceCompanyRepository financeCompanyRepository;
     private final com.triasoft.garage.servicesale.repository.ServiceSaleRepository serviceSaleRepository;
     private final com.triasoft.garage.servicesale.repository.ServiceSalePaymentRepository serviceSalePaymentRepository;
+    private final com.triasoft.garage.hrm.repository.SalaryPaymentRepository salaryPaymentRepository;
 
-    public PLReportRs getProfitAndLoss(YearMonth yearMonth, Long companyId) {
+    public PLReportRs getProfitAndLoss(YearMonth yearMonth, Long companyId, Long warehouseId) {
         var startDate = yearMonth.atDay(1);
         var endDate = yearMonth.atEndOfMonth();
         Long tenantId = TenantContext.get();
@@ -89,37 +92,76 @@ public class ReportService {
         // nature, like nothing left here) - this used to be a mix, which meant ?companyId=1 and
         // ?companyId=4 showed identical sales/direct-entry/expense figures and disagreed with
         // /companies/comparison. Fixed by threading companyId into every query below.
+        //
+        // warehouseId is ALSO nullable, independently - null means "every warehouse" (within
+        // whatever companyId scope applies). Not every term is warehouse-attributable: payroll
+        // (app_employee has no warehouse_id - only company_id) and cashPosition (payment
+        // accounts are company-level, not warehouse-level) are zeroed/emptied when warehouseId
+        // is set, same "can't attribute, so omit rather than guess" precedent
+        // WarehouseReportService.getUnallocatedGeneralExpensesByPeriod already established.
         // ── 1. Sales ─────────────────────────────────────────────────────────
-        ProfitMetrics sales = saleRepository.getProfitReport(tenantId, companyId, startDate, endDate);
+        ProfitMetrics sales = saleRepository.getProfitReport(tenantId, companyId, warehouseId, startDate, endDate);
         BigDecimal vehicleSalesRevenue = safe(sales.getTotalSales());
         BigDecimal grossProfit       = safe(sales.getNetProfit());
 
         // ── 2. Direct Entries ─────────────────────────────────────────────────
-        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(tenantId, companyId, startDate, endDate);
+        PLDirectEntryMetrics de = directEntryRepository.getDirectEntryMetrics(tenantId, companyId, warehouseId, startDate, endDate);
         BigDecimal otherIncome      = safe(de.getTotalIn());
         BigDecimal directAdjustments = safe(de.getTotalOut());
 
         // Retained deductions on sale returns are real income (RETURN_DEDUCTION_INCOME
         // in the ledger) but are netted out of the sales figures above, so add them back.
-        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(tenantId, companyId, startDate, endDate));
+        BigDecimal returnDeductionIncome = safe(saleReturnRepository.sumDeductionIncomeByPeriod(tenantId, companyId, warehouseId, startDate, endDate));
 
-        // Exchange/return gains & losses live only in the ledger (no operational entity),
-        // so pull them from their system-role journal accounts for the period. This closes
-        // the remaining entity-vs-journal P&L gap (only manual journals remain uncaptured).
-        BigDecimal exchangeGain       = ledgerRevenue(tenantId, companyId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
-        BigDecimal exchangeReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
-        BigDecimal purchaseReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
-        // Service-sale revenue and payroll expense — summary-level only for now (no
-        // per-invoice/per-employee detail list yet, unlike sales/purchases/expenses below).
-        BigDecimal serviceRevenue = ledgerRevenue(tenantId, companyId, SystemCoaRole.SERVICE_REVENUE, startDate, endDate);
-        BigDecimal payrollExpense = ledgerExpense(tenantId, companyId, SystemCoaRole.SALARY_EXPENSE, startDate, endDate);
+        // Exchange/return gains & losses live only in the ledger (no operational entity), so
+        // pull them from their system-role journal accounts for the period. This closes the
+        // remaining entity-vs-journal P&L gap (only manual journals remain uncaptured). When
+        // warehouseId is set, reuse the exact warehouse-trace queries WarehouseReportService
+        // already relies on, rather than writing parallel ones that could drift apart.
+        BigDecimal exchangeGain;
+        BigDecimal exchangeReturnLoss;
+        BigDecimal purchaseReturnLoss;
+        BigDecimal serviceRevenue;
+        BigDecimal payrollExpense;
+        if (warehouseId == null) {
+            exchangeGain       = ledgerRevenue(tenantId, companyId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ, startDate, endDate);
+            exchangeReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_RETURNED_EXCHANGE, startDate, endDate);
+            purchaseReturnLoss = ledgerExpense(tenantId, companyId, SystemCoaRole.LOSS_PURCHASE_RETURN, startDate, endDate);
+            // Service-sale revenue and payroll expense — summary-level only for now (no
+            // per-invoice/per-employee detail list yet, unlike sales/purchases/expenses below).
+            serviceRevenue = ledgerRevenue(tenantId, companyId, SystemCoaRole.SERVICE_REVENUE, startDate, endDate);
+            payrollExpense = ledgerExpense(tenantId, companyId, SystemCoaRole.SALARY_EXPENSE, startDate, endDate);
+        } else {
+            // GAIN_ON_EXCHANGE_ADJ posts on BOTH a SALE_RETURN journal (KEEP_AND_BUYBACK
+            // renegotiation gain) and a PURCHASE_RETURN journal (purchase-return gain) - see
+            // JournalDetailRepository's comment - so both warehouse-trace queries are summed.
+            exchangeGain = warehouseAmount(journalDetailRepository.sumSaleReturnRoleByWarehouse(
+                            tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ.name(), startDate, endDate), warehouseId)
+                    .add(warehouseAmount(journalDetailRepository.sumPurchaseReturnRoleByWarehouse(
+                            tenantId, SystemCoaRole.GAIN_ON_EXCHANGE_ADJ.name(), startDate, endDate), warehouseId));
+            // sum*RoleByWarehouse computes credit - debit, already negative for these
+            // debit-normal loss accounts; negate to match ledgerExpense's positive-loss-magnitude
+            // convention (debit - credit) that the rest of this method expects.
+            exchangeReturnLoss = warehouseAmount(journalDetailRepository.sumSaleReturnRoleByWarehouse(
+                    tenantId, SystemCoaRole.LOSS_RETURNED_EXCHANGE.name(), startDate, endDate), warehouseId).negate();
+            purchaseReturnLoss = warehouseAmount(journalDetailRepository.sumPurchaseReturnRoleByWarehouse(
+                    tenantId, SystemCoaRole.LOSS_PURCHASE_RETURN.name(), startDate, endDate), warehouseId).negate();
+            serviceRevenue = serviceSaleRepository.getServiceSalePerformanceByWarehouse(tenantId, startDate, endDate).stream()
+                    .filter(r -> warehouseId.equals(r.getWarehouseId()))
+                    .findFirst()
+                    .map(r -> safe(r.getServiceRevenue()))
+                    .orElse(BigDecimal.ZERO);
+            // Payroll is company-scoped only (app_employee has no warehouse_id) - not
+            // attributable to one warehouse, so omitted rather than guessed.
+            payrollExpense = BigDecimal.ZERO;
+        }
 
         // ── 3. Revenue totals ─────────────────────────────────────────────────
         BigDecimal totalRevenue = vehicleSalesRevenue.add(otherIncome)
                 .add(returnDeductionIncome).add(exchangeGain).add(serviceRevenue);
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
-        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(tenantId, companyId, startDate, endDate);
+        PLExpenseMetrics exp = expenseRepository.getExpensesByPeriod(tenantId, companyId, warehouseId, startDate, endDate);
         BigDecimal generalExpenses  = safe(exp.getGeneralExpenses());
         BigDecimal totalOpEx = generalExpenses.add(directAdjustments)
                 .add(exchangeReturnLoss).add(purchaseReturnLoss).add(payrollExpense);
@@ -133,8 +175,10 @@ public class ReportService {
         double netMarginPct   = pct(netProfit, totalRevenue);
 
         // ── 7. Cash & bank position (as of month-end) ─────────────────────────
-        List<PaymentAccount> paymentAccounts = companyId == null
-                ? paymentAccountRepository.findAllByIsActiveTrue()
+        // Payment accounts are company-level, not warehouse-level - not attributable to one
+        // warehouse, so omitted (rather than guessed) when warehouseId is set, same as payroll.
+        List<PaymentAccount> paymentAccounts = warehouseId != null ? List.of()
+                : companyId == null ? paymentAccountRepository.findAllByIsActiveTrue()
                 : paymentAccountRepository.findAllByIsActiveTrueAndCompanyId(companyId);
         List<AccountBalanceInfo> cashPosition = paymentAccounts
                 .stream()
@@ -145,7 +189,7 @@ public class ReportService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // ── 9. Per-vehicle sales breakdown for the period ─────────────────────
-        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(tenantId, companyId, startDate, endDate);
+        List<SaleLineRow> saleRows = saleRepository.getSaleLinesByPeriod(tenantId, companyId, warehouseId, startDate, endDate);
         List<SaleLineInfo> saleLines = saleRows.stream()
                 .map(r -> SaleLineInfo.builder()
                         .saleId(r.getSaleId())
@@ -163,7 +207,7 @@ public class ReportService {
                 .toList();
 
         // ── 10. Per-vehicle purchases breakdown for the period ────────────────
-        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(tenantId, companyId, startDate, endDate);
+        List<PurchaseLineRow> purchaseRows = purchaseRepository.getPurchaseLinesByPeriod(tenantId, companyId, warehouseId, startDate, endDate);
         List<PurchaseLineInfo> purchaseLines = purchaseRows.stream()
                 .map(r -> PurchaseLineInfo.builder()
                         .purchaseId(r.getPurchaseId())
@@ -181,7 +225,7 @@ public class ReportService {
                 .toList();
 
         // ── 11. General expenses breakdown (excludes purchase expenses) ────────
-        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(tenantId, companyId, startDate, endDate)
+        List<ExpenseLineInfo> expenseLines = expenseRepository.getExpenseLinesByPeriod(tenantId, companyId, warehouseId, startDate, endDate)
                 .stream()
                 .map(r -> ExpenseLineInfo.builder()
                         .date(r.getDate())
@@ -192,7 +236,7 @@ public class ReportService {
                 .toList();
 
         // ── 12. Direct entries breakdown (income / expense / other) ────────────
-        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(tenantId, companyId, startDate, endDate)
+        List<DirectEntryLineInfo> directEntryLines = directEntryRepository.getDirectEntryLinesByPeriod(tenantId, companyId, warehouseId, startDate, endDate)
                 .stream()
                 .map(r -> DirectEntryLineInfo.builder()
                         .date(r.getDate())
@@ -291,6 +335,9 @@ public class ReportService {
         return PLReportRs.builder()
                 .month(yearMonth.format(MONTH_DISPLAY))
                 .period(startDate.format(PERIOD_DISPLAY) + " – " + endDate.format(PERIOD_DISPLAY))
+                .warehouseId(warehouseId)
+                .warehouseScopeNote(warehouseId == null ? null
+                        : "Filtered to one warehouse: payrollExpense and cashPosition/totalCashPosition are company-level, not warehouse-attributable, and are shown as zero/empty here.")
                 .totalRevenue(totalRevenue)
                 .grossProfit(grossProfit)
                 .grossMarginPct(grossMarginPct)
@@ -589,6 +636,61 @@ public class ReportService {
                 .build();
     }
 
+    // Party-subledger analog of getPayablesSummary, scoped to SALARIES_PAYABLE instead of
+    // AP: each open SALARIES_PAYABLE line is tagged (PARTY_EMPLOYEE, employeeId) at the
+    // journal-detail level by JournalService.handleSalaryAccrual, so a raw ledger drill-down
+    // already identifies the employee without joining SalaryPayment — this just adds the
+    // display fields (name/code/period) for a UI list, the same shape as vendor payables.
+    public SalaryPayablesSummaryRs getSalaryPayablesSummary(Long companyId) {
+        Long tenantId = TenantContext.get();
+        List<SourceBalanceRow> balances = journalDetailRepository.getOpenSourceBalancesByRole(
+                tenantId, companyId, JournalService.SOURCE_SALARY_PAYMENT, SystemCoaRole.SALARIES_PAYABLE.name());
+
+        // SALARY_PAYMENT sources are payable-natured (SALARIES_PAYABLE is CR-normal):
+        // pending = credit - debit, same convention as getPayablesSummary's AP balances.
+        Map<Long, BigDecimal> pendingBySalaryPaymentId = new LinkedHashMap<>();
+        for (SourceBalanceRow row : balances) {
+            BigDecimal pending = safe(row.getCredit()).subtract(safe(row.getDebit()));
+            if (pending.signum() > 0) {
+                pendingBySalaryPaymentId.put(row.getSourceId(), pending);
+            }
+        }
+
+        Map<Long, com.triasoft.garage.hrm.entity.SalaryPayment> paymentsById = salaryPaymentRepository
+                .findAllById(pendingBySalaryPaymentId.keySet()).stream()
+                .collect(Collectors.toMap(com.triasoft.garage.hrm.entity.SalaryPayment::getId, p -> p));
+
+        List<SalaryPayableInfo> items = pendingBySalaryPaymentId.entrySet().stream()
+                .map(e -> {
+                    com.triasoft.garage.hrm.entity.SalaryPayment payment = paymentsById.get(e.getKey());
+                    if (payment == null) return null;
+                    return SalaryPayableInfo.builder()
+                            .salaryPaymentId(payment.getId())
+                            .employeeId(payment.getEmployee().getId())
+                            .employeeName(payment.getEmployee().getName())
+                            .employeeCode(payment.getEmployee().getEmployeeCode())
+                            .payPeriodMonth(payment.getPayPeriodMonth())
+                            .payPeriodYear(payment.getPayPeriodYear())
+                            .amount(safe(payment.getNetAmount()))
+                            .pendingAmount(e.getValue())
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> {
+                    int yearCompare = Integer.compare(b.getPayPeriodYear(), a.getPayPeriodYear());
+                    return yearCompare != 0 ? yearCompare : Integer.compare(b.getPayPeriodMonth(), a.getPayPeriodMonth());
+                })
+                .toList();
+        BigDecimal totalPending = items.stream()
+                .map(SalaryPayableInfo::getPendingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return SalaryPayablesSummaryRs.builder()
+                .totalCount(items.size())
+                .totalPendingAmount(totalPending)
+                .items(items)
+                .build();
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Receivables / Payables — entity-derived (audit reference, kept per user's decision
     //  to keep both with ledger as primary; not called from ReportController)
@@ -705,6 +807,14 @@ public class ReportService {
     // means "overall" (all companies combined) - sumBySystemRoleByCompany already computes
     // credit - debit per company with no reference-type join needed (see CompanyReportService),
     // so summing its rows across every company gives the tenant-wide total directly.
+    private BigDecimal warehouseAmount(List<com.triasoft.garage.projection.WarehouseAmountRow> rows, Long warehouseId) {
+        return rows.stream()
+                .filter(r -> warehouseId.equals(r.getWarehouseId()))
+                .findFirst()
+                .map(r -> safe(r.getAmount()))
+                .orElse(BigDecimal.ZERO);
+    }
+
     private BigDecimal ledgerRevenue(Long tenantId, Long companyId, SystemCoaRole role, java.time.LocalDate from, java.time.LocalDate to) {
         if (companyId == null) {
             return sumBd(journalDetailRepository.sumBySystemRoleByCompany(tenantId, role.name(), from, to), CompanyAmountRow::getAmount);

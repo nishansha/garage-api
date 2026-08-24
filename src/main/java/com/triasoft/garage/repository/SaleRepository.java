@@ -53,47 +53,64 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = "SELECT nextval('so_ref_no_seq')", nativeQuery = true)
     Long getNextReferenceNumber();
 
-    // companyId is nullable - null means "overall" (every company combined), matching
-    // ReportService.getProfitAndLoss's null-companyId convention for the other ledger-derived
-    // terms. Same (:companyId IS NULL OR ...) idiom JournalDetailRepository.getTrialBalance
-    // already uses for its optional asOfDate.
+    // companyId/warehouseId are both nullable - null means "every company"/"every warehouse"
+    // combined, matching ReportService.getProfitAndLoss's null convention for the other
+    // ledger-derived terms. Same (:param IS NULL OR ...) idiom JournalDetailRepository.
+    // getTrialBalance already uses for its optional asOfDate. warehouseId is resolved via
+    // inv.warehouse_id (app_sale has no warehouse_id of its own, same as getSaleLinesByPeriod).
     @Query(value = """
             SELECT
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale s
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0)
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0) as totalSales,
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0) as totalSales,
               COALESCE((SELECT SUM(s.landed_cost_at_sale) FROM app_sale s
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0)
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0)
               -
               COALESCE((SELECT SUM(s.landed_cost_at_sale) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0) as totalCost,
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0) as totalCost,
               COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale s
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0)
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0)
               -
               COALESCE((SELECT SUM(s.sale_rate - COALESCE(s.landed_cost_at_sale, 0)) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0) as netProfit,
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0) as netProfit,
               COALESCE((SELECT COUNT(*) FROM app_sale s
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND s.sale_date BETWEEN :startDate AND :endDate AND s.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0)
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0)
               -
               COALESCE((SELECT COUNT(*) FROM app_sale_return sr
                         JOIN app_sale s ON s.id = sr.sale_id
+                        JOIN app_inventory inv ON inv.id = s.inventory_id
                         WHERE s.tenant_id = :tenantId AND sr.return_date BETWEEN :startDate AND :endDate AND sr.deleted = false
-                          AND (:companyId IS NULL OR s.company_id = :companyId)), 0) as unitsSold
+                          AND (:companyId IS NULL OR s.company_id = :companyId)
+                          AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)), 0) as unitsSold
             FROM (SELECT 1) data
             """, nativeQuery = true)
-    ProfitMetrics getProfitReport(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    ProfitMetrics getProfitReport(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -131,9 +148,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
               AND s.tenant_id = :tenantId
               AND s.sale_date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR s.company_id = :companyId)
+              AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)
             ORDER BY s.sale_date, s.id
             """, nativeQuery = true)
-    List<SaleLineRow> getSaleLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<SaleLineRow> getSaleLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT

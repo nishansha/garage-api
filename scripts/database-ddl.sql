@@ -79,6 +79,7 @@ CREATE TABLE public.app_direct_entry (
     direction character varying(5) NOT NULL,
     amount numeric(15,2) NOT NULL,
     payment_account_id bigint NOT NULL,
+    warehouse_id bigint,
     party_name character varying(150),
     reference_no character varying(100),
     description character varying(500),
@@ -109,6 +110,7 @@ CREATE TABLE public.app_direct_entry_aud (
     modified_at timestamp(6) without time zone,
     modified_by bigint,
     payment_account_id bigint,
+    warehouse_id bigint,
     rev bigint NOT NULL,
     description character varying(255),
     direction character varying(255),
@@ -3631,6 +3633,14 @@ ALTER TABLE ONLY public.app_customer
 
 ALTER TABLE ONLY public.app_direct_entry
     ADD CONSTRAINT app_direct_entry_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.fnd_tenant(id);
+
+
+--
+-- Name: app_direct_entry app_direct_entry_warehouse_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.app_direct_entry
+    ADD CONSTRAINT app_direct_entry_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.inf_warehouse(id);
 
 
 --

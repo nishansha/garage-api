@@ -10,6 +10,7 @@ import com.triasoft.garage.model.report.PLFromJournalRs;
 import com.triasoft.garage.model.report.PLReportRs;
 import com.triasoft.garage.model.report.PayablesSummaryRs;
 import com.triasoft.garage.model.report.ReceivablesSummaryRs;
+import com.triasoft.garage.model.report.SalaryPayablesSummaryRs;
 import com.triasoft.garage.model.report.ServiceReceivablesSummaryRs;
 import com.triasoft.garage.model.report.TrialBalanceRs;
 import com.triasoft.garage.model.report.WarehouseComparisonRs;
@@ -51,16 +52,18 @@ public class ReportController {
     // getProfitAndLoss aggregates across all companies when passed null) - unlike most other
     // report endpoints below, which still require disambiguating once there's more than one
     // company (see CompanyResolver.resolveCompanyId).
+    // warehouseId omitted = every warehouse (within whatever companyId scope applies) - see
+    // ReportService.getProfitAndLoss for which figures aren't warehouse-attributable.
     @GetMapping(value = "/pl", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId) {
+    ResponseEntity<ApiResponse<PLReportRs>> getProfitAndLoss(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId, @RequestParam(value = "warehouseId", required = false) Long warehouseId) {
         YearMonth yearMonth = parseMonth(month);
-        return ResponseEntity.ok(ApiResponse.success(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId))));
+        return ResponseEntity.ok(ApiResponse.success(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId), warehouseId)));
     }
 
     @GetMapping(value = "/pl/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadProfitAndLossCsv(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId) {
+    ResponseEntity<byte[]> downloadProfitAndLossCsv(@RequestParam(value = "month", required = false) String month, @RequestParam(value = "companyId", required = false) Long companyId, @RequestParam(value = "warehouseId", required = false) Long warehouseId) {
         YearMonth yearMonth = parseMonth(month);
-        String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId)));
+        String csv = plReportCsvWriter.toCsv(reportService.getProfitAndLoss(yearMonth, companyResolver.resolveOptionalCompanyId(companyId), warehouseId));
         return csvResponse(csv, "business-summary-" + yearMonth + ".csv");
     }
 
@@ -78,25 +81,27 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.success(reportService.getMonthlyTrend(months)));
     }
 
+    // companyId omitted = combined trial balance across every company's accounts, same
+    // "overall" convention as /pl above.
     @GetMapping(value = "/trial-balance", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<TrialBalanceRs>> getTrialBalance(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
-        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getTrialBalance(asOfDate, includeZeroBalance)));
+    ResponseEntity<ApiResponse<TrialBalanceRs>> getTrialBalance(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance, @RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getTrialBalance(asOfDate, includeZeroBalance, companyResolver.resolveOptionalCompanyId(companyId))));
     }
 
     @GetMapping(value = "/trial-balance/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadTrialBalanceCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance) {
-        var rs = journalQueryService.getTrialBalance(asOfDate, includeZeroBalance);
+    ResponseEntity<byte[]> downloadTrialBalanceCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "includeZeroBalance", defaultValue = "false") boolean includeZeroBalance, @RequestParam(value = "companyId", required = false) Long companyId) {
+        var rs = journalQueryService.getTrialBalance(asOfDate, includeZeroBalance, companyResolver.resolveOptionalCompanyId(companyId));
         return csvResponse(journalReportCsvWriter.trialBalanceCsv(rs), "trial-balance-" + rs.getAsOfDate() + ".csv");
     }
 
     @GetMapping(value = "/balance-sheet", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<BalanceSheetRs>> getBalanceSheet(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
-        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getBalanceSheet(asOfDate)));
+    ResponseEntity<ApiResponse<BalanceSheetRs>> getBalanceSheet(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getBalanceSheet(asOfDate, companyResolver.resolveOptionalCompanyId(companyId))));
     }
 
     @GetMapping(value = "/balance-sheet/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadBalanceSheetCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {
-        var rs = journalQueryService.getBalanceSheet(asOfDate);
+    ResponseEntity<byte[]> downloadBalanceSheetCsv(@RequestParam(value = "asOfDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate, @RequestParam(value = "companyId", required = false) Long companyId) {
+        var rs = journalQueryService.getBalanceSheet(asOfDate, companyResolver.resolveOptionalCompanyId(companyId));
         return csvResponse(journalReportCsvWriter.balanceSheetCsv(rs), "balance-sheet-" + rs.getAsOfDate() + ".csv");
     }
 
@@ -120,14 +125,19 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.success(reportService.getPayablesSummary(companyResolver.resolveCompanyId(companyId))));
     }
 
+    @GetMapping(value = "/salary-payables", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<ApiResponse<SalaryPayablesSummaryRs>> getSalaryPayablesSummary(@RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getSalaryPayablesSummary(companyResolver.resolveCompanyId(companyId))));
+    }
+
     @GetMapping(value = "/pl-from-journal", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<ApiResponse<PLFromJournalRs>> getPLFromJournal(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
-        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getPLFromJournal(fromDate, toDate)));
+    ResponseEntity<ApiResponse<PLFromJournalRs>> getPLFromJournal(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate, @RequestParam(value = "companyId", required = false) Long companyId) {
+        return ResponseEntity.ok(ApiResponse.success(journalQueryService.getPLFromJournal(fromDate, toDate, companyResolver.resolveOptionalCompanyId(companyId))));
     }
 
     @GetMapping(value = "/pl-from-journal/csv", produces = "text/csv")
-    ResponseEntity<byte[]> downloadPLFromJournalCsv(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
-        var rs = journalQueryService.getPLFromJournal(fromDate, toDate);
+    ResponseEntity<byte[]> downloadPLFromJournalCsv(@RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate, @RequestParam(value = "companyId", required = false) Long companyId) {
+        var rs = journalQueryService.getPLFromJournal(fromDate, toDate, companyResolver.resolveOptionalCompanyId(companyId));
         return csvResponse(journalReportCsvWriter.plFromJournalCsv(rs), "pl-from-journal-" + rs.getFromDate() + "_" + rs.getToDate() + ".csv");
     }
 

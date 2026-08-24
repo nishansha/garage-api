@@ -52,8 +52,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
               AND e.tenant_id = :tenantId
               AND e.date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR coa.company_id = :companyId)
+              AND (:warehouseId IS NULL OR e.warehouse_id = :warehouseId)
             """, nativeQuery = true)
-    PLExpenseMetrics getExpensesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    PLExpenseMetrics getExpensesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -71,9 +72,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
               AND e.purchase_order_id IS NULL
               AND e.date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR coa.company_id = :companyId)
+              AND (:warehouseId IS NULL OR e.warehouse_id = :warehouseId)
             ORDER BY e.date, e.id
             """, nativeQuery = true)
-    List<ExpenseLineRow> getExpenseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<ExpenseLineRow> getExpenseLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     // General (non-purchase-linked) expenses explicitly tagged to a warehouse, for
     // WarehouseReportService - only rows where warehouse_id was actually set on creation.

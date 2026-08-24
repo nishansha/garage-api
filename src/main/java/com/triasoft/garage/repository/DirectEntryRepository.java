@@ -37,8 +37,9 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
               AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR coa.company_id = :companyId)
+              AND (:warehouseId IS NULL OR d.warehouse_id = :warehouseId)
             """, nativeQuery = true)
-    PLDirectEntryMetrics getDirectEntryMetrics(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    PLDirectEntryMetrics getDirectEntryMetrics(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = """
             SELECT
@@ -60,8 +61,9 @@ public interface DirectEntryRepository extends JpaRepository<DirectEntry, Long>,
               AND d.tenant_id = :tenantId
               AND d.entry_date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR coa.company_id = :companyId)
+              AND (:warehouseId IS NULL OR d.warehouse_id = :warehouseId)
             ORDER BY d.entry_date, d.id
             """, nativeQuery = true)
-    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<DirectEntryLineRow> getDirectEntryLinesByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 }

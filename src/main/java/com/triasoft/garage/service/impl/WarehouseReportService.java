@@ -73,7 +73,7 @@ public class WarehouseReportService {
         // Same "exclude returned rows from cost totals" rule ReportService.PurchaseTotals
         // already applies to /reports/pl, mirrored here for reconciliation.
         // null companyId = every company's warehouses, since this report spans all of them.
-        Map<Long, PurchaseAgg> purchaseByWarehouse = purchaseRepository.getPurchaseLinesByPeriod(tenantId, null, startDate, endDate).stream()
+        Map<Long, PurchaseAgg> purchaseByWarehouse = purchaseRepository.getPurchaseLinesByPeriod(tenantId, null, null, startDate, endDate).stream()
                 .filter(r -> !Boolean.TRUE.equals(r.getReturned()))
                 .collect(Collectors.groupingBy(r -> key(r.getWarehouseId()), LinkedHashMap::new, Collectors.collectingAndThen(Collectors.toList(), rows -> new PurchaseAgg(
                         rows.size(),

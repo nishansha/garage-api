@@ -43,6 +43,7 @@ public class CompanyService {
             new CoaSeed("2000", "L-ACP", "Money owed by the company to vendors/suppliers. (Control Account)", "LIABILITY", true, "Accounts Payable (A/P)", false, SystemCoaRole.AP),
             new CoaSeed("2400", "L-CSP", "Amounts owed to customers from trade-in exchanges where exchange value exceeds sale value.", "LIABILITY", false, "Customer Settlement Payable", false, SystemCoaRole.CUSTOMER_SETTLEMENT_PAYABLE),
             new CoaSeed("2410", "CUST-REF-PAY", "Customer Refund Payable", "LIABILITY", true, "Money owed to customers for returned sales, pending refund", false, SystemCoaRole.CUSTOMER_REFUND_PAYABLE),
+            new CoaSeed("2420", "L-SAL-PAY", "Salaries earned but not yet paid out.", "LIABILITY", false, "Salaries Payable", false, SystemCoaRole.SALARIES_PAYABLE),
             new CoaSeed("3900", "E-OBE", "Temporary clearing account for opening balances during initial setup.", "EQUITY", false, "Opening Balance Equity", false, SystemCoaRole.OPENING_BALANCE_EQUITY),
             new CoaSeed("4000", "R-IN", "Gross revenue from the sale of new and used vehicles.", "REVENUE", false, "Sales Revenue - Vehicles", false, SystemCoaRole.SALES_REVENUE),
             new CoaSeed("4010", "R-SVC", "Revenue from standalone services (e.g. car wash) not tied to a vehicle sale.", "REVENUE", false, "Service Revenue", false, SystemCoaRole.SERVICE_REVENUE),

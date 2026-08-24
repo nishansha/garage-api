@@ -21,6 +21,14 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
 
     List<ChartOfAccount> findByTypeAndIsDirectPostableTrue(String type);
 
+    List<ChartOfAccount> findByCompanyId(Long companyId);
+
+    List<ChartOfAccount> findByIsDirectPostableTrueAndCompanyId(Long companyId);
+
+    List<ChartOfAccount> findByTypeAndCompanyId(String type, Long companyId);
+
+    List<ChartOfAccount> findByTypeAndIsDirectPostableTrueAndCompanyId(String type, Long companyId);
+
     Optional<ChartOfAccount> findFirstByTypeAndCompanyIdOrderByCodeDesc(String type, Long companyId);
 
     Optional<ChartOfAccount> findByTypeAndLabelIgnoreCaseAndCompanyId(String type, String label, Long companyId);

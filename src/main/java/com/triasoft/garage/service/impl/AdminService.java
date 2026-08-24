@@ -20,9 +20,14 @@ import java.util.Map;
 public class AdminService {
 
     /**
-     * Application (transactional) tables that get wiped on a test-environment reset.
-     * Seed/foundation tables (fnd_*), configuration (app_configurations) and user_profile are
-     * intentionally excluded so master/seed/login data survives the reset.
+     * Application (transactional) tables that get wiped on a test-environment reset — everything
+     * belonging to a company, so a reset leaves only seed/foundation data, the tenant record, and
+     * users. This includes app_company/inf_warehouse themselves and fnd_chart_of_accounts (despite
+     * the fnd_ prefix, CoA rows are seeded per-company by CompanyService.seedChartOfAccounts, not
+     * genuine tenant-wide seed data - see the multi-company refactor). True seed/foundation tables
+     * (fnd_role, fnd_resource, fnd_lookup_master, fnd_tenant, ...), configuration
+     * (app_configurations) and user_profile are intentionally excluded so master/seed/login data
+     * survives the reset.
      * Ordered child-before-parent for readability; truncation happens in a single statement so
      * inter-table foreign keys within this set do not require a specific order.
      */
@@ -54,6 +59,21 @@ public class AdminService {
             // Parties
             "app_customer",
             "app_vendor",
+            "app_finance_company",
+            // Service sales
+            "app_service_sale_payment",
+            "app_service_sale_item",
+            "app_service_sale",
+            "app_service",
+            // Payroll
+            "app_salary_payment",
+            "app_employee",
+            // Company / warehouse structure itself, and the per-company CoA it owns
+            "user_company_access",
+            "warehouse_business_line",
+            "inf_warehouse",
+            "fnd_chart_of_accounts",
+            "app_company",
             // Auth session data (users themselves are kept in user_profile)
             "user_session",
             "user_refresh_token"
@@ -101,29 +121,37 @@ public class AdminService {
             total += rows;
         }
 
+        // user_profile.default_company_id and fnd_lookup_master.offset_coa_id are the only FK
+        // references INTO the tables below from tables that are NOT themselves being truncated
+        // (users must survive the reset; fnd_lookup_master is seed data). Both are optional,
+        // nullable fields, but TRUNCATE checks the constraint's existence regardless of current
+        // row values - unlike DELETE, nulling the columns alone does not satisfy it. Drop both
+        // FKs for the duration of the TRUNCATE and recreate them immediately after; this whole
+        // method is @Transactional, so any failure mid-way rolls back the drop too.
+        jdbcTemplate.update("UPDATE user_profile SET default_company_id = NULL");
+        jdbcTemplate.update("UPDATE fnd_lookup_master SET offset_coa_id = NULL");
+        jdbcTemplate.execute("ALTER TABLE user_profile DROP CONSTRAINT user_profile_default_company_id_fkey");
+        jdbcTemplate.execute("ALTER TABLE fnd_lookup_master DROP CONSTRAINT fnd_lookup_master_offset_coa_id_fkey");
+
         // Single TRUNCATE resets identities and satisfies FKs within the set atomically.
-        // This also clears app_journal_detail and app_payment_account, removing every FK reference
-        // into fnd_chart_of_accounts before we delete the orphaned payment-account CoA rows below.
         String truncateSql = "TRUNCATE TABLE " + String.join(", ", CLEARED_TABLES) + " RESTART IDENTITY";
         jdbcTemplate.execute(truncateSql);
+
+        jdbcTemplate.execute("ALTER TABLE user_profile ADD CONSTRAINT user_profile_default_company_id_fkey " +
+                "FOREIGN KEY (default_company_id) REFERENCES app_company(id)");
+        jdbcTemplate.execute("ALTER TABLE fnd_lookup_master ADD CONSTRAINT fnd_lookup_master_offset_coa_id_fkey " +
+                "FOREIGN KEY (offset_coa_id) REFERENCES fnd_chart_of_accounts(id)");
 
         // Clear the Envers audit trail for the wiped data and reset the revision sequence.
         jdbcTemplate.execute("TRUNCATE TABLE " + String.join(", ", AUDIT_TABLES) + " RESTART IDENTITY");
         jdbcTemplate.execute("ALTER SEQUENCE revinfo_seq RESTART");
 
-        // Payment accounts auto-create CoA rows named A-BNK-<id>/A-CSH-<id> (see PaymentAccountService).
-        // With the payment accounts gone these are orphans; delete them while leaving seed CoA intact.
-        int orphanCoaDeleted = jdbcTemplate.update(
-                "DELETE FROM fnd_chart_of_accounts WHERE name LIKE 'A-BNK-%' OR name LIKE 'A-CSH-%'");
-        total += orphanCoaDeleted;
-        log.warn("DATA RESET executed: cleared {} tables + {} orphaned CoA rows, {} total rows deleted",
-                CLEARED_TABLES.size(), orphanCoaDeleted, total);
+        log.warn("DATA RESET executed: cleared {} tables, {} total rows deleted", CLEARED_TABLES.size(), total);
 
         return DataResetRs.builder()
                 .tablesCleared(CLEARED_TABLES.size())
                 .totalRowsDeleted(total)
                 .deletedRowsByTable(deletedByTable)
-                .orphanCoaRowsDeleted(orphanCoaDeleted)
                 .build();
     }
 }

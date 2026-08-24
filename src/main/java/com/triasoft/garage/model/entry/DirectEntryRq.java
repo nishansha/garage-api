@@ -40,6 +40,8 @@ public class DirectEntryRq implements Serializable, Versioned {
     @NotNull(message = "REQUIRED")
     private Long paymentAccountId;
 
+    private Long warehouseId;
+
     @Size(max = 100, message = "MAX_LENGTH")
     @NullOrNotBlank
     private String partyName;

@@ -51,6 +51,7 @@ public class JournalService {
     public static final String REF_RC_DUE_RECEIPT = "RC_DUE_RECEIPT";
     public static final String REF_SERVICE_SALE = "SERVICE_SALE";
     public static final String REF_SERVICE_SALE_PAYMENT = "SERVICE_SALE_PAYMENT";
+    public static final String REF_SALARY_ACCRUAL = "SALARY_ACCRUAL";
     public static final String REF_SALARY_PAYMENT = "SALARY_PAYMENT";
 
     // Party-subledger dimension values (see JournalDetail.partyType) — this business only
@@ -109,6 +110,7 @@ public class JournalService {
             case REF_RC_DUE_RECEIPT           -> handleRcDueReceipt(referenceId);
             case REF_SERVICE_SALE             -> handleServiceSale(referenceId);
             case REF_SERVICE_SALE_PAYMENT     -> handleServiceSalePayment(referenceId);
+            case REF_SALARY_ACCRUAL            -> handleSalaryAccrual(referenceId);
             case REF_SALARY_PAYMENT           -> handleSalaryPayment(referenceId);
             default -> throw new BusinessException("JNL_400", "Unknown reference type: " + referenceType);
         }
@@ -633,8 +635,43 @@ public class JournalService {
         ledgerService.saveBalanced(lines);
     }
 
-    // Posted only when a SalaryPayment is marked PAID (not at generation, which creates
-    // PENDING rows) — see SalaryRunScheduler/SalaryPaymentService.markPaid.
+    // Posted at SalaryPayment generation time (SalaryPaymentService.generateForCompany) —
+    // books the accrued liability for the pay period even though cash hasn't moved yet,
+    // mirroring handlePurchase's AP posting at purchase creation. Dated the pay period's
+    // end-of-month, not the (future) markPaid date, so the expense lands in the period it
+    // was earned rather than whichever month it happens to get paid in. The party/source
+    // tag lives on the SALARIES_PAYABLE (credit) line, not the expense line — same
+    // convention as handlePurchase tagging its AP credit line, not the Inventory debit —
+    // so this nets correctly against the settlement leg in handleSalaryPayment as one
+    // employee-level open item.
+    private void handleSalaryAccrual(Long salaryPaymentId) {
+        com.triasoft.garage.hrm.entity.SalaryPayment payment = salaryPaymentRepository.findById(salaryPaymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALARY_PAYMENT_NOT_FOUND));
+
+        Long companyId = payment.getEmployee().getCompanyId();
+        LocalDate accrualDate = java.time.YearMonth.of(payment.getPayPeriodYear(), payment.getPayPeriodMonth()).atEndOfMonth();
+        Journal journal = ledgerService.createJournal(REF_SALARY_ACCRUAL, salaryPaymentId, companyId, accrualDate,
+                "Salary accrual — " + payment.getEmployee().getName() + " (" + payment.getPayPeriodMonth() + "/" + payment.getPayPeriodYear() + ")");
+
+        LedgerService.Party party = new LedgerService.Party(PARTY_EMPLOYEE, payment.getEmployee().getId());
+        LedgerService.Source source = new LedgerService.Source(SOURCE_SALARY_PAYMENT, salaryPaymentId);
+        List<JournalDetail> lines = List.of(
+                ledgerService.debit(journal, coa(SystemCoaRole.SALARY_EXPENSE, companyId), payment.getNetAmount(),
+                        "Salary expense — " + payment.getEmployee().getName()),
+                ledgerService.credit(journal, coa(SystemCoaRole.SALARIES_PAYABLE, companyId), payment.getNetAmount(),
+                        "Salary payable — " + payment.getEmployee().getName(), party, source)
+        );
+        ledgerService.saveBalanced(lines);
+    }
+
+    // Posted only when a SalaryPayment is marked PAID — see SalaryPaymentService.markPaid.
+    // Normally the settlement leg that clears the SALARIES_PAYABLE liability booked by
+    // handleSalaryAccrual at generation time, mirroring handlePurchasePayment clearing AP.
+    // Falls back to the old single-entry (Dr SALARY_EXPENSE / Cr cash) shape for rows that
+    // predate the accrual change and so never got a REF_SALARY_ACCRUAL posting — without
+    // this branch, debiting SALARIES_PAYABLE for a liability that was never credited would
+    // silently understate that account's balance. Safe to remove once no more pre-accrual
+    // PENDING rows exist in any tenant's data.
     private void handleSalaryPayment(Long salaryPaymentId) {
         com.triasoft.garage.hrm.entity.SalaryPayment payment = salaryPaymentRepository.findById(salaryPaymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.SALARY_PAYMENT_NOT_FOUND));
@@ -646,9 +683,13 @@ public class JournalService {
 
         LedgerService.Party party = new LedgerService.Party(PARTY_EMPLOYEE, payment.getEmployee().getId());
         LedgerService.Source source = new LedgerService.Source(SOURCE_SALARY_PAYMENT, salaryPaymentId);
+        boolean hasAccrual = ledgerService.isPosted(REF_SALARY_ACCRUAL, salaryPaymentId);
+        ChartOfAccount debitAccount = hasAccrual ? coa(SystemCoaRole.SALARIES_PAYABLE, companyId) : coa(SystemCoaRole.SALARY_EXPENSE, companyId);
+        String debitLabel = hasAccrual ? "Salaries payable cleared — " + payment.getEmployee().getName()
+                : "Salary expense — " + payment.getEmployee().getName();
+
         List<JournalDetail> lines = List.of(
-                ledgerService.debit(journal, coa(SystemCoaRole.SALARY_EXPENSE, companyId), payment.getNetAmount(),
-                        "Salary expense — " + payment.getEmployee().getName(), party, source),
+                ledgerService.debit(journal, debitAccount, payment.getNetAmount(), debitLabel, party, source),
                 ledgerService.credit(journal, paymentCoa, payment.getNetAmount(),
                         "Salary paid from " + payment.getPaymentAccount().getName())
         );

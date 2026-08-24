@@ -62,20 +62,23 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
             """, nativeQuery = true)
     List<SaleReturnPayableRow> findPayables(@Param("tenantId") Long tenantId);
 
-    // companyId nullable - null means "overall", see SaleRepository.getProfitReport's comment.
-    // Joins app_sale for company_id since app_sale_return has no column of its own.
+    // companyId/warehouseId nullable - null means "overall", see SaleRepository.getProfitReport's
+    // comment. Joins app_sale for company_id and app_sale->app_inventory for warehouse_id since
+    // app_sale_return has neither column of its own.
     @Query(value = """
             SELECT COALESCE(SUM(
                      COALESCE(sr.sold_vehicle_deduction_amount, 0)
                    + COALESCE(sr.exchange_vehicle_deduction_amount, 0)), 0)
             FROM app_sale_return sr
             JOIN app_sale s ON s.id = sr.sale_id
+            JOIN app_inventory inv ON inv.id = s.inventory_id
             WHERE sr.deleted = false
               AND sr.tenant_id = :tenantId
               AND sr.return_date BETWEEN :startDate AND :endDate
               AND (:companyId IS NULL OR s.company_id = :companyId)
+              AND (:warehouseId IS NULL OR inv.warehouse_id = :warehouseId)
             """, nativeQuery = true)
-    BigDecimal sumDeductionIncomeByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    BigDecimal sumDeductionIncomeByPeriod(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("warehouseId") Long warehouseId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     // Company/warehouse-scoped variants of sumDeductionIncomeByPeriod, for the comparison
     // reports (CompanyReportService/WarehouseReportService) — these retained deductions are

@@ -10,6 +10,7 @@ import com.triasoft.garage.model.entry.DirectEntryRq;
 import com.triasoft.garage.repository.DirectEntryRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
 import com.triasoft.garage.repository.TransactionRepository;
+import com.triasoft.garage.repository.WarehouseRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,7 @@ class DirectEntryServiceTest {
     @Mock private TransactionRepository transactionRepository;
     @Mock private ChartOfAccountRepository chartOfAccountRepository;
     @Mock private JournalService journalService;
+    @Mock private WarehouseRepository warehouseRepository;
 
     private DirectEntryService directEntryService;
 
@@ -47,7 +49,7 @@ class DirectEntryServiceTest {
     void setUp() {
         directEntryService = new DirectEntryService(
                 directEntryRepository, paymentAccountRepository, transactionRepository,
-                chartOfAccountRepository, journalService);
+                chartOfAccountRepository, journalService, warehouseRepository);
     }
 
     private DirectEntryRq buildRq(Long coaId) {

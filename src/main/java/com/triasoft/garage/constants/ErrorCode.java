@@ -165,7 +165,8 @@ public class ErrorCode {
         SALARY_PAYMENT_NOT_FOUND("BUS_232", "Salary payment not found"),
         SALARY_PAYMENT_ALREADY_PAID("BUS_233", "This salary payment has already been marked paid"),
         PAYMENT_ACCOUNT_COMPANY_MISMATCH("BUS_234", "This payment account belongs to a different company than the transaction being posted"),
-        EXPENSE_WAREHOUSE_COMPANY_MISMATCH("BUS_235", "This warehouse belongs to a different company than the payment account selected");
+        EXPENSE_WAREHOUSE_COMPANY_MISMATCH("BUS_235", "This warehouse belongs to a different company than the payment account selected"),
+        DIRECT_ENTRY_WAREHOUSE_COMPANY_MISMATCH("BUS_236", "This warehouse belongs to a different company than the account selected");
 
         private final String code;
         private final String message;
