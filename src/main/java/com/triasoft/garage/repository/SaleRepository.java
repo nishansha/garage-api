@@ -180,7 +180,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query(value = """
             (SELECT 'SALE' as activityType,
                     CONCAT(v.description, ' sale to ', c.name) as description, 
-                    CAST(s.sale_date AS TIMESTAMP) as dateTime, 'C' as txnType, s.sale_rate as txnAmount
+                    CAST(s.created_at AS TIMESTAMP) as dateTime, 'C' as txnType, s.sale_rate as txnAmount
              FROM app_sale s
              JOIN app_inventory i ON s.inventory_id = i.id
              JOIN app_product p ON i.product_id = p.id
@@ -190,7 +190,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             UNION ALL
             (SELECT 'PURCHASE' as activityType,
                     CONCAT('Purchase from ', ven.name) as description,
-                    CAST(p_order.order_date AS TIMESTAMP) as dateTime, 'D' as txnType, p_order.total_amount as txnAmount
+                    CAST(p_order.created_at AS TIMESTAMP) as dateTime, 'D' as txnType, p_order.total_amount as txnAmount
              FROM app_purchase_order p_order
              JOIN app_vendor ven ON p_order.vendor_id = ven.id
              LEFT JOIN fnd_lookup_master ls ON ls.id = p_order.status_id
@@ -198,7 +198,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
             UNION ALL
             (SELECT 'EXPENSE' as activityType,
                     e.description as description,
-                    CAST(e.date AS TIMESTAMP) as dateTime, 'D' as txnType, e.amount as txnAmount
+                    CAST(e.created_at AS TIMESTAMP) as dateTime, 'D' as txnType, e.amount as txnAmount
              FROM app_expense e
              WHERE e.deleted = false AND e.tenant_id = :tenantId AND e.purchase_order_id IS NULL)
             ORDER BY dateTime DESC LIMIT 5

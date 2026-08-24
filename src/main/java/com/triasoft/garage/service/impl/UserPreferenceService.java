@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 public class UserPreferenceService {
 
     private static final PreferredLanguage DEFAULT_LANGUAGE = PreferredLanguage.EN;
-    private static final ThemePreference DEFAULT_THEME = ThemePreference.LIGHT;
-    private static final NavbarPosition DEFAULT_NAVBAR_POSITION = NavbarPosition.LEFT;
+    private static final ThemePreference DEFAULT_THEME = ThemePreference.DARK;
+    private static final NavbarPosition DEFAULT_NAVBAR_POSITION = NavbarPosition.TOP;
 
     private final UserPreferenceRepository userPreferenceRepository;
 
