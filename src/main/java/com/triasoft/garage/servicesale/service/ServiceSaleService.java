@@ -4,15 +4,19 @@ import com.triasoft.garage.company.constants.BusinessLine;
 import com.triasoft.garage.company.repository.WarehouseBusinessLineRepository;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.StatusEnum;
+import com.triasoft.garage.constants.TransactionDirectionEnum;
+import com.triasoft.garage.constants.TransactionTypeEnum;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.Customer;
 import com.triasoft.garage.entity.PaymentAccount;
+import com.triasoft.garage.entity.Transaction;
 import com.triasoft.garage.entity.Warehouse;
 import com.triasoft.garage.exception.BusinessException;
 import com.triasoft.garage.locking.VersionCheck;
 import com.triasoft.garage.model.common.FilterRq;
 import com.triasoft.garage.repository.CustomerRepository;
 import com.triasoft.garage.repository.PaymentAccountRepository;
+import com.triasoft.garage.repository.TransactionRepository;
 import com.triasoft.garage.repository.WarehouseRepository;
 import com.triasoft.garage.service.impl.JournalService;
 import com.triasoft.garage.servicesale.dto.ServiceSaleDTO;
@@ -52,6 +56,7 @@ public class ServiceSaleService {
     private final WarehouseBusinessLineRepository warehouseBusinessLineRepository;
     private final CustomerRepository customerRepository;
     private final PaymentAccountRepository paymentAccountRepository;
+    private final TransactionRepository transactionRepository;
     private final JournalService journalService;
 
     public ServiceSaleRs getAll(FilterRq filter, Pageable pageable) {
@@ -115,7 +120,10 @@ public class ServiceSaleService {
     public void delete(Long id) {
         ServiceSale sale = findById(id);
         journalService.reverse(JournalService.REF_SERVICE_SALE, id);
-        sale.getPayments().forEach(p -> journalService.reverseOnDate(JournalService.REF_SERVICE_SALE_PAYMENT, p.getId(), LocalDate.now()));
+        sale.getPayments().forEach(p -> {
+            journalService.reverseOnDate(JournalService.REF_SERVICE_SALE_PAYMENT, p.getId(), LocalDate.now());
+            reverseServiceSalePaymentTransaction(p);
+        });
         serviceSaleRepository.delete(sale);
     }
 
@@ -139,6 +147,7 @@ public class ServiceSaleService {
         recalculatePaymentStatus(sale, paid);
         serviceSaleRepository.save(sale);
 
+        createServiceSaleTransaction(payment, sale.getInvoiceNo(), account);
         journalService.post(JournalService.REF_SERVICE_SALE_PAYMENT, payment.getId());
         return ServiceSaleRs.builder().id(sale.getId()).build();
     }
@@ -149,10 +158,47 @@ public class ServiceSaleService {
         ServiceSalePayment payment = serviceSalePaymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.Business.PAYMENT_NOT_FOUND));
         journalService.reverseOnDate(JournalService.REF_SERVICE_SALE_PAYMENT, paymentId, LocalDate.now());
+        reverseServiceSalePaymentTransaction(payment);
         serviceSalePaymentRepository.delete(payment);
         BigDecimal paid = serviceSalePaymentRepository.sumAmountByServiceSaleId(serviceSaleId);
         recalculatePaymentStatus(sale, paid);
         serviceSaleRepository.save(sale);
+    }
+
+    // Mirrors SalesService.createSaleTransaction - app_transaction is the sole source
+    // ReportService.toAccountBalance sums for the P&L cashPosition figure, so every payment
+    // that touches a PaymentAccount must land a row here or the account balance silently
+    // omits it (found via a service sale payment missing from cashPosition).
+    private void createServiceSaleTransaction(ServiceSalePayment payment, String invoiceNo, PaymentAccount paymentAccount) {
+        Transaction transaction = new Transaction();
+        transaction.setTransactionDate(payment.getPaymentDate());
+        transaction.setType(TransactionTypeEnum.SERVICE_SALE_RECEIPT);
+        transaction.setReferenceType(JournalService.REF_SERVICE_SALE_PAYMENT);
+        transaction.setReferenceId(payment.getId());
+        transaction.setPaymentAccount(paymentAccount);
+        transaction.setAmount(payment.getAmount());
+        transaction.setDirection(TransactionDirectionEnum.IN);
+        transaction.setDescription("Service sale receipt – " + invoiceNo);
+        transaction.setNotes(payment.getNotes());
+        transactionRepository.save(transaction);
+    }
+
+    private void reverseServiceSalePaymentTransaction(ServiceSalePayment payment) {
+        transactionRepository.findActiveByReferenceTypeAndReferenceId(JournalService.REF_SERVICE_SALE_PAYMENT, payment.getId())
+                .ifPresent(original -> {
+                    if (transactionRepository.existsByReversalOfId(original.getId())) return;
+                    Transaction reversal = new Transaction();
+                    reversal.setTransactionDate(LocalDate.now());
+                    reversal.setType(TransactionTypeEnum.SERVICE_SALE_RECEIPT);
+                    reversal.setReferenceType(JournalService.REF_SERVICE_SALE_PAYMENT);
+                    reversal.setReferenceId(payment.getId());
+                    reversal.setPaymentAccount(original.getPaymentAccount());
+                    reversal.setAmount(original.getAmount());
+                    reversal.setDirection(TransactionDirectionEnum.OUT);
+                    reversal.setDescription("Reversal – " + original.getDescription());
+                    reversal.setReversalOf(original);
+                    transactionRepository.save(reversal);
+                });
     }
 
     private void applyCustomer(ServiceSale sale, Long customerId, String walkInCustomerName) {

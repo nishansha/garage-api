@@ -3282,6 +3282,14 @@ ALTER TABLE ONLY public.user_session
 
 
 --
+-- Name: user_profile uk_user_profile_username; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_profile
+    ADD CONSTRAINT uk_user_profile_username UNIQUE (username);
+
+
+--
 -- Name: user_preference user_preference_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3382,6 +3390,34 @@ CREATE INDEX idx_inventory_pod_id ON public.app_inventory USING btree (purchase_
 
 
 --
+-- Name: idx_inventory_product; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_inventory_product ON public.app_inventory USING btree (product_id);
+
+
+--
+-- Name: idx_inventory_source_sale; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_inventory_source_sale ON public.app_inventory USING btree (source_sale_id);
+
+
+--
+-- Name: idx_inventory_tenant_wh_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_inventory_tenant_wh_status ON public.app_inventory USING btree (tenant_id, warehouse_id, status) WHERE (deleted = false);
+
+
+--
+-- Name: idx_inventory_uin_trgm; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_inventory_uin_trgm ON public.app_inventory USING gin (lower((uin)::text) public.gin_trgm_ops);
+
+
+--
 -- Name: idx_jdetail_account; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -3414,6 +3450,13 @@ CREATE INDEX idx_jdetail_source ON public.app_journal_detail USING btree (tenant
 --
 
 CREATE INDEX idx_journal_date ON public.app_journal USING btree (journal_date);
+
+
+--
+-- Name: idx_journal_tenant_company_date; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_journal_tenant_company_date ON public.app_journal USING btree (tenant_id, company_id, journal_date);
 
 
 --
@@ -3480,6 +3523,20 @@ CREATE INDEX idx_purchase_deleted_order_date ON public.app_purchase_order USING 
 
 
 --
+-- Name: idx_purchase_order_tenant_date; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_purchase_order_tenant_date ON public.app_purchase_order USING btree (tenant_id, order_date) WHERE (deleted = false);
+
+
+--
+-- Name: idx_purchase_order_vendor; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_purchase_order_vendor ON public.app_purchase_order USING btree (vendor_id);
+
+
+--
 -- Name: idx_purchase_payment_account_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -3494,10 +3551,10 @@ CREATE INDEX idx_purchase_reference_no_trgm ON public.app_purchase_order USING g
 
 
 --
--- Name: idx_purchase_return_inv; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_purchase_return_tenant_date; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX idx_purchase_return_inv ON public.app_purchase_return USING btree (inventory_id);
+CREATE INDEX idx_purchase_return_tenant_date ON public.app_purchase_return USING btree (tenant_id, return_date) WHERE (deleted = false);
 
 
 --
@@ -3529,10 +3586,10 @@ CREATE INDEX idx_sale_refund_pay_return ON public.app_sale_refund_payment USING 
 
 
 --
--- Name: idx_sale_return_date; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_sale_return_tenant_date; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX idx_sale_return_date ON public.app_sale_return USING btree (return_date);
+CREATE INDEX idx_sale_return_tenant_date ON public.app_sale_return USING btree (tenant_id, return_date) WHERE (deleted = false);
 
 
 --
@@ -3540,13 +3597,6 @@ CREATE INDEX idx_sale_return_date ON public.app_sale_return USING btree (return_
 --
 
 CREATE INDEX idx_sale_return_ded_return ON public.app_sale_return_deduction USING btree (sale_return_id);
-
-
---
--- Name: idx_sale_return_sale; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_sale_return_sale ON public.app_sale_return USING btree (sale_id);
 
 
 --
@@ -3589,6 +3639,132 @@ CREATE INDEX idx_user_session_user_status ON public.user_session USING btree (us
 --
 
 CREATE INDEX idx_vendor_name_trgm ON public.app_vendor USING gin (lower((name)::text) public.gin_trgm_ops);
+
+
+--
+-- Name: idx_customer_name_trgm; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_customer_name_trgm ON public.app_customer USING gin (lower((name)::text) public.gin_trgm_ops);
+
+
+--
+-- Name: idx_customer_mobile_trgm; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_customer_mobile_trgm ON public.app_customer USING gin (lower((mobile)::text) public.gin_trgm_ops);
+
+
+--
+-- Name: idx_expense_tenant_date; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_expense_tenant_date ON public.app_expense USING btree (tenant_id, date) WHERE (deleted = false);
+
+
+--
+-- Name: idx_expense_account; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_expense_account ON public.app_expense USING btree (expense_account_id);
+
+
+--
+-- Name: idx_expense_payment_account; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_expense_payment_account ON public.app_expense USING btree (payment_account_id);
+
+
+--
+-- Name: idx_expense_purchase_order; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_expense_purchase_order ON public.app_expense USING btree (purchase_order_id);
+
+
+--
+-- Name: idx_payment_account_tenant; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_payment_account_tenant ON public.app_payment_account USING btree (tenant_id);
+
+
+--
+-- Name: idx_sale_tenant_date; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_tenant_date ON public.app_sale USING btree (tenant_id, sale_date) WHERE (deleted = false);
+
+
+--
+-- Name: idx_sale_tenant_payment_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_tenant_payment_status ON public.app_sale USING btree (tenant_id, payment_status) WHERE (deleted = false);
+
+
+--
+-- Name: idx_sale_inventory; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_inventory ON public.app_sale USING btree (inventory_id);
+
+
+--
+-- Name: idx_sale_customer; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_customer ON public.app_sale USING btree (customer_id);
+
+
+--
+-- Name: idx_sale_invoice_no_trgm; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_invoice_no_trgm ON public.app_sale USING gin (lower((invoice_no)::text) public.gin_trgm_ops);
+
+
+--
+-- Name: idx_sale_payment_sale; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_payment_sale ON public.app_sale_payment USING btree (sale_id, payment_date DESC);
+
+
+--
+-- Name: idx_sale_payment_account; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sale_payment_account ON public.app_sale_payment USING btree (payment_account_id);
+
+
+--
+-- Name: idx_service_sale_item_sale; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_service_sale_item_sale ON public.app_service_sale_item USING btree (service_sale_id);
+
+
+--
+-- Name: idx_service_sale_item_offering; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_service_sale_item_offering ON public.app_service_sale_item USING btree (service_offering_id);
+
+
+--
+-- Name: idx_service_sale_payment_sale; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_service_sale_payment_sale ON public.app_service_sale_payment USING btree (service_sale_id);
+
+
+--
+-- Name: idx_service_sale_payment_account; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_service_sale_payment_account ON public.app_service_sale_payment USING btree (payment_account_id);
 
 
 --
@@ -4330,7 +4506,7 @@ ALTER TABLE ONLY public.fnd_brand_model
 --
 
 ALTER TABLE ONLY public.app_product
-    ADD CONSTRAINT brand_fk3 FOREIGN KEY (brand_id) REFERENCES public.fnd_product_brand(id) NOT VALID;
+    ADD CONSTRAINT brand_fk3 FOREIGN KEY (brand_id) REFERENCES public.fnd_product_brand(id);
 
 
 --
@@ -4346,7 +4522,7 @@ ALTER TABLE ONLY public.fnd_product_brand
 --
 
 ALTER TABLE ONLY public.app_product
-    ADD CONSTRAINT category_fk3 FOREIGN KEY (category_id) REFERENCES public.fnd_product_category(id) NOT VALID;
+    ADD CONSTRAINT category_fk3 FOREIGN KEY (category_id) REFERENCES public.fnd_product_category(id);
 
 
 --
@@ -4354,7 +4530,7 @@ ALTER TABLE ONLY public.app_product
 --
 
 ALTER TABLE ONLY public.app_vendor
-    ADD CONSTRAINT document_fk1 FOREIGN KEY (document_id) REFERENCES public.app_document(id) NOT VALID;
+    ADD CONSTRAINT document_fk1 FOREIGN KEY (document_id) REFERENCES public.app_document(id);
 
 
 --
@@ -4362,7 +4538,7 @@ ALTER TABLE ONLY public.app_vendor
 --
 
 ALTER TABLE ONLY public.app_product
-    ADD CONSTRAINT document_fk3 FOREIGN KEY (document_id) REFERENCES public.app_document(id) NOT VALID;
+    ADD CONSTRAINT document_fk3 FOREIGN KEY (document_id) REFERENCES public.app_document(id);
 
 
 --
@@ -4442,7 +4618,7 @@ ALTER TABLE ONLY public.app_direct_entry
 --
 
 ALTER TABLE ONLY public.app_direct_entry
-    ADD CONSTRAINT fk_direct_entry_coa FOREIGN KEY (coa_id) REFERENCES public.fnd_chart_of_accounts(id) NOT VALID;
+    ADD CONSTRAINT fk_direct_entry_coa FOREIGN KEY (coa_id) REFERENCES public.fnd_chart_of_accounts(id);
 
 
 --
@@ -4626,7 +4802,7 @@ ALTER TABLE ONLY public.fnd_model_varient
 --
 
 ALTER TABLE ONLY public.app_product
-    ADD CONSTRAINT model_fk3 FOREIGN KEY (model_id) REFERENCES public.fnd_brand_model(id) NOT VALID;
+    ADD CONSTRAINT model_fk3 FOREIGN KEY (model_id) REFERENCES public.fnd_brand_model(id);
 
 
 --
@@ -4642,7 +4818,7 @@ ALTER TABLE ONLY public.app_purchase_order_detail
 --
 
 ALTER TABLE ONLY public.user_profile
-    ADD CONSTRAINT profile_photo_fk1 FOREIGN KEY (profile_photo_id) REFERENCES public.app_document(id) NOT VALID;
+    ADD CONSTRAINT profile_photo_fk1 FOREIGN KEY (profile_photo_id) REFERENCES public.app_document(id);
 
 
 --
@@ -4714,7 +4890,7 @@ ALTER TABLE ONLY public.user_role
 --
 
 ALTER TABLE ONLY public.app_product
-    ADD CONSTRAINT varient_fk1 FOREIGN KEY (varient_id) REFERENCES public.fnd_model_varient(id) NOT VALID;
+    ADD CONSTRAINT varient_fk1 FOREIGN KEY (varient_id) REFERENCES public.fnd_model_varient(id);
 
 
 --

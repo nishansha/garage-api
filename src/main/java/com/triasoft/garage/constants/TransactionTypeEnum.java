@@ -4,6 +4,7 @@ public enum TransactionTypeEnum {
     PURCHASE_PAYMENT,
     PURCHASE_EXPENSE_PAYMENT,
     SALE_RECEIPT,
+    SERVICE_SALE_RECEIPT,
     EXPENSE,
     REFUND,
     TRANSFER,

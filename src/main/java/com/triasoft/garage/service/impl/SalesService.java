@@ -195,6 +195,7 @@ public class SalesService {
         exchangePurchaseRq.setSourceSaleId(sale.getId());
         exchangePurchaseRq.setDeliveredDate(Objects.isNull(details.getDeliveredDate()) ? saleRq.getDate() : details.getDeliveredDate());
         exchangePurchaseRq.setColorId(details.getColorId());
+        exchangePurchaseRq.setWarehouseId(sale.getInventory().getWarehouseId());
         purchaseService.create(exchangePurchaseRq, user);
     }
 

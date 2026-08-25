@@ -92,7 +92,7 @@ public class PurchaseRq extends GenericRq implements Versioned {
 
     @NotBlank(message = "REQUIRED")
     @Size(max = 100, message = "MAX_LENGTH")
-    @Pattern(regexp = "^[A-Za-z .]+$", message = "INVALID_CHARS")
+    @Pattern(regexp = "^[0-9A-Za-z .]+$", message = "INVALID_CHARS")
     private String ownerName;
 
     @NotBlank(message = "REQUIRED")

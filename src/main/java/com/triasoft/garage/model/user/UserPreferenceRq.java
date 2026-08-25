@@ -15,10 +15,6 @@ public class UserPreferenceRq implements Serializable {
     @Serial
     private static final long serialVersionUID = -8322104710239481023L;
 
-    /**
-     * Fields left null are unchanged — callers can update a single preference
-     * without resending the others.
-     */
     private PreferredLanguage language;
     private ThemePreference theme;
     private NavbarPosition navbarPosition;
