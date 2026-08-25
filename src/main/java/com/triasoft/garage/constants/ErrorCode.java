@@ -7,7 +7,9 @@ public class ErrorCode {
     @Getter
     public enum General implements Errors {
         GENERAL_ERROR("GEN_100", "Internal Server Error"),
-        DATA_CONFLICT("GEN_101", "This operation conflicts with existing data");
+        DATA_CONFLICT("GEN_101", "This operation conflicts with existing data"),
+        UPLOAD_FAILED("GEN_102", "Upload Failed, please try again"),
+        DOWNLOAD_FAILED("GEN_103", "Download Failed, please try again");
 
         private final String code;
         private final String message;
@@ -166,7 +168,8 @@ public class ErrorCode {
         SALARY_PAYMENT_ALREADY_PAID("BUS_233", "This salary payment has already been marked paid"),
         PAYMENT_ACCOUNT_COMPANY_MISMATCH("BUS_234", "This payment account belongs to a different company than the transaction being posted"),
         EXPENSE_WAREHOUSE_COMPANY_MISMATCH("BUS_235", "This warehouse belongs to a different company than the payment account selected"),
-        DIRECT_ENTRY_WAREHOUSE_COMPANY_MISMATCH("BUS_236", "This warehouse belongs to a different company than the account selected");
+        DIRECT_ENTRY_WAREHOUSE_COMPANY_MISMATCH("BUS_236", "This warehouse belongs to a different company than the account selected"),
+        ATTACHMENT_NOT_FOUND("BUS_237", "Attachment not found");
 
         private final String code;
         private final String message;

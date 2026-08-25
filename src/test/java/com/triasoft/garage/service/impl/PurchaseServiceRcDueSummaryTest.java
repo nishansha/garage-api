@@ -1,5 +1,6 @@
 package com.triasoft.garage.service.impl;
 
+import com.triasoft.garage.company.repository.WarehouseBusinessLineRepository;
 import com.triasoft.garage.constants.SystemCoaRole;
 import com.triasoft.garage.entity.Customer;
 import com.triasoft.garage.entity.Inventory;
@@ -51,12 +52,16 @@ class PurchaseServiceRcDueSummaryTest {
     @Mock private ReportService reportService;
     @Mock private InventoryRepository inventoryRepository;
     @Mock private WarehouseRepository warehouseRepository;
+    @Mock private WarehouseBusinessLineRepository warehouseBusinessLineRepository;
     @Mock private LookupHelper lookupHelper;
     @Mock private ExpenseRepository expenseRepository;
     @Mock private SaleRepository saleRepository;
     @Mock private RcDueReceiptRepository rcDueReceiptRepository;
     @Mock private JournalService journalService;
     @Mock private JournalDetailRepository journalDetailRepository;
+    @Mock private UserProfileRepository userProfileRepository;
+
+    private static final Long COMPANY_ID = 100L;
 
     private PurchaseService purchaseService;
 
@@ -66,8 +71,8 @@ class PurchaseServiceRcDueSummaryTest {
                 productService, accountService, productRepository, purchaseRepository,
                 purchasePaymentRepository, paymentAccountRepository, transactionRepository,
                 vendorRepository, reportService, inventoryRepository, warehouseRepository,
-                lookupHelper, expenseRepository, saleRepository, rcDueReceiptRepository,
-                journalService, journalDetailRepository);
+                warehouseBusinessLineRepository, lookupHelper, expenseRepository, saleRepository,
+                rcDueReceiptRepository, journalService, journalDetailRepository, userProfileRepository);
         TenantContext.set(1L);
         lenient().when(rcDueReceiptRepository.findLastReceiptDatesByPurchaseIds(anyList())).thenReturn(List.of());
     }
@@ -110,7 +115,7 @@ class PurchaseServiceRcDueSummaryTest {
 
         SourceBalanceRow row1 = mockRow(1L, new BigDecimal("5000"), BigDecimal.ZERO);
         SourceBalanceRow row2 = mockRow(2L, new BigDecimal("3000"), BigDecimal.ZERO);
-        when(journalDetailRepository.getOpenSourceBalancesByRole(1L, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name()))
+        when(journalDetailRepository.getOpenSourceBalancesByRole(1L, COMPANY_ID, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name()))
                 .thenReturn(List.of(row1, row2));
         when(purchaseRepository.findAllById(anyList())).thenReturn(List.of(soldPurchase, unsoldPurchase));
 
@@ -131,7 +136,7 @@ class PurchaseServiceRcDueSummaryTest {
         // Only the SOLD unit has a sale - unsoldInventory has none.
         when(saleRepository.findByInventoryIdIn(anyList())).thenReturn(List.of(sale));
 
-        RcDueSummaryRs result = purchaseService.getRcDueSummary();
+        RcDueSummaryRs result = purchaseService.getRcDueSummary(COMPANY_ID);
 
         assertThat(result.getTotalCount()).isEqualTo(2);
         assertThat(result.getTotalPendingAmount()).isEqualByComparingTo("8000");
@@ -160,7 +165,7 @@ class PurchaseServiceRcDueSummaryTest {
     void getRcDueSummary_purchaseWithMultipleInventoryUnits_doesNotThrow() {
         Purchase purchase = buildPurchase(1L, new BigDecimal("5000"));
         SourceBalanceRow row = mockRow(1L, new BigDecimal("5000"), BigDecimal.ZERO);
-        when(journalDetailRepository.getOpenSourceBalancesByRole(1L, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name()))
+        when(journalDetailRepository.getOpenSourceBalancesByRole(1L, COMPANY_ID, JournalService.SOURCE_PURCHASE, SystemCoaRole.RC_DUE_RECEIVABLE.name()))
                 .thenReturn(List.of(row));
         when(purchaseRepository.findAllById(anyList())).thenReturn(List.of(purchase));
 
@@ -171,7 +176,7 @@ class PurchaseServiceRcDueSummaryTest {
         when(inventoryRepository.findByPurchaseOrderDetailPurchaseIdIn(anyList())).thenReturn(List.of(inv1, inv2));
         when(saleRepository.findByInventoryIdIn(anyList())).thenReturn(List.of());
 
-        RcDueSummaryRs result = purchaseService.getRcDueSummary();
+        RcDueSummaryRs result = purchaseService.getRcDueSummary(COMPANY_ID);
 
         assertThat(result.getTotalCount()).isEqualTo(1);
         assertThat(result.getItems().get(0).getPurchaseId()).isEqualTo(1L);

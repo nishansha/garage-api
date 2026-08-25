@@ -3,6 +3,9 @@ spring:
     name: garage
   profiles:
     default: dev
+    group:
+      dev: minio
+      prod: minio
   modulith:
     detection-strategy: explicitly-annotated
   datasource:
