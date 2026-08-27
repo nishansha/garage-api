@@ -1,9 +1,12 @@
 -- ============================================================================
 -- Tenant provisioning template
 -- ============================================================================
--- Backend-only, run-by-hand (psql -f, or paste into a psql session) - there is
--- deliberately no HTTP endpoint or UI for this, matching "tenant registration
--- stays backend-only" from the multi-tenancy design.
+-- Break-glass fallback: POST /api/v1/internal/tenants (gated by the
+-- X-Internal-Api-Key header, see InternalApiKeyFilter/TenantProvisioningService)
+-- is now the normal way to provision a tenant + SUPERADMIN/ADMIN roles + first
+-- user in one call. Reach for this script only if the API key is unavailable
+-- or DB access is needed without going through the app (e.g. no deploy yet).
+-- Run by hand (psql -f, or paste into a psql session).
 --
 -- Replace every ALL-CAPS placeholder below, then run the whole file as one
 -- transaction. Uses psql's \gset to carry the generated tenant/user ids between

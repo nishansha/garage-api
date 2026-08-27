@@ -21,6 +21,7 @@ app:
     allowed-origins: "http://localhost:8081,http://localhost:5173"
   jwt:
     secret: "4WadB8IxnpkmgqLdmWChE4+4b3AUNzXpOHosjGzHCNI="
+  internal-api-key: "fxaSpRdDIIgFc7F91sEFfaIrFsBOw3B5LqK6dvR4qlo="
   storage:
     minio:
       endpoint: http://localhost:9000

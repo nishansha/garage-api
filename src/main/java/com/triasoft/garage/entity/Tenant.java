@@ -1,7 +1,10 @@
 package com.triasoft.garage.entity;
 
+import com.triasoft.garage.constants.TenantStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,6 +28,7 @@ public class Tenant extends AuditGenericEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private String status;
+    private TenantStatus status;
 }

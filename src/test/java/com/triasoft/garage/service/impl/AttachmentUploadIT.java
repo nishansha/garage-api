@@ -2,6 +2,7 @@ package com.triasoft.garage.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.triasoft.garage.config.AppProperties;
+import com.triasoft.garage.constants.TenantStatus;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.Attachment;
 import com.triasoft.garage.entity.Tenant;
@@ -121,7 +122,7 @@ class AttachmentUploadIT {
         Tenant tenant = new Tenant();
         tenant.setCode(code);
         tenant.setName(code);
-        tenant.setStatus("ACTIVE");
+        tenant.setStatus(TenantStatus.ACTIVE);
         tenant.setCreatedBy(0L);
         tenant.setCreatedAt(java.time.LocalDateTime.now());
         return tenantRepository.save(tenant).getId();

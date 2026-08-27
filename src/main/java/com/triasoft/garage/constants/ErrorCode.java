@@ -41,7 +41,8 @@ public class ErrorCode {
         TOKEN_EXPIRED("SEC_103", "Token Expired"),
         REFRESH_TOKEN_REUSED("SEC_104", "Refresh token reuse detected; session revoked"),
         SESSION_TERMINATED("SEC_105", "Session ended; signed in on another device"),
-        FORBIDDEN("SEC_106", "You do not have permission to perform this action");
+        FORBIDDEN("SEC_106", "You do not have permission to perform this action"),
+        TENANT_INACTIVE("SEC_107", "This tenant account is inactive");
         private final String code;
         private final String message;
 
@@ -169,7 +170,9 @@ public class ErrorCode {
         PAYMENT_ACCOUNT_COMPANY_MISMATCH("BUS_234", "This payment account belongs to a different company than the transaction being posted"),
         EXPENSE_WAREHOUSE_COMPANY_MISMATCH("BUS_235", "This warehouse belongs to a different company than the payment account selected"),
         DIRECT_ENTRY_WAREHOUSE_COMPANY_MISMATCH("BUS_236", "This warehouse belongs to a different company than the account selected"),
-        ATTACHMENT_NOT_FOUND("BUS_237", "Attachment not found");
+        ATTACHMENT_NOT_FOUND("BUS_237", "Attachment not found"),
+        TENANT_NOT_FOUND("BUS_238", "Tenant not found"),
+        TENANT_CODE_EXISTS("BUS_239", "A tenant with this code already exists");
 
         private final String code;
         private final String message;

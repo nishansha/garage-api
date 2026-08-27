@@ -6,6 +6,7 @@ import com.triasoft.garage.company.repository.CompanyRepository;
 import com.triasoft.garage.company.repository.UserCompanyAccessRepository;
 import com.triasoft.garage.company.service.CompanyReportService;
 import com.triasoft.garage.constants.Privilege;
+import com.triasoft.garage.constants.TenantStatus;
 import com.triasoft.garage.dto.UserDTO;
 import com.triasoft.garage.entity.FndModule;
 import com.triasoft.garage.entity.Resource;
@@ -137,7 +138,7 @@ class TenantIsolationIT {
         Tenant tenant = new Tenant();
         tenant.setCode(code);
         tenant.setName(code);
-        tenant.setStatus("ACTIVE");
+        tenant.setStatus(TenantStatus.ACTIVE);
         tenant.setCreatedBy(0L);
         tenant.setCreatedAt(java.time.LocalDateTime.now());
         return tenantRepository.save(tenant).getId();

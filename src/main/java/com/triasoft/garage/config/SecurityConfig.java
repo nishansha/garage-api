@@ -1,5 +1,6 @@
 package com.triasoft.garage.config;
 
+import com.triasoft.garage.filter.InternalApiKeyFilter;
 import com.triasoft.garage.filter.JwtFilter;
 import com.triasoft.garage.security.AuthEntryPoint;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final AuthEntryPoint authEntryPoint;
     private final JwtFilter jwtFilter;
+    private final InternalApiKeyFilter internalApiKeyFilter;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -60,7 +62,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

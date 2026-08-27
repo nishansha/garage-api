@@ -12,6 +12,7 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
   jwt:
     secret: ${APP_JWT_SECRET}
+  internal-api-key: ${TENANT_PROVISIONING_API_KEY}
   storage:
     minio:
       endpoint: ${MINIO_ENDPOINT}

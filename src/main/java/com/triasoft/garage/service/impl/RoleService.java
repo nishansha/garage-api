@@ -37,6 +37,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -118,7 +120,7 @@ public class RoleService {
         rolePrivilegeRepository.deleteByRoleId(id);
         userRoleRepository.deleteByRoleId(id);
         roleRepository.delete(role);
-        privilegeCache.refresh();
+        refreshPrivilegeCacheAfterCommit();
     }
 
     public ResourceTreeRs getResourceTree() {
@@ -167,7 +169,7 @@ public class RoleService {
             }
         }
         rolePrivilegeRepository.saveAll(toSave);
-        privilegeCache.refresh();
+        refreshPrivilegeCacheAfterCommit();
         return getPrivileges(roleId);
     }
 
@@ -213,6 +215,28 @@ public class RoleService {
                 })
                 .toList();
         return MyPermissionsRs.builder().superAdmin(superAdmin).roles(roles).permissions(permissions).build();
+    }
+
+    /**
+     * PrivilegeCache.refresh() rebuilds every tenant's grants via TenantScopedGrantLoader, which
+     * is REQUIRES_NEW (see its class doc) so it can resolve each tenant correctly - but that also
+     * means it runs on a separate DB connection under READ COMMITTED isolation. Calling it
+     * synchronously from inside this (still-open, not-yet-committed) @Transactional method would
+     * read stale data: the roleRepository/rolePrivilegeRepository writes above aren't visible to
+     * another connection until this transaction actually commits. Deferring to an afterCommit
+     * synchronization is what makes the change show up without a restart.
+     */
+    private void refreshPrivilegeCacheAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    privilegeCache.refresh();
+                }
+            });
+        } else {
+            privilegeCache.refresh();
+        }
     }
 
     private Role findById(Long id) {

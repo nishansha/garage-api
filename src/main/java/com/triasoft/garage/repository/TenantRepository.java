@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TenantRepository extends JpaRepository<Tenant, Long> {
+    boolean existsByCodeIgnoreCase(String code);
 }

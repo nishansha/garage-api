@@ -4,13 +4,16 @@ import com.triasoft.garage.constants.AppConfig;
 import com.triasoft.garage.constants.ClientChannel;
 import com.triasoft.garage.constants.ErrorCode;
 import com.triasoft.garage.constants.SessionStatusEnum;
+import com.triasoft.garage.constants.TenantStatus;
 import com.triasoft.garage.dto.UserDTO;
+import com.triasoft.garage.entity.Tenant;
 import com.triasoft.garage.entity.UserRefreshToken;
 import com.triasoft.garage.entity.UserSession;
 import com.triasoft.garage.exception.SecurityException;
 import com.triasoft.garage.model.login.LoginRq;
 import com.triasoft.garage.model.login.LoginRs;
 import com.triasoft.garage.model.login.RefreshRq;
+import com.triasoft.garage.repository.TenantRepository;
 import com.triasoft.garage.repository.UserRefreshTokenRepository;
 import com.triasoft.garage.repository.UserSessionRepository;
 import com.triasoft.garage.util.EncryptionUtil;
@@ -25,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -40,6 +42,8 @@ public class AuthService {
     private final UserRefreshTokenRepository refreshTokenRepository;
     private final UserSessionRepository sessionRepository;
     private final AppConfigurationService appConfigurationService;
+    private final TenantRepository tenantRepository;
+    private final SessionRevocationService sessionRevocationService;
 
     @Transactional
     public LoginRs login(LoginRq request, ClientChannel channel) {
@@ -47,8 +51,13 @@ public class AuthService {
         Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), password));
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
         UserDTO user = userService.loadUser(userPrincipal.getUsername());
+        Tenant tenant = tenantRepository.findById(user.getTenantId())
+                .orElseThrow(() -> new SecurityException(ErrorCode.Security.TENANT_INACTIVE));
+        if (tenant.getStatus() != TenantStatus.ACTIVE) {
+            throw new SecurityException(ErrorCode.Security.TENANT_INACTIVE);
+        }
         if (!appConfigurationService.isFlagEnabled(AppConfig.CONCURRENT_LOGIN_ALLOWED, channel)) {
-            revokeSessionsAndTokensForUser(user.getId());
+            sessionRevocationService.revokeSessionsAndTokensForUser(user.getId());
         }
         String sessionId = createSession(user.getId(), user.getTenantId());
         return issueTokens(userPrincipal, user, null, sessionId);
@@ -60,7 +69,7 @@ public class AuthService {
         UserRefreshToken currentRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash).orElseThrow(() -> new SecurityException(ErrorCode.Security.INVALID_TOKEN));
 
         if (currentRefreshToken.isRevoked()) {
-            revokeSessionsAndTokensForUser(currentRefreshToken.getUserId());
+            sessionRevocationService.revokeSessionsAndTokensForUser(currentRefreshToken.getUserId());
             throw new SecurityException(ErrorCode.Security.REFRESH_TOKEN_REUSED);
         }
 
@@ -153,25 +162,4 @@ public class AuthService {
         });
     }
 
-    /**
-     * Revokes every active session and refresh token for the user.For
-     * single-device login and to kick the user out on refresh-token reuse.
-     */
-    private void revokeSessionsAndTokensForUser(Long userId) {
-        LocalDateTime now = LocalDateTime.now();
-
-        List<UserSession> activeSessions = sessionRepository.findByUserIdAndStatus(userId, SessionStatusEnum.ACTIVE);
-        activeSessions.forEach(session -> {
-            session.setStatus(SessionStatusEnum.REVOKED);
-            session.setEndedAt(now);
-        });
-        sessionRepository.saveAll(activeSessions);
-
-        List<UserRefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedFalse(userId);
-        activeTokens.forEach(token -> {
-            token.setRevoked(true);
-            token.setRevokedAt(now);
-        });
-        refreshTokenRepository.saveAll(activeTokens);
-    }
 }
